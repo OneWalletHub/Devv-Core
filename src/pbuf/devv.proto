@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package Devv.proto;
+package devv.proto;
 
 enum eOpType {
   OP_CREATE = 0;
@@ -19,8 +19,8 @@ message Transfer {
 
 // Tier2Transaction, assumed to be an Exchange TX (oper=2)
 message Transaction {
-  Devv.proto.eOpType operation = 1;
-  repeated Devv.proto.Transfer xfers = 2;
+  eOpType operation = 1;
+  repeated Transfer xfers = 2;
   bytes nonce = 3;
   bytes sig = 4;
 }
@@ -32,8 +32,8 @@ message Proposal {
 }
 
 message Envelope {
-  repeated Devv.proto.Transaction txs = 4;
-  repeated Devv.proto.Proposal proposals = 5;
+  repeated Transaction txs = 4;
+  repeated Proposal proposals = 5;
 }
 
 message FinalBlock {
@@ -45,7 +45,7 @@ message FinalBlock {
   fixed64 tx_size = 6;
   fixed64 sum_size = 7;
   uint32 val_count = 8;
-  repeated Devv.proto.Transaction txs = 9;
+  repeated Transaction txs = 9;
   bytes summary = 10;
   bytes vals = 11;
 }
@@ -59,12 +59,25 @@ message PendingTransaction {
 message AnnouncerResponse { 
   uint32 return_code = 1; 
   string message = 2;
-  repeated Devv.proto.PendingTransaction txs = 3; 
+  repeated PendingTransaction txs = 3;
+}
+
+enum RepeaterOperationType {
+  GET_BINARY_BLOCK = 1;
+  GET_BINARY_BLOCKS_SINCE = 2;
+  GET_BINARY_CHAIN = 3;
+  GET_BINARY_TRANSACTION = 4;
+  GET_PROTOBUF_BLOCK = 5;
+  GET_PROTOBUF_BLOCKS_SINCE = 6;
+  GET_PROTOBUF_CHAIN = 7;
+  GET_PROTOBUF_TX = 8;
+  CHECK_TX_SINCE_BLOCK = 9;
+  CHECK_ADDRESS_SINCE_BLOCK = 10;
 }
 
 message RepeaterRequest {
   int64 timestamp = 1;
-  uint32 operation = 2; 
+  RepeaterOperationType operation = 2;
   string uri = 3;
 }
 
