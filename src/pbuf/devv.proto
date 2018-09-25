@@ -63,6 +63,7 @@ message AnnouncerResponse {
 }
 
 enum RepeaterOperationType {
+  UNKNOWN = 0;
   GET_BINARY_BLOCK = 1;
   GET_BINARY_BLOCKS_SINCE = 2;
   GET_BINARY_CHAIN = 3;
