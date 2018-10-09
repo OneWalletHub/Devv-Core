@@ -1,4 +1,5 @@
 FROM ubuntu:16.04
+ARG java_support
 
 # System packages
 RUN apt-get update && apt-get install -y \
@@ -92,6 +93,9 @@ RUN apt-get install -y \
     sudo \
     supervisor \
     telnet
+
+# Java deps
+RUN if [ "x$java_support" != "x" ] ; then apt-get install -y maven openjdk-8-jdk; fi
 
 # Cleanup
 RUN apt-get clean autoclean

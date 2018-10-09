@@ -5,21 +5,21 @@
  * @copywrite  2018 Devvio Inc
  */
 
-package io.devv.test;
+package jni.devv.java;
 
 import org.zeromq.ZMQ;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
-import proto.Devv.Devv;
-import proto.Devv.Devv.Envelope;
-import proto.Devv.Devv.FinalBlock;
-import proto.Devv.Devv.Proposal;
-import proto.Devv.Devv.Transaction;
-import proto.Devv.Devv.Transfer;
-import proto.Devv.Devv.RepeaterRequest;
-import proto.Devv.Devv.RepeaterResponse;
+import proto.devv.Devv;
+import proto.devv.Devv.Envelope;
+import proto.devv.Devv.FinalBlock;
+import proto.devv.Devv.Proposal;
+import proto.devv.Devv.Transaction;
+import proto.devv.Devv.Transfer;
+import proto.devv.Devv.RepeaterRequest;
+import proto.devv.Devv.RepeaterResponse;
 
 public class DevvTestMain {
 
