@@ -57,7 +57,7 @@ class PbufTransactionTest : public ::testing::Test {
   void SetUp() override {
     // Code here will be called immediately after the constructor (right
     // before each test).
-    pb_transaction_0_.set_operation(Devv::proto::eOpType::OP_CREATE);
+    pb_transaction_0_.set_operation(devv::proto::eOpType::OP_CREATE);
     pb_transaction_0_.set_nonce(Bin2Str(Hex2Bin("86525F0665010000")));
     pb_transaction_0_.set_sig(Bin2Str(Hex2Bin(
         "69306402304BCFD89AE647DACA5A5D64FCEC0F66C66497F03449E8C6EEC239B1F94C1E5FC860CE5C37BBFC3142A4FFF2C857A8E55C023075918475133C249446114AC31D5DBD62AD74C254EDF1C9652D547CE906EF68504390ABC4724ADFB000B1C61454E871CC000000")));
@@ -103,17 +103,17 @@ class PbufTransactionTest : public ::testing::Test {
   // keys
   Devv::KeyRing keys_;
 
-  Devv::proto::Transaction pb_transaction_0_;
+  devv::proto::Transaction pb_transaction_0_;
 };
 
 TEST_F(PbufTransactionTest, defaultConstructor) {
-  Devv::proto::Transaction pb_tx;
+  devv::proto::Transaction pb_tx;
 
-  EXPECT_EQ(pb_tx.operation(), Devv::proto::eOpType::OP_CREATE);
+  EXPECT_EQ(pb_tx.operation(), devv::proto::eOpType::OP_CREATE);
 }
 
 TEST_F(PbufTransactionTest, createTransfer_0) {
-  auto pb_transfer = Devv::proto::Transfer();
+  auto pb_transfer = devv::proto::Transfer();
   std::string
       addr_hex = "310272B05D9A8CF6E1565B965A5CCE6FF88ABD0C250BC17AB23745D512095C2AFCDB3640A2CBA7665F0FAADC26B96E8B8A9D";
   uint64_t coin = 1;
@@ -136,8 +136,8 @@ TEST_F(PbufTransactionTest, createTransfer_0) {
 }
 
 TEST_F(PbufTransactionTest, createTransaction_0) {
-  auto pb_transaction = Devv::proto::Transaction();
-  pb_transaction.set_operation(Devv::proto::eOpType::OP_CREATE);
+  auto pb_transaction = devv::proto::Transaction();
+  pb_transaction.set_operation(devv::proto::eOpType::OP_CREATE);
   pb_transaction.set_nonce(Bin2Str(Hex2Bin("86525F0665010000")));
   pb_transaction.set_sig(Bin2Str(Hex2Bin(
       "69306402304BCFD89AE647DACA5A5D64FCEC0F66C66497F03449E8C6EEC239B1F94C1E5FC860CE5C37BBFC3142A4FFF2C857A8E55C023075918475133C249446114AC31D5DBD62AD74C254EDF1C9652D547CE906EF68504390ABC4724ADFB000B1C61454E871CC000000")));

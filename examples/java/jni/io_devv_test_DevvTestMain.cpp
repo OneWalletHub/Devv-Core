@@ -19,7 +19,7 @@ JNIEXPORT jbyteArray JNICALL Java_io_devv_test_DevvTestMain_SignTransaction
     for (int i=0; i<tx_pbuf_len; i++) {
       pbuf_str.push_back(tx_pbuf_body[i]);
     }
-    Devv::proto::Transaction tx_in;
+    devv::proto::Transaction tx_in;
     tx_in.ParseFromString(pbuf_str);
 
     const char *pass_ptr= env->GetStringUTFChars(password, &do_copy);
@@ -33,9 +33,9 @@ JNIEXPORT jbyteArray JNICALL Java_io_devv_test_DevvTestMain_SignTransaction
     }
 
     Tier2TransactionPtr t2tx_ptr = CreateTransaction(tx_in, key_str, pass);
-    Devv::proto::Transaction tx_out;
+    devv::proto::Transaction tx_out;
     for (const TransferPtr& xfer_ptr : t2tx_ptr->getTransfers()) {
-      Devv::proto::Transfer* xfer = tx_out.add_xfers();
+      devv::proto::Transfer* xfer = tx_out.add_xfers();
       xfer->set_address(Bin2Str(xfer_ptr->getAddress().getCanonical()));
       xfer->set_coin(xfer_ptr->getCoin());
       xfer->set_amount(xfer_ptr->getAmount());
@@ -43,7 +43,7 @@ JNIEXPORT jbyteArray JNICALL Java_io_devv_test_DevvTestMain_SignTransaction
     }
     tx_out.set_nonce(Bin2Str(t2tx_ptr->getNonce()));
     tx_out.set_sig(Bin2Str(t2tx_ptr->getSignature().getCanonical()));
-    tx_out.set_operation((Devv::proto::eOpType) t2tx_ptr->getOperation());
+    tx_out.set_operation((devv::proto::eOpType) t2tx_ptr->getOperation());
 
     size_t final_tx_len = tx_out.ByteSizeLong();
     void* buffer = malloc(final_tx_len);
@@ -73,7 +73,7 @@ JNIEXPORT jbyteArray JNICALL Java_io_devv_test_DevvTestMain_CreateProposal
     for (int i=0; i<prop_pbuf_len; i++) {
       pbuf_str.push_back(prop_pbuf_body[i]);
     }
-    Devv::proto::Proposal prop_in;
+    devv::proto::Proposal prop_in;
     prop_in.set_oraclename(oracle);
     prop_in.set_data(pbuf_str);
 
@@ -90,7 +90,7 @@ JNIEXPORT jbyteArray JNICALL Java_io_devv_test_DevvTestMain_CreateProposal
       key_str.push_back(key_pbuf_body[i]);
     }
 
-    Devv::proto::Proposal prop_out;
+    devv::proto::Proposal prop_out;
     prop_out.set_oraclename(oracle);
     prop_out.set_data(pbuf_str);
 

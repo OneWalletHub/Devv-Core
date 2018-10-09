@@ -187,7 +187,7 @@ int main(int argc, char* argv[]) {
           GenerateBadSyntaxResponse("ServiceRequest Deserialization error: "
           + std::string(e.what()));
         std::stringstream response_ss;
-        Devv::proto::ServiceResponse pbuf_response = SerializeServiceResponse(std::move(response_ptr));
+        devv::proto::ServiceResponse pbuf_response = SerializeServiceResponse(std::move(response_ptr));
         pbuf_response.SerializeToOstream(&response_ss);
         response = response_ss.str();
         zmq::message_t reply(response.size());
@@ -202,7 +202,7 @@ int main(int argc, char* argv[]) {
       if (options->testnet) {
         response_ptr->args.insert(std::make_pair("testnet", "true"));
       }
-      Devv::proto::ServiceResponse pbuf_response = SerializeServiceResponse(std::move(response_ptr));
+      devv::proto::ServiceResponse pbuf_response = SerializeServiceResponse(std::move(response_ptr));
       LOG_INFO << "Generated ServiceResponse, Serializing";
       std::stringstream response_ss;
       pbuf_response.SerializeToOstream(&response_ss);

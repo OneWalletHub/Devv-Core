@@ -105,7 +105,7 @@ int main(int argc, char* argv[]) {
   out_stream << "addr_size    : " << tup.address.size() << std::endl;
   out_stream << "env_str_size : " << env_str.size() << std::endl;
 
-  Devv::proto::Envelope envelope;
+  devv::proto::Envelope envelope;
   auto res = envelope.ParseFromString(env_str);
 
   out_stream << "res: " << res << std::endl;
