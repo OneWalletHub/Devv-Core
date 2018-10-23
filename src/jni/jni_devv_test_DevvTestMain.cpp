@@ -32,17 +32,19 @@ JNIEXPORT jbyteArray JNICALL Java_jni_devv_test_DevvTestMain_SignTransaction
       key_str.push_back(key_pbuf_body[i]);
     }
 
-    Tier2TransactionPtr t2tx_ptr = CreateTransaction(tx_in, key_str, pass);
+    Devv::Tier2TransactionPtr t2tx_ptr = Devv::CreateTransaction(tx_in, key_str, pass);
     devv::proto::Transaction tx_out;
-    for (const TransferPtr& xfer_ptr : t2tx_ptr->getTransfers()) {
+
+    for (const Devv::TransferPtr& xfer_ptr : t2tx_ptr->getTransfers()) {
       devv::proto::Transfer* xfer = tx_out.add_xfers();
-      xfer->set_address(Bin2Str(xfer_ptr->getAddress().getCanonical()));
+      xfer->set_address(Devv::Bin2Str(xfer_ptr->getAddress().getCanonical()));
       xfer->set_coin(xfer_ptr->getCoin());
       xfer->set_amount(xfer_ptr->getAmount());
       xfer->set_delay(xfer_ptr->getDelay());
     }
-    tx_out.set_nonce(Bin2Str(t2tx_ptr->getNonce()));
-    tx_out.set_sig(Bin2Str(t2tx_ptr->getSignature().getCanonical()));
+
+    tx_out.set_nonce(Devv::Bin2Str(t2tx_ptr->getNonce()));
+    tx_out.set_sig(Devv::Bin2Str(t2tx_ptr->getSignature().getCanonical()));
     tx_out.set_operation((devv::proto::eOpType) t2tx_ptr->getOperation());
 
     size_t final_tx_len = tx_out.ByteSizeLong();
