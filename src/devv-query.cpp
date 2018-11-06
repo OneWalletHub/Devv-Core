@@ -644,6 +644,6 @@ ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const 
     LOG_ERROR << "Devv-query Error: "+std::string(e.what());
     response.return_code = 1010;
     response.message = "Devv-query Error: "+std::string(e.what());
-    return std::make_unique<RepeaterResponse>(response);
+    return std::make_unique<ServiceResponse>(response);
   }
 }
