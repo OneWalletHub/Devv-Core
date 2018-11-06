@@ -20,6 +20,7 @@
 #include "common/logger.h"
 #include "common/devv_context.h"
 #include "common/devv_uri.h"
+#include "consensus/blockchain.h"
 #include "io/message_service.h"
 #include "modules/BlockchainModule.h"
 #include "pbuf/devv_pbuf.h"
@@ -62,9 +63,14 @@ std::unique_ptr<struct repeater_options> ParseRepeaterOptions(int argc, char** a
  * Handle service request operations.
  * See the Repeater Interface page of the wiki for further information.
  * @param request - a smart pointer to the request
- * @return RepeaterResponsePtr - a smart pointer to the response
+ * @param working_dir - the directory where blocks are stored
+ * @param shard_name - the name of the shard this process tracks
+ * @param shard_index - the index of the shard this process tracks
+ * @param chain - the blockchain this shard tracks
+ * @return ServiceResponsePtr - a smart pointer to the response
  */
-ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const std::string& working_dir);
+ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const std::string& working_dir
+    , const std::string& shard_name, unsigned int shard_index, const Blockchain& chain);
 
 /**
  * Generate a bad syntax error response.
@@ -117,7 +123,7 @@ int main(int argc, char* argv[]) {
         std::string shard_dir(options->working_dir+"/"+this_context.get_shard_uri());
         fs::path dir_path(shard_dir);
         if (is_directory(dir_path)) {
-          std::string block_height(std::to_string(chain_height));
+          std::string block_height(std::to_string(chain.size()));
           std::string out_file(shard_dir + "/" + block_height + ".blk");
           std::ofstream block_file(out_file
             , std::ios::out | std::ios::binary);
@@ -132,7 +138,7 @@ int main(int argc, char* argv[]) {
           LOG_ERROR << "Error opening dir: " << shard_dir << " is not a directory";
         }
         try {
-          InputBuffer buffer(&p->data[0]);
+          InputBuffer buffer(p->data);
           FinalPtr top_block = std::make_shared<FinalBlock>(FinalBlock::Create(buffer, state));
           chain.push_back(top_block);
 	    } catch (const std::exception& e) {
@@ -181,8 +187,7 @@ int main(int argc, char* argv[]) {
           GenerateBadSyntaxResponse("ServiceRequest Deserialization error: "
           + std::string(e.what()));
         std::stringstream response_ss;
-        Devv::proto::ServiceResponse pbuf_response = SerializeServiceResponse(
-          std::move(response_ptr), options->testnet);
+        Devv::proto::ServiceResponse pbuf_response = SerializeServiceResponse(std::move(response_ptr));
         pbuf_response.SerializeToOstream(&response_ss);
         response = response_ss.str();
         zmq::message_t reply(response.size());
@@ -192,9 +197,12 @@ int main(int argc, char* argv[]) {
       }
 
       ServiceResponsePtr response_ptr = HandleServiceRequest(std::move(request_ptr)
-        , options->working_dir, options->shard_name, options->shard_index, chain);
-      Devv::proto::ServiceResponse pbuf_response = SerializeServiceResponse(
-        std::move(response_ptr), options->testnet);
+        , options->working_dir, options->shard_name
+        , options->shard_index, chain);
+      if (options->testnet) {
+        response_ptr->args.insert(std::make_pair("testnet", "true"));
+      }
+      Devv::proto::ServiceResponse pbuf_response = SerializeServiceResponse(std::move(response_ptr));
       LOG_INFO << "Generated ServiceResponse, Serializing";
       std::stringstream response_ss;
       pbuf_response.SerializeToOstream(&response_ss);
@@ -448,7 +456,7 @@ std::vector<byte> ReadBlock(const std::string& shard, uint32_t block, const std:
 }
 
 std::map<std::string, std::string> TraceTransactions(const std::string& shard
-    , uint32_t start_block, uint32_t end_block,
+    , uint32_t start_block, uint32_t end_block
     , const std::vector<byte>& target, const std::string& working_dir) {
   std::map<std::string, std::string> txs;
   uint32_t highest = std::min(end_block, getHighestBlock(shard, working_dir));
@@ -462,9 +470,9 @@ std::map<std::string, std::string> TraceTransactions(const std::string& shard
     for (const auto& raw_tx : one_block.getRawTransactions()) {
       if(std::search(std::begin(raw_tx), std::end(raw_tx)
           , std::begin(target), std::end(target)) != std::end(raw_tx)) {
-        InputBuffer t2_buffer(tx_raw);
+        InputBuffer t2_buffer(raw_tx);
         Tier2Transaction t2tx = Tier2Transaction::QuickCreate(t2_buffer);
-        txs.insert(std::make_pair(ToHex(t2tx.getSignature()), ToHex(tx_raw)));
+        txs.insert(std::make_pair(ToHex(t2tx.getSignature().getCanonical()), ToHex(raw_tx)));
       }
     }
   }
@@ -499,7 +507,7 @@ ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const 
     } else if (name.empty() && !hasShard(shard_id, working_dir)) {
       response.return_code = 1050;
       response.message = "Shard "+shard_id+" is not available.";
-      return std::make_unique<RepeaterResponse>(response);
+      return std::make_unique<ServiceResponse>(response);
     } else if (shard_id.empty()) {
       //TODO(nick@devv.io): devv-query should be able to track multiple shards,
       //but to do that it needs a map shard_name->shard_index/id
@@ -515,23 +523,23 @@ ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const 
         InputBuffer buffer(block);
         ChainState state;
         FinalBlock one_block(FinalBlock::Create(buffer, state));
-        response.args.insert(std::make_pair("block-time", std::to_string(one_block.getBlockTime()));
-        response.args.insert(std::make_pair("transactions", std::to_string(one_block.getSizeofTransactions()));
-        response.args.insert(std::make_pair("block-size", std::to_string(one_block.getNumBytes()));
-        response.args.insert(std::make_pair("block-volume", std::to_string(one_block.getVolume()));
-        response.args.insert(std::make_pair("Merkle", ToHex(one_block.getMerkleRoot()));
-        response.args.insert(std::make_pair("previous-hash", ToHex(one_block.getPreviousHash()));
+        response.args.insert(std::make_pair("block-time", std::to_string(one_block.getBlockTime())));
+        response.args.insert(std::make_pair("transactions", std::to_string(one_block.getSizeofTransactions())));
+        response.args.insert(std::make_pair("block-size", std::to_string(one_block.getNumBytes())));
+        response.args.insert(std::make_pair("block-volume", std::to_string(one_block.getVolume())));
+        response.args.insert(std::make_pair("Merkle", ToHex(one_block.getMerkleRoot())));
+        response.args.insert(std::make_pair("previous-hash", ToHex(one_block.getPreviousHash())));
 	  } else if (hasBlock(shard_id, height, working_dir)) {
         std::vector<byte> block = ReadBlock(shard_id, height, working_dir);
         InputBuffer buffer(block);
         ChainState state;
         FinalBlock one_block(FinalBlock::Create(buffer, state));
-        response.args.insert(std::make_pair("block-time", std::to_string(one_block.getBlockTime()));
-        response.args.insert(std::make_pair("transactions", std::to_string(one_block.getNumTransactions()));
-        response.args.insert(std::make_pair("block-size", std::to_string(one_block.getNumBytes()));
-        response.args.insert(std::make_pair("block-volume", std::to_string(one_block.getVolume()));
-        response.args.insert(std::make_pair("Merkle", ToHex(one_block.getMerkleRoot()));
-        response.args.insert(std::make_pair("previous-hash", ToHex(one_block.getPreviousHash()));
+        response.args.insert(std::make_pair("block-time", std::to_string(one_block.getBlockTime())));
+        response.args.insert(std::make_pair("transactions", std::to_string(one_block.getNumTransactions())));
+        response.args.insert(std::make_pair("block-size", std::to_string(one_block.getNumBytes())));
+        response.args.insert(std::make_pair("block-volume", std::to_string(one_block.getVolume())));
+        response.args.insert(std::make_pair("Merkle", ToHex(one_block.getMerkleRoot())));
+        response.args.insert(std::make_pair("previous-hash", ToHex(one_block.getPreviousHash())));
       } else {
         response.return_code = 1050;
         response.message = "Block "+std::to_string(height)+" is not available.";
@@ -540,7 +548,7 @@ ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const 
       uint32_t highest = chain.size();
       response.args.insert(std::make_pair("current-block", std::to_string(highest)));
       if (highest > 0) {
-        BlockSharedPtr top_block = chain.back();
+        std::shared_ptr<FinalBlock> top_block = chain.back();
         response.args.insert(std::make_pair("last-block-time"
           , std::to_string(top_block->getBlockTime())));
         response.args.insert(std::make_pair("last-tx-count"
@@ -596,6 +604,7 @@ ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const 
         std::vector<byte> block = chain.raw_at(height);
         InputBuffer buffer(block);
         ChainState state;
+        bool found_tx = false;
         FinalBlock one_block(FinalBlock::Create(buffer, state));
         for (const auto& tx : one_block.getTransactions()) {
           if (tx->getSignature() == tx_id) {

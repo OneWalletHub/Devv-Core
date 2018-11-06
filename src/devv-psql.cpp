@@ -339,7 +339,7 @@ int main(int argc, char* argv[]) {
       db_link->prepare(kSELECT_PENDING_INN, kSELECT_PENDING_INN_STATEMENT);
       db_link->prepare(kSELECT_ADDR, kSELECT_ADDR_STATEMENT);
       db_link->prepare(kSELECT_OLD_PENDING, kSELECT_OLD_PENDING_STATEMENT);
-      db_link->prepare(kBALANCE_UPDATE, kBALANCE_UPDATE_STATEMENT);
+      db_link->prepare(kUPDATE_BALANCE, kUPDATE_BALANCE_STATEMENT);
       db_link->prepare(kTX_SELECT, kTX_SELECT_STATEMENT);
       db_link->prepare(kTX_INSERT, kTX_INSERT_STATEMENT);
       db_link->prepare(kTX_CONFIRM, kTX_CONFIRM_STATEMENT);
@@ -530,7 +530,8 @@ int main(int argc, char* argv[]) {
             LOG_DEBUG << "Finished processing transaction.";
           } //end transaction loop
           LOG_DEBUG << "Clean old pending transactions.";
-          handle_old_tx(stmt, options->shard_index, chain_height, blocktime);
+          pqxx::nontransaction clean_stmt(*db_link);
+          handle_old_tx(clean_stmt, options->shard_index, chain_height, blocktime);
         } else { //endif db connected?
           throw std::runtime_error("Database is not connected!");
         }

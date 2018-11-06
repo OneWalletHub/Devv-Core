@@ -321,27 +321,21 @@ ServiceRequestPtr DeserializeServiceRequest(const std::string& pb_request) {
   auto pb_args = incoming_request.args();
   for (auto const& one_arg : pb_args) {
     std::pair<std::string, std::string> arg_pair(one_arg.key(), one_arg.value());
-    request.args.push_back(arg_pair);
+    request.args.insert(arg_pair);
   }
   return std::make_unique<ServiceRequest>(request);
 }
 
-Devv::proto::ServiceResponse SerializeServiceResponse(const ServiceResponsePtr& response_ptr
-    , bool testnet) {
+Devv::proto::ServiceResponse SerializeServiceResponse(const ServiceResponsePtr& response_ptr) {
   Devv::proto::ServiceResponse response;
   response.set_request_timestamp(response_ptr->request_timestamp);
   response.set_endpoint(response_ptr->endpoint);
   response.set_return_code(response_ptr->return_code);
   response.set_message(response_ptr->message);
   for (auto const& one_arg : response_ptr->args) {
-    Devv::proto::KeyValuePair* pb_arg = response.add_KeyValuePair();
+    Devv::proto::KeyValuePair* pb_arg = response.add_args();
     pb_arg->set_key(one_arg.first);
     pb_arg->set_value(one_arg.second);
-  }
-  if (testnet) {
-    Devv::proto::KeyValuePair* pb_arg = response.add_KeyValuePair();
-    pb_arg->set_key("testnet");
-    pb_arg->set_value(true);
   }
   return response;
 }

@@ -185,7 +185,7 @@ static int char2int(char in) {
   return(-1);
 }
 
-bool SearchString(const std::string & strHaystack, const std::string & strNeedle
+static bool SearchString(const std::string & strHaystack, const std::string & strNeedle
     , bool case_sensitive)
 {
   if (case_sensitive) {
