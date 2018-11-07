@@ -137,10 +137,12 @@ std::unique_ptr<struct psql_options> ParsePsqlOptions(int argc, char** argv);
  * @return the new balance as int64_t
  */
 int64_t update_balance(pqxx::nontransaction& stmt, std::string hex_addr
-        , unsigned int chain_height, uint64_t coin, int64_t delta, int shard) {
+        , unsigned int chain_height, uint64_t coin, int64_t delta, int shard
+        , const ChainState& state) {
   LOG_INFO << "update_balance("+hex_addr+", "+std::to_string(coin)+", "+std::to_string(delta)+")";
   std::string wallet_id = "";
-  int64_t new_balance = delta;
+  Address chain_addr(Hex2Bin(hex_addr));
+  int64_t new_balance = state.getAmount(coin, chain_addr);
   LOG_INFO << "Get wallet: "+hex_addr;
   try {
     pqxx::result wallet_result = stmt.prepared(kSELECT_WALLET)(hex_addr).exec();
@@ -178,9 +180,8 @@ int64_t update_balance(pqxx::nontransaction& stmt, std::string hex_addr
     //pqxx::result balance_result = stmt.prepared(kSELECT_BALANCE)(wallet_id)(coin).exec();
     if (balance_result.empty()) {
       LOG_INFO << "No balance, insert wallet_coin";
-      stmt.prepared(kINSERT_BALANCE)(wallet_id)(chain_height)(coin)(delta).exec();
+      stmt.prepared(kINSERT_BALANCE)(wallet_id)(chain_height)(coin)(new_balance).exec();
     } else {
-      new_balance = balance_result[0][0].as<int64_t>() + delta;
       LOG_INFO << "New balance is: " + std::to_string(new_balance);
       stmt.prepared(kUPDATE_BALANCE)(new_balance)(chain_height)(wallet_id)(coin).exec();
     }
@@ -203,7 +204,8 @@ int64_t update_balance(pqxx::nontransaction& stmt, std::string hex_addr
   return new_balance;
 }
 
-void handle_inn_tx(pqxx::nontransaction& stmt, int shard, unsigned int chain_height, uint64_t blocktime) {
+void handle_inn_tx(pqxx::nontransaction& stmt, int shard
+    , unsigned int chain_height, uint64_t blocktime, const ChainState& state) {
   pqxx::result inn_result = stmt.prepared(kSELECT_PENDING_INN).exec();
   LOG_DEBUG << "SELECT_PENDING_INN returned (" << inn_result.size() << ") transactions";
   if (!inn_result.empty()) {
@@ -227,7 +229,7 @@ void handle_inn_tx(pqxx::nontransaction& stmt, int shard, unsigned int chain_hei
         std::string rx_addr = addr_result[0][0].as<std::string>();
         stmt.prepared(kTX_INSERT)(uuid)(shard)(chain_height)(blocktime)(coin)(-1*amount)(kNIL_UUID).exec();
         stmt.exec("commit;");
-        update_balance(stmt, rx_addr, chain_height, coin, amount, shard);
+        update_balance(stmt, rx_addr, chain_height, coin, amount, shard, state);
         LOG_INFO << "Receiver balance updated.";
         uint64_t delay = 0;
         stmt.prepared(kRX_INSERT_COMMENT)(shard)(chain_height)(blocktime)(coin)(amount)(delay)(kREQUEST_COMMENT)(uuid)(kNIL_UUID)(rx_addr).exec();
@@ -339,7 +341,6 @@ int main(int argc, char* argv[]) {
       db_link->prepare(kSELECT_PENDING_INN, kSELECT_PENDING_INN_STATEMENT);
       db_link->prepare(kSELECT_ADDR, kSELECT_ADDR_STATEMENT);
       db_link->prepare(kSELECT_OLD_PENDING, kSELECT_OLD_PENDING_STATEMENT);
-      db_link->prepare(kUPDATE_BALANCE, kUPDATE_BALANCE_STATEMENT);
       db_link->prepare(kTX_SELECT, kTX_SELECT_STATEMENT);
       db_link->prepare(kTX_INSERT, kTX_INSERT_STATEMENT);
       db_link->prepare(kTX_CONFIRM, kTX_CONFIRM_STATEMENT);
@@ -361,6 +362,7 @@ int main(int argc, char* argv[]) {
 
     //@todo(nick@cloudsolar.co): read pre-existing chain
     unsigned int chain_height = 0;
+    ChainState state;
 
     auto peer_listener = io::CreateTransactionClient(options->host_vector, zmq_context);
     peer_listener->attachCallback([&](DevvMessageUniquePtr p) {
@@ -368,11 +370,11 @@ int main(int argc, char* argv[]) {
         //update database
         if (db_connected) {
           InputBuffer buffer(p->data);
-          ChainState priori;
           KeyRing keys;
-          FinalBlock one_block(buffer, priori, keys, options->mode);
+          FinalBlock one_block(buffer, state, keys, options->mode);
           uint64_t blocktime = one_block.getBlockTime();
           std::vector<TransactionPtr> txs = one_block.CopyTransactions();
+          state = one_block.getChainState();
 
           for (TransactionPtr& one_tx : txs) {
             pqxx::nontransaction stmt(*db_link);
@@ -404,7 +406,7 @@ int main(int argc, char* argv[]) {
               } //end sender search loop
 
               LOG_INFO << "Updating sender balance.";
-              update_balance(stmt, sender_hex, chain_height, coin_id, send_amount, options->shard_index);
+              update_balance(stmt, sender_hex, chain_height, coin_id, send_amount, options->shard_index, state);
               LOG_INFO << "Updated sender balance.";
 
               //copy transfers
@@ -439,7 +441,7 @@ int main(int argc, char* argv[]) {
                     stmt.exec("begin;");
                     stmt.exec("savepoint rx_savepoint;");
                     LOG_INFO << "Updating receiver balance.";
-                    update_balance(stmt, rcv_addr, chain_height, rcv_coin_id, rcv_amount, options->shard_index);
+                    update_balance(stmt, rcv_addr, chain_height, rcv_coin_id, rcv_amount, options->shard_index, state);
                     LOG_INFO << "Update receiver balance.";
                     pqxx::result rx_result = stmt.prepared(kSELECT_PENDING_RX)(sig_hex)(pending_tx_id).exec();
                     if (!rx_result.empty()) {
@@ -492,7 +494,7 @@ int main(int argc, char* argv[]) {
                       //update receiver balance
                       LOG_INFO << "Update receiver balance.";
                       try {
-                        update_balance(stmt, rcv_addr, chain_height, rcv_coin_id, rcv_amount, options->shard_index);
+                        update_balance(stmt, rcv_addr, chain_height, rcv_coin_id, rcv_amount, options->shard_index, state);
                       } catch (const pqxx::pqxx_exception& e) {
                         LOG_ERROR << e.base().what() << std::endl;
                       } catch (const std::exception& e) {
