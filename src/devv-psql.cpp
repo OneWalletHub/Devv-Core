@@ -199,7 +199,6 @@ int64_t update_balance(pqxx::nontransaction& stmt, std::string hex_addr
     throw;
   }
 
-
   LOG_INFO << "balance updated to: "+std::to_string(new_balance);
   return new_balance;
 }
@@ -384,7 +383,7 @@ int main(int argc, char* argv[]) {
             std::string sig_hex = one_tx->getSignature().getJSON();
             if (one_tx->getSignature().isNodeSignature()) {
               LOG_DEBUG << "one_tx->getSignature().isNodeSignature(): calling handle_inn_tx()";
-              handle_inn_tx(stmt, options->shard_index, chain_height, blocktime);
+              handle_inn_tx(stmt, options->shard_index, chain_height, blocktime, state);
               continue;
             }
             try {
