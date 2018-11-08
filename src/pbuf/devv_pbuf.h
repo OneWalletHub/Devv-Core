@@ -69,6 +69,22 @@ struct RepeaterResponse {
 };
 typedef std::unique_ptr<RepeaterResponse> RepeaterResponsePtr;
 
+struct ServiceRequest {
+  int64_t timestamp = 0;
+  std::string endpoint;
+  std::map<std::string, std::string> args;
+};
+typedef std::unique_ptr<ServiceRequest> ServiceRequestPtr;
+
+struct ServiceResponse {
+  int64_t request_timestamp = 0;
+  std::string endpoint;
+  uint32_t return_code = 0;
+  std::string message;
+  std::map<std::string, std::string> args;
+};
+typedef std::unique_ptr<ServiceResponse> ServiceResponsePtr;
+
 TransactionPtr CreateTransaction(const Devv::proto::Transaction& transaction, const KeyRing& keys, bool do_sign = false) {
   auto operation = transaction.operation();
   auto pb_xfers = transaction.xfers();
@@ -294,6 +310,35 @@ Devv::proto::RepeaterResponse SerializeRepeaterResponse(const RepeaterResponsePt
   std::string raw_str(std::begin(response_ptr->raw_response)
                     , std::end(response_ptr->raw_response));
   response.set_raw_response(raw_str);
+  return response;
+}
+
+ServiceRequestPtr DeserializeServiceRequest(const std::string& pb_request) {
+  Devv::proto::ServiceRequest incoming_request;
+  incoming_request.ParseFromString(pb_request);
+
+  ServiceRequest request;
+  request.timestamp = incoming_request.timestamp();
+  request.endpoint = incoming_request.endpoint();
+  auto pb_args = incoming_request.args();
+  for (auto const& one_arg : pb_args) {
+    std::pair<std::string, std::string> arg_pair(one_arg.key(), one_arg.value());
+    request.args.insert(arg_pair);
+  }
+  return std::make_unique<ServiceRequest>(request);
+}
+
+Devv::proto::ServiceResponse SerializeServiceResponse(const ServiceResponsePtr& response_ptr) {
+  Devv::proto::ServiceResponse response;
+  response.set_request_timestamp(response_ptr->request_timestamp);
+  response.set_endpoint(response_ptr->endpoint);
+  response.set_return_code(response_ptr->return_code);
+  response.set_message(response_ptr->message);
+  for (auto const& one_arg : response_ptr->args) {
+    Devv::proto::KeyValuePair* pb_arg = response.add_args();
+    pb_arg->set_key(one_arg.first);
+    pb_arg->set_value(one_arg.second);
+  }
   return response;
 }
 

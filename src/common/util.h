@@ -185,6 +185,21 @@ static int char2int(char in) {
   return(-1);
 }
 
+static bool SearchString(const std::string & strHaystack, const std::string & strNeedle
+    , bool case_sensitive)
+{
+  if (case_sensitive) {
+    return (strHaystack.find(strNeedle) != std::string::npos);
+  } else {
+    auto it = std::search(
+      strHaystack.begin(), strHaystack.end(),
+      strNeedle.begin(),   strNeedle.end(),
+      [](char ch1, char ch2) { return std::toupper(ch1) == std::toupper(ch2); }
+    );
+    return (it != strHaystack.end());
+  }
+}
+
 template<typename T, typename ...Args>
 std::unique_ptr<T> make_unique( Args&& ...args )
 {

@@ -34,7 +34,7 @@ bool ChainState::addCoin(const SmartCoin& coin) {
   return(no_error);
 }
 
-long ChainState::getAmount(uint64_t type, const Address& addr) const {
+int64_t ChainState::getAmount(uint64_t type, const Address& addr) const {
   auto it = state_map_.find(addr);
   if (it != state_map_.end()) {
     int64_t amount = it->second.at(type);
