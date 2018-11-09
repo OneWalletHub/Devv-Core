@@ -354,6 +354,7 @@ int main(int argc, char* argv[]) {
       db_link->prepare(kDELETE_PENDING_RX, kDELETE_PENDING_RX_STATEMENT);
       db_link->prepare(kDELETE_PENDING_RX_BY_TX, kDELETE_PENDING_RX_BY_TX_STATEMENT);
       db_link->prepare(kMARK_OLD_PENDING, kMARK_OLD_PENDING_STATEMENT);
+      db_link->prepare(kSELECT_RECENT_PENDING, kSELECT_RECENT_PENDING_STATEMENT);
       db_link->prepare(kTX_REJECT, kTX_REJECT_STATEMENT);
     } else {
       LOG_FATAL << "Database host and user not set!";
@@ -383,7 +384,8 @@ int main(int argc, char* argv[]) {
             std::string sig_hex = one_tx->getSignature().getJSON();
             if (one_tx->getSignature().isNodeSignature()) {
               LOG_DEBUG << "one_tx->getSignature().isNodeSignature(): calling handle_inn_tx()";
-              handle_inn_tx(stmt, options->shard_index, chain_height, blocktime, state);
+              pqxx::nontransaction inn_stmt(*db_link);
+              handle_inn_tx(inn_stmt, options->shard_index, chain_height, blocktime, state);
               continue;
             }
             try {
