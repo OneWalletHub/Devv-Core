@@ -100,7 +100,7 @@ static const std::string kRX_CONFIRM_STATEMENT = "INSERT INTO rx (rx_id, shard_i
 static const std::string kMARK_OLD_PENDING = "mark_old_pending";
 static const std::string kMARK_OLD_PENDING_STATEMENT = "update pending_tx set to_reject = TRUE where pending_tx_id = cast($1 as uuid);";
 static const std::string kTX_REJECT = "tx_reject";
-static const std::string kTX_REJECT_STATEMENT = "INSERT INTO rejected_tx (rejected_tx_id, shard_id, tx_wallet, coin_id, amount, comment) (select p.pending_tx_id, $1, p.tx_wallet, p.coin_id, p.amount, p.comment from pending_tx p where p.pending_tx_id = cast($2 as uuid));";
+static const std::string kTX_REJECT_STATEMENT = "INSERT INTO rejected_tx (rejected_tx_id, shard_id, sig, tx_wallet, coin_id, amount, comment) (select p.pending_tx_id, $1, p.sig, p.tx_wallet, p.coin_id, p.amount, p.comment from pending_tx p where p.pending_tx_id = cast($2 as uuid));";
 
 static const std::string kDELETE_PENDING_TX = "delete_pending_tx";
 static const std::string kDELETE_PENDING_TX_STATEMENT = "delete from pending_tx where pending_tx_id = cast($1 as uuid);";

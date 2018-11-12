@@ -105,7 +105,8 @@ CREATE TABLE pending_tx (
     tx_wallet uuid NOT NULL references wallet,
     coin_id BIGINT NOT NULL references currency,
     amount BIGINT,
-    comment text
+    comment text,
+    to_reject boolean
 ) tablespace devvdata;
 
 --pending_rx table (tracks txs not yet settled in rx)
@@ -122,21 +123,32 @@ CREATE TABLE pending_rx (
     pending_tx_id uuid not null references pending_tx
 ) tablespace devvdata;
 
+--rejected_tx table (tracks txs rejected by validators)
+CREATE TABLE rejected_tx (
+    rejected_tx_id uuid constraint pk_rejected_txid primary key using index tablespace devvdex,
+    sig text unique not null,
+    shard_id INTEGER NOT NULL references shard,
+    tx_wallet uuid NOT NULL references wallet,
+    coin_id BIGINT NOT NULL references currency,
+    amount BIGINT,
+    comment text    
+) tablespace devvdata;
+
 create or replace function reset_state() returns void as $$
 begin
 truncate table pending_rx cascade;
 truncate table pending_tx cascade;
+truncate table rejected_tx cascade;
 truncate table rx cascade;
 truncate table tx cascade;
 truncate table wallet_coin cascade;
 end;
 $$ language plpgsql;
 
-insert into currency (coin_id, coin_name) values (0, 'Devcash');
-insert into currency (coin_id, coin_name) values (1, 'Devv');
+insert into currency (coin_id, coin_name) values (0, 'Devv');
 
 insert into devvuser (devvuser_id, devvusername, password, full_name, email) values ('00000000-0000-0000-0000-000000000000'::uuid, 'Unknown', 'Unknown', 'Unknown', 'Unknown');
 insert into account (account_id, devvuser_id, account_name) values ('00000000-0000-0000-0000-000000000000'::uuid, '00000000-0000-0000-0000-000000000000'::uuid, 'Unknown');
-insert into wallet (wallet_id, wallet_addr, account_id, shard_id, wallet_name) values ('00000000-0000-0000-0000-000000000000'::uuid, '00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000'::uuid, 0, 'INN');
 insert into shard (shard_name) values ('Shard-0');
 insert into shard (shard_name) values ('Shard-1');
+insert into wallet (wallet_id, wallet_addr, account_id, shard_id, wallet_name) values ('00000000-0000-0000-0000-000000000000'::uuid, '00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000'::uuid, 0, 'INN');
