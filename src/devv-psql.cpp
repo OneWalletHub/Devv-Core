@@ -100,7 +100,7 @@ static const std::string kRX_CONFIRM_STATEMENT = "INSERT INTO rx (rx_id, shard_i
 static const std::string kMARK_OLD_PENDING = "mark_old_pending";
 static const std::string kMARK_OLD_PENDING_STATEMENT = "update pending_tx set to_reject = TRUE where pending_tx_id = cast($1 as uuid);";
 static const std::string kTX_REJECT = "tx_reject";
-static const std::string kTX_REJECT_STATEMENT = "INSERT INTO rejected_tx (rejected_tx_id, shard_id, block_height, block_time, tx_wallet, coin_id, amount, comment) (select p.pending_tx_id, $1, $2, $3, p.tx_wallet, p.coin_id, p.amount, p.comment from pending_tx p where p.pending_tx_id = cast($4 as uuid));";
+static const std::string kTX_REJECT_STATEMENT = "INSERT INTO rejected_tx (rejected_tx_id, shard_id, tx_wallet, coin_id, amount, comment) (select p.pending_tx_id, $1, p.tx_wallet, p.coin_id, p.amount, p.comment from pending_tx p where p.pending_tx_id = cast($2 as uuid));";
 
 static const std::string kDELETE_PENDING_TX = "delete_pending_tx";
 static const std::string kDELETE_PENDING_TX_STATEMENT = "delete from pending_tx where pending_tx_id = cast($1 as uuid);";
@@ -255,7 +255,7 @@ void handle_old_tx(pqxx::nontransaction& stmt, int shard, unsigned int chain_hei
     for (size_t i=0; i < old_result.size(); ++i) {
       try {
         std::string old_uuid = old_result[i][0].as<std::string>();
-        stmt.prepared(kTX_REJECT)(shard)(chain_height)(blocktime)(old_uuid).exec();
+        stmt.prepared(kTX_REJECT)(shard)(old_uuid).exec();
         stmt.prepared(kDELETE_PENDING_RX_BY_TX)(old_uuid).exec();
         stmt.prepared(kDELETE_PENDING_TX)(old_uuid).exec();
       } catch (const pqxx::pqxx_exception& e) {
