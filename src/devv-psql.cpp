@@ -185,7 +185,6 @@ int64_t update_balance(pqxx::nontransaction& stmt, std::string hex_addr
       LOG_INFO << "New balance is: " + std::to_string(new_balance);
       stmt.prepared(kUPDATE_BALANCE)(new_balance)(chain_height)(wallet_id)(coin).exec();
     }
-    stmt.exec("commit;");
   } catch (const pqxx::pqxx_exception& e) {
     LOG_ERROR << e.base().what() << std::endl;
     const pqxx::sql_error* s = dynamic_cast<const pqxx::sql_error*>(&e.base());
@@ -232,11 +231,9 @@ void handle_inn_tx(pqxx::nontransaction& stmt, int shard
         LOG_INFO << "Receiver balance updated.";
         uint64_t delay = 0;
         stmt.prepared(kRX_INSERT_COMMENT)(shard)(chain_height)(blocktime)(coin)(amount)(delay)(kREQUEST_COMMENT)(uuid)(kNIL_UUID)(rx_addr).exec();
-        stmt.exec("commit;");
         LOG_INFO << "Updated rx table";
         stmt.prepared(kDELETE_PENDING_RX)(pending_uuid).exec();
         stmt.prepared(kDELETE_PENDING_TX)(uuid).exec();
-        stmt.exec("commit;");
       } catch (const pqxx::pqxx_exception& e) {
         LOG_ERROR << e.base().what() << std::endl;
         const pqxx::sql_error* s = dynamic_cast<const pqxx::sql_error*>(&e.base());
@@ -259,10 +256,8 @@ void handle_old_tx(pqxx::nontransaction& stmt, int shard, unsigned int chain_hei
       try {
         std::string old_uuid = old_result[i][0].as<std::string>();
         stmt.prepared(kTX_REJECT)(shard)(chain_height)(blocktime)(old_uuid).exec();
-        stmt.exec("commit;");
         stmt.prepared(kDELETE_PENDING_RX_BY_TX)(old_uuid).exec();
         stmt.prepared(kDELETE_PENDING_TX)(old_uuid).exec();
-        stmt.exec("commit;");
       } catch (const pqxx::pqxx_exception& e) {
         LOG_ERROR << e.base().what() << std::endl;
         const pqxx::sql_error* s = dynamic_cast<const pqxx::sql_error*>(&e.base());
@@ -277,7 +272,6 @@ void handle_old_tx(pqxx::nontransaction& stmt, int shard, unsigned int chain_hei
       try {
         std::string recent_uuid = recent_result[i][0].as<std::string>();
         stmt.prepared(kMARK_OLD_PENDING)(recent_uuid).exec();
-        stmt.exec("commit;");
       } catch (const pqxx::pqxx_exception& e) {
         LOG_ERROR << e.base().what() << std::endl;
         const pqxx::sql_error* s = dynamic_cast<const pqxx::sql_error*>(&e.base());
@@ -379,13 +373,10 @@ int main(int argc, char* argv[]) {
           for (TransactionPtr& one_tx : txs) {
             pqxx::nontransaction stmt(*db_link);
             LOG_INFO << "Begin processing transaction.";
-            stmt.exec("begin;");
-            stmt.exec("savepoint tx_savepoint;");
             std::string sig_hex = one_tx->getSignature().getJSON();
             if (one_tx->getSignature().isNodeSignature()) {
               LOG_DEBUG << "one_tx->getSignature().isNodeSignature(): calling handle_inn_tx()";
-              pqxx::nontransaction inn_stmt(*db_link);
-              handle_inn_tx(inn_stmt, options->shard_index, chain_height, blocktime, state);
+              handle_inn_tx(stmt, options->shard_index, chain_height, blocktime, state);
               continue;
             }
             try {
@@ -431,7 +422,6 @@ int main(int argc, char* argv[]) {
                 LOG_INFO << "Pending transaction exists.";
                 auto pending_tx_id = pending_result[0][0].as<std::string>();
                 stmt.prepared(kTX_CONFIRM)(options->shard_index)(chain_height)(blocktime)(sig_hex)(pending_tx_id).exec();
-                stmt.exec("commit;");
                 for (TransferPtr& one_xfer : xfers) {
                   int64_t rcv_amount = one_xfer->getAmount();
                   if (rcv_amount < 0) continue;
@@ -439,8 +429,6 @@ int main(int argc, char* argv[]) {
                   uint64_t rcv_coin_id = one_xfer->getCoin();
                   try {
                     LOG_INFO << "Begin processing transfer.";
-                    stmt.exec("begin;");
-                    stmt.exec("savepoint rx_savepoint;");
                     LOG_INFO << "Updating receiver balance.";
                     update_balance(stmt, rcv_addr, chain_height, rcv_coin_id, rcv_amount, options->shard_index, state);
                     LOG_INFO << "Update receiver balance.";
@@ -449,10 +437,8 @@ int main(int argc, char* argv[]) {
                       std::string pending_rx_id = rx_result[0][0].as<std::string>();
                       LOG_INFO << "Insert rx row.";
                       stmt.prepared(kRX_CONFIRM)(options->shard_index)(chain_height)(blocktime)(pending_rx_id).exec();
-                      stmt.exec("commit;");
                       LOG_INFO << "Deleting pending_rx with pending_rx_id : " << pending_rx_id;
                       stmt.prepared(kDELETE_PENDING_RX)(pending_rx_id).exec();
-                      stmt.exec("commit;");
                     } else {
                       LOG_WARNING << "Pending tx missing corresponding rx '"+sig_hex+"'!";
                     }
@@ -460,18 +446,14 @@ int main(int argc, char* argv[]) {
                   } catch (const pqxx::pqxx_exception& e) {
                     LOG_ERROR << e.base().what() << std::endl;
                   } catch (const std::exception& e) {
-                    LOG_WARNING << FormatException(&e, "Exception updating database for transfer, rollback: "+sig_hex);
-                    stmt.exec("rollback to savepoint rx_savepoint;");
+                    LOG_WARNING << FormatException(&e, "Exception updating database for transfer: "+sig_hex);
                   } catch (...) {
                     LOG_WARNING << "caught (...)";
                   }
 
                 } // end rx copy loop
                 LOG_INFO << "Deleting pending_tx with pending_tx_id : " << pending_tx_id;
-                stmt.exec("begin;");
-                stmt.exec("savepoint delete_savepoint;");
                 stmt.prepared(kDELETE_PENDING_TX)(pending_tx_id).exec();
-                stmt.exec("commit;");
               } else { //no pending exists, so create new transaction
                 LOG_INFO << "Pending transaction does not exist.";
                 pqxx::result uuid_result = stmt.prepared(kSELECT_UUID).exec();
@@ -479,15 +461,12 @@ int main(int argc, char* argv[]) {
                   LOG_INFO << "!uuid_result.empty()";
                   std::string tx_uuid = uuid_result[0][0].as<std::string>();
                   stmt.prepared(kTX_INSERT)(tx_uuid)(options->shard_index)(chain_height)(blocktime)(coin_id)(send_amount)(sender_hex).exec();
-                  stmt.exec("commit;");
                   for (TransferPtr& one_xfer : xfers) {
                     //only do receivers
                     int64_t rcv_amount = one_xfer->getAmount();
                     if (rcv_amount < 0) continue;
                     try {
                       LOG_INFO << "Begin processing transfer.";
-                      stmt.exec("begin;");
-                      stmt.exec("savepoint rx_savepoint;");
                       std::string rcv_addr = one_xfer->getAddress().getHexString();
                       uint64_t rcv_coin_id = one_xfer->getCoin();
                       uint64_t delay = one_xfer->getDelay();
@@ -507,7 +486,6 @@ int main(int argc, char* argv[]) {
                       LOG_INFO << "Insert rx row.";
                       stmt.prepared(kRX_INSERT)(options->shard_index)(chain_height)(blocktime)(rcv_coin_id)(rcv_amount)(delay)(tx_uuid)(sender_hex)(rcv_addr).exec();
 
-                      stmt.exec("commit;");
                       LOG_INFO << "Transfer committed.";
                     } catch (const std::exception& e) {
                       LOG_WARNING << FormatException(&e, "Exception updating database for transfer, no rollback: "+sig_hex);
