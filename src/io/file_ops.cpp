@@ -65,6 +65,17 @@ struct key_tuple ReadKeyFile(const fs::path& path) {
   auto node_addr_bytes = kNODE_ADDR_SIZE * 2;
   auto wallet_addr_bytes = kWALLET_ADDR_SIZE * 2;
 
+  unsigned int file_key_size = kFILE_KEY_SIZE;
+  size_t ossl10size = wallet_addr_bytes + file_key_size + 1;
+  size_t ossl11size = ossl10size + 20;
+
+  if (key_string.size() == ossl10size) {
+  } else if (key_string.size() == ossl11size) {
+    file_key_size = file_key_size + 20;
+  } else {
+    std::string err = "The key file size is not supported: "+std::to_string(key_string.size());
+    throw std::runtime_error(err);
+  }
 
   // Make the position tolerant to newline at end of address line
   if (pos == node_addr_bytes) {
@@ -78,7 +89,7 @@ struct key_tuple ReadKeyFile(const fs::path& path) {
     tuple.key = key_string.substr(node_addr_bytes+1, kFILE_NODEKEY_SIZE);
   } else if (pos == (wallet_addr_bytes+1)) {
     tuple.address = key_string.substr(0, wallet_addr_bytes);
-    tuple.key = key_string.substr(wallet_addr_bytes+1, kFILE_KEY_SIZE);
+    tuple.key = key_string.substr(wallet_addr_bytes+1, file_key_size);
   } else {
     std::string err("Malformed key file: ");
     throw std::runtime_error(err + std::to_string(pos) +
