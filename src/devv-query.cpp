@@ -251,7 +251,7 @@ Listens for FinalBlock messages and saves them to a file\n\
         ("mode", po::value<std::string>(), "Devv mode (T1|T2|scan)")
         ("node-index", po::value<unsigned int>(), "Index of this node")
         ("shard-index", po::value<unsigned int>(), "Index of this shard")
-        ("shard-name", po::value<unsigned int>(), "Name of this shard")
+        ("shard-name", po::value<std::string>(), "Name of this shard")
         ("num-consensus-threads", po::value<unsigned int>(), "Number of consensus threads")
         ("num-validator-threads", po::value<unsigned int>(), "Number of validation threads")
         ("host-list,host", po::value<std::vector<std::string>>(),
@@ -344,7 +344,7 @@ Listens for FinalBlock messages and saves them to a file\n\
     }
 
     if (vm.count("shard-name")) {
-      options->shard_name = vm["shard-name"].as<unsigned int>();
+      options->shard_name = vm["shard-name"].as<std::string>();
       LOG_INFO << "Shard name: " << options->shard_name;
     } else {
       LOG_INFO << "Shard name was not set.";
