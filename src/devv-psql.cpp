@@ -454,6 +454,7 @@ int main(int argc, char* argv[]) {
                 } // end rx copy loop
                 LOG_INFO << "Deleting pending_tx with pending_tx_id : " << pending_tx_id;
                 stmt.prepared(kDELETE_PENDING_TX)(pending_tx_id).exec();
+                stmt.exec("commit;");
               } else { //no pending exists, so create new transaction
                 LOG_INFO << "Pending transaction does not exist.";
                 pqxx::result uuid_result = stmt.prepared(kSELECT_UUID).exec();
