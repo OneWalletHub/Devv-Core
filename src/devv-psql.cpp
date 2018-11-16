@@ -226,7 +226,6 @@ void handle_inn_tx(pqxx::nontransaction& stmt, int shard
         }
         std::string rx_addr = addr_result[0][0].as<std::string>();
         stmt.prepared(kTX_INSERT)(uuid)(shard)(chain_height)(blocktime)(coin)(-1*amount)(kNIL_UUID).exec();
-        stmt.exec("commit;");
         update_balance(stmt, rx_addr, chain_height, coin, amount, shard, state);
         LOG_INFO << "Receiver balance updated.";
         uint64_t delay = 0;
@@ -234,6 +233,7 @@ void handle_inn_tx(pqxx::nontransaction& stmt, int shard
         LOG_INFO << "Updated rx table";
         stmt.prepared(kDELETE_PENDING_RX)(pending_uuid).exec();
         stmt.prepared(kDELETE_PENDING_TX)(uuid).exec();
+        stmt.exec("commit;");
       } catch (const pqxx::pqxx_exception& e) {
         LOG_ERROR << e.base().what() << std::endl;
         const pqxx::sql_error* s = dynamic_cast<const pqxx::sql_error*>(&e.base());
