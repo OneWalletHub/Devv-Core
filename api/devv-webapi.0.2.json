@@ -1,0 +1,813 @@
+{
+	"info": {
+		"_postman_id": "078a52e9-e4e7-4983-9d11-f45ca9f92842",
+		"name": "Flask-api",
+		"description": "Devv Web API v0.2",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Block-Info",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "/block-info?shard-id=0&shard-name=Thor&block-height=0",
+					"path": [
+						"block-info"
+					],
+					"query": [
+						{
+							"key": "shard-id",
+							"value": "0",
+							"description": "The id of the shard to query."
+						},
+						{
+							"key": "shard-name",
+							"value": "Thor",
+							"description": "The name of the shard to query."
+						},
+						{
+							"key": "block-height",
+							"value": "0",
+							"description": "The block height to query."
+						}
+					]
+				},
+				"description": "Get information about a specific shard's blockchain."
+			},
+			"response": [
+				{
+					"name": "Block-Info",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "/block-info?shard-name=Thor&block-height=0&shard-id=1",
+							"path": [
+								"block-info"
+							],
+							"query": [
+								{
+									"key": "shard-name",
+									"value": "Thor",
+									"description": "The name of the shard to query."
+								},
+								{
+									"key": "block-height",
+									"value": "0",
+									"description": "The block height to query."
+								},
+								{
+									"key": "shard-id",
+									"value": "1",
+									"description": "The id of the shard to query."
+								}
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"cookie": [],
+					"body": "{\n\t\"protocol-version\":0,\n\t\"shard-name\":\"Thor\",\n\t\"block-height\":0,\n\t\"block-time\":0,\n\t\"transactions\":91,\n\t\"block-volume\":1234,\n\t\"block-size\":1234,\n\t\"Merkle\":\"[hex]\",\n\t\"previous-hash\":\"[hex]\",\n\t\"testnet\":true\n}"
+				}
+			]
+		},
+		{
+			"name": "Transaction-Info",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "/tx-info?shard-id=1&shard-name=Thor&block-height=0&signature=[hex]",
+					"path": [
+						"tx-info"
+					],
+					"query": [
+						{
+							"key": "shard-id",
+							"value": "1",
+							"description": "The index of the shard to query."
+						},
+						{
+							"key": "shard-name",
+							"value": "Thor",
+							"description": "The name of the shard to query."
+						},
+						{
+							"key": "block-height",
+							"value": "0",
+							"description": "The block height to query."
+						},
+						{
+							"key": "signature",
+							"value": "[hex]",
+							"description": "Transaction signature to query."
+						}
+					]
+				},
+				"description": "Get the history of a specific transaction."
+			},
+			"response": [
+				{
+					"name": "Transaction-Info",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "/tx-info?shard-name=Thor&block-height=0&signature=[hex]",
+							"path": [
+								"tx-info"
+							],
+							"query": [
+								{
+									"key": "shard-name",
+									"value": "Thor",
+									"description": "The name of the shard to query."
+								},
+								{
+									"key": "block-height",
+									"value": "0",
+									"description": "The block height to query."
+								},
+								{
+									"key": "signature",
+									"value": "[hex]",
+									"description": "Signature of transaction to query."
+								}
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"cookie": [],
+					"body": "{\n\t\"protocol-version\":0,\n\t\"shard-name\":\"Thor\",\n\t\"block-height\":0,\n\t\"signature\":\"[hex]\",\n\t\"tx-data\":\"[hex]\",\n\t\"testnet\":true\n}"
+				}
+			]
+		},
+		{
+			"name": "Trace",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "/trace?shard-id=1&shard-name=Thor&start-block=0&signature=[hex]&end-block=1",
+					"path": [
+						"trace"
+					],
+					"query": [
+						{
+							"key": "shard-id",
+							"value": "1",
+							"description": "The index of the shard to query."
+						},
+						{
+							"key": "shard-name",
+							"value": "Thor",
+							"description": "The name of the shard to query."
+						},
+						{
+							"key": "start-block",
+							"value": "0",
+							"description": "The lowest block height to query."
+						},
+						{
+							"key": "signature",
+							"value": "[hex]",
+							"description": "Transaction signature to query."
+						},
+						{
+							"key": "end-block",
+							"value": "1",
+							"description": "The highest block height to query."
+						}
+					]
+				},
+				"description": "Get the history of a specific transaction."
+			},
+			"response": [
+				{
+					"name": "Trace",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "/trace?shard-name=Thor&start-block=0&end-block=1&signature=[hex]&address=[hex]",
+							"path": [
+								"trace"
+							],
+							"query": [
+								{
+									"key": "shard-name",
+									"value": "Thor",
+									"description": "The name of the shard to query."
+								},
+								{
+									"key": "start-block",
+									"value": "0",
+									"description": "The lowest block height to query."
+								},
+								{
+									"key": "end-block",
+									"value": "1",
+									"description": "The highest block height to query."
+								},
+								{
+									"key": "signature",
+									"value": "[hex]",
+									"description": "Signature to trace."
+								},
+								{
+									"key": "address",
+									"value": "[hex]",
+									"description": "Address to trace."
+								}
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"cookie": [],
+					"body": "{\n\t\"protocol-version\":0,\n\t\"shard-name\":\"Thor\",\n\t\"block-height\":0,\n\t\"signature\":\"[hex]\",\n\t\"tx-data\":{\n\t\t\"[sig1_hex]\":\"[hex]\",\n\t\t\"[sig2_hex]\":\"[hex]\"\n\t},\n\t\"testnet\":true\n}"
+				}
+			]
+		},
+		{
+			"name": "Shard-Info",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "/shard-info?shard-name=Thor&shard-id=1",
+					"path": [
+						"shard-info"
+					],
+					"query": [
+						{
+							"key": "shard-name",
+							"value": "Thor",
+							"description": "The name of the shard to query."
+						},
+						{
+							"key": "shard-id",
+							"value": "1",
+							"description": "The id of the shard to query."
+						}
+					]
+				},
+				"description": "Information about a shard"
+			},
+			"response": [
+				{
+					"name": "Shard-info",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "/shard-info?shard-name=Thor&shard-id=1",
+							"path": [
+								"shard-info"
+							],
+							"query": [
+								{
+									"key": "shard-name",
+									"value": "Thor",
+									"description": "The name of the shard to query."
+								},
+								{
+									"key": "shard-id",
+									"value": "1",
+									"description": "The id of the shard to query."
+								}
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"cookie": [],
+					"body": "{\n\t\"protocol-version\":0,\n\t\"shard-name\":\"Thor\",\n\t\"current-block\":1,\n\t\"last-block-time\":0,\n\t\"last-tx-count\":0,\n\t\"total-tx-count\":1,\n\t\"avg-block-time\":0,\n\t\"avg-tx-per-block\":0,\n\t\"testnet\":true\n}"
+				}
+			]
+		},
+		{
+			"name": "History",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "/history?address=[hex]&shard-name=Thor&shard-id=1&start-block=0&end-block=1&max-results=1&uuid=[uuid]",
+					"path": [
+						"history"
+					],
+					"query": [
+						{
+							"key": "address",
+							"value": "[hex]",
+							"description": "The address to check the history of"
+						},
+						{
+							"key": "shard-name",
+							"value": "Thor",
+							"description": "The shard to query."
+						},
+						{
+							"key": "shard-id",
+							"value": "1",
+							"description": "The id of the shard to query."
+						},
+						{
+							"key": "start-block",
+							"value": "0",
+							"description": "The lowest block to query for history."
+						},
+						{
+							"key": "end-block",
+							"value": "1",
+							"description": "The  highest block to query for history."
+						},
+						{
+							"key": "max-results",
+							"value": "1",
+							"description": "The maximum number of results to include."
+						},
+						{
+							"key": "uuid",
+							"value": "[uuid]",
+							"description": "The uuid of the account to check."
+						}
+					]
+				},
+				"description": "Get the history of a specific address."
+			},
+			"response": [
+				{
+					"name": "History",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "/history?address=[hex]&shard-name=Thor&start-block=0&end-block=1&max-results=1&shard-id=1",
+							"path": [
+								"history"
+							],
+							"query": [
+								{
+									"key": "address",
+									"value": "[hex]",
+									"description": "The address to check."
+								},
+								{
+									"key": "shard-name",
+									"value": "Thor",
+									"description": "The name of the shard to check."
+								},
+								{
+									"key": "start-block",
+									"value": "0",
+									"description": "The block to start with."
+								},
+								{
+									"key": "end-block",
+									"value": "1",
+									"description": "The last block to include. (optional)"
+								},
+								{
+									"key": "max-results",
+									"value": "1",
+									"description": "The maximum number of transactions to return always beginning from the highest block (end-block or the current block). (optional)"
+								},
+								{
+									"key": "shard-id",
+									"value": "1",
+									"description": "The ID of the shard to query."
+								}
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"cookie": [],
+					"body": "{\n    \"protocol-version\": 0,\n    \"address\": \"[hex]\",\n    \"uuid\": \"[uuid}\",\n    \"shard-name\":\"Thor\",\n    \"start-block\":0,\n    \"end-block\":1,\n    \"max-results\":10,\n    \"history\":[{\n    \t\"blocktime\":0,\n    \t\"block-height\":0,\n    \t\"sender\":\"[hex]\",\n    \t\"receiver\":\"[hex]\",\n    \t\"coin\":0,\n    \t\"amount\":1,\n    \t\"status\":\"Pending|Confirmed|Rejected\",\n    \t\"signature\":\"[hex]\"\n    }],\n    \"testnet\": true\n}"
+				}
+			]
+		},
+		{
+			"name": "Balance",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "/update?uuid=[uuid]",
+					"path": [
+						"update"
+					],
+					"query": [
+						{
+							"key": "uuid",
+							"value": "[uuid]",
+							"description": "  The uuid for this account."
+						}
+					]
+				},
+				"description": "Get the current balance of an address in a given coin type."
+			},
+			"response": [
+				{
+					"name": "Balance",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "/update/?uuid=[uuid]",
+							"path": [
+								"update",
+								""
+							],
+							"query": [
+								{
+									"key": "uuid",
+									"value": "[uuid]"
+								}
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"cookie": [],
+					"body": "{\n    \"protocol-version\": 0,\n    \"address\": \"[hex]\",\n    \"coin\":0,\n    \"balance\":0,\n    \"testnet\": true\n}"
+				}
+			]
+		},
+		{
+			"name": "Send-Transaction",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"wallet\": \"[hex]\", \n\t\"to\": \"[hex]\", \n\t\"coin\": 0,\n\t\"amount: \": 0, \n\t\"hex\":\"[hex]\",\n\t\"signature\":\"[hex]\"\n}"
+				},
+				"url": {
+					"raw": "/send_tx",
+					"path": [
+						"send_tx"
+					]
+				},
+				"description": "Send a new transaction to the system."
+			},
+			"response": [
+				{
+					"name": "Send-Transaction",
+					"originalRequest": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"address\": \"[hex]\",\n\t\"hex\":\"[hex]\",\n\t\"signature\":\"[hex]\"\n}"
+						},
+						"url": {
+							"raw": "/send_tx",
+							"path": [
+								"send_tx"
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"cookie": [],
+					"body": "{\n\t\"protocol-version\":0,\n\t\"return-code\":200,\n\t\"message\":\"Success\",\n\t\"target-block\":0,\n\t\"transactions\":[\n\t\t\"[hex1]\",\"[hex2]\"\n\t],\n\t\"testnet\":true\n}"
+				}
+			]
+		},
+		{
+			"name": "Register",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "/register?address=[hex]&user=username&pass=password&fullname=Full User Name&email=email@email.com&phone=1234567890",
+					"path": [
+						"register"
+					],
+					"query": [
+						{
+							"key": "address",
+							"value": "[hex]",
+							"description": "Client generated address"
+						},
+						{
+							"key": "user",
+							"value": "username",
+							"description": "The public name for this user."
+						},
+						{
+							"key": "pass",
+							"value": "password",
+							"description": "This user's password."
+						},
+						{
+							"key": "fullname",
+							"value": "Full User Name",
+							"description": "The user's full name."
+						},
+						{
+							"key": "email",
+							"value": "email@email.com",
+							"description": "The user's email address."
+						},
+						{
+							"key": "phone",
+							"value": "1234567890",
+							"description": "The user's phone number."
+						}
+					]
+				}
+			},
+			"response": [
+				{
+					"name": "Register",
+					"originalRequest": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n\t\"address\":\"[hex]\",\r\n\t\"user\":\"username\",\r\n\t\"pass\":\"password\",\r\n\t\"fullname\":\"Full User Name\",\r\n\t\"email\":\"email@email.com\",\r\n\t\"phone\":1234567890\r\n}"
+						},
+						"url": {
+							"raw": "/register",
+							"path": [
+								"register"
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": null,
+					"cookie": [],
+					"body": "{ \n  \"act\": \"register\", \n  \"addr\": \"0237fc31c3a65029e62041706d08f2109ca26fbdfd3cea5511cdad572b72dc14be\", \n  \"email\": \"email@email.com\", \n  \"fullname\": \"Full User Name\", \n  \"pass\": \"\", \n  \"phone\": 1234567890, \n  \"user\": \"username\", \n  \"uuid\": \"d08f90ce-3622-43e3-8cf7-9c35e47849b3\" \n}"
+				}
+			]
+		},
+		{
+			"name": "Login",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "\\login?user=username&pass=password",
+					"host": [
+						"\\login"
+					],
+					"query": [
+						{
+							"key": "user",
+							"value": "username",
+							"description": "The username to login"
+						},
+						{
+							"key": "pass",
+							"value": "password",
+							"description": "This user's password"
+						}
+					]
+				}
+			},
+			"response": [
+				{
+					"name": "Login",
+					"originalRequest": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"user\":\"username\",\n\t\"pass\":\"salted hash of password\"\n}"
+						},
+						"url": {
+							"raw": "\\login?user=username&pass=password",
+							"host": [
+								"\\login"
+							],
+							"query": [
+								{
+									"key": "user",
+									"value": "username",
+									"description": "The username to login"
+								},
+								{
+									"key": "pass",
+									"value": "password",
+									"description": "This user's password"
+								}
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": null,
+					"cookie": [],
+					"body": "{ \n\t\"act\": \"login\", \n\t\"addr\": \"03434bb2a9e31da9d0b30c8062dd107b872878309d5ace812ce660a9d524a6565b\", \n\t\"balances\": {}, \n\t\"pass\": \"\", \n\t\"user\": \"Fred\", \n\t\"uuid\": \"d08f90ce-3622-43e3-8cf7-9c35e47849b3\" \n}"
+				}
+			]
+		},
+		{
+			"name": "Request Coin",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "/requestCoin?uuid=[uuid]&hex=[hex]",
+					"path": [
+						"requestCoin"
+					],
+					"query": [
+						{
+							"key": "uuid",
+							"value": "[uuid]",
+							"description": "The uuid of the account requesting test coins."
+						},
+						{
+							"key": "hex",
+							"value": "[hex]",
+							"description": "A hex representation of the proposal data for the request_coin oracle."
+						}
+					]
+				}
+			},
+			"response": [
+				{
+					"name": "Request Coin",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "/requestCoin?uuid=[uuid]&hex=[hex]",
+							"path": [
+								"requestCoin"
+							],
+							"query": [
+								{
+									"key": "uuid",
+									"value": "[uuid]",
+									"description": "The uuid of the account requesting test coins."
+								},
+								{
+									"key": "hex",
+									"value": "[hex]",
+									"description": "A hex representation of the proposal data for the request_coin oracle."
+								}
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": null,
+					"cookie": [],
+					"body": "{\t\r\n\t\"act\": \"update\",\r\n\t\"balances\":  { \r\n\t\t\"balance\": 200, \r\n\t\t\"coin\": 0 \r\n\t},\r\n\t\"coin\": 0,\r\n\t\"hex\": \"000000000000000064000000000000002103434bb2a9e31da9d0b30c8062dd107b872878309d5ace812ce660a9d524a6565b\",\r\n\t\"uuid\": \"d08f90ce-3622-43e3-8cf7-9c35e47849b3\"\r\n}"
+				}
+			]
+		},
+		{
+			"name": "Search",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "/search?name=name",
+					"path": [
+						"search"
+					],
+					"query": [
+						{
+							"key": "name",
+							"value": "name",
+							"description": "Search for accounts containing this name."
+						}
+					]
+				}
+			},
+			"response": [
+				{
+					"name": "Search",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "/search?name=name",
+							"path": [
+								"search"
+							],
+							"query": [
+								{
+									"key": "name",
+									"value": "name",
+									"description": "Search for accounts containing this name."
+								}
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": null,
+					"cookie": [],
+					"body": "{\r\n\t\"act\": \"search\",\r\n\t\"name\": \"non\",\r\n\t\"wallets\": {\r\n\t\t\"addr\": \"03A25A226B3CF98E1231C0B91EED4E8E86C92659B4220D667E88233E638255F96B\", \r\n\t\t\"name\": \"noncist\" \r\n\t}\r\n}"
+				}
+			]
+		}
+	]
+}
