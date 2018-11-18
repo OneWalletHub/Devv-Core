@@ -126,11 +126,15 @@ bool KeyRing::LoadWallets(const std::string& file_path, const std::string& file_
 }
 
 EC_KEY* KeyRing::getKey(const Address& addr) const {
+  EC_KEY* eckey = nullptr;
   auto it = key_map_.find(addr);
-  if (it != key_map_.end()) { return it->second; }
-
-  //private key is not stored, so return public key only
-  return LoadPublicKey(addr);
+  if (it != key_map_.end()) {
+    eckey = EC_KEY_dup(it->second);
+  } else {
+    // private key is not stored, so return public key only
+    eckey = LoadPublicKey(addr);
+  }
+  return eckey;
 }
 
 bool KeyRing::isINN(const Address& addr) const {

@@ -75,3 +75,22 @@ message RepeaterResponse {
   string message = 4; 
   bytes raw_response = 5; 
 }
+
+message KeyValuePair {
+  string key = 1;
+  string value = 2;
+}
+
+message ServiceRequest {
+  int64 timestamp = 1;
+  string endpoint = 2; 
+  repeated Devv.proto.KeyValuePair args = 3;
+}
+
+message ServiceResponse { 
+  int64 request_timestamp = 1;
+  string endpoint = 2; 
+  uint32 return_code = 3; 
+  string message = 4; 
+  repeated Devv.proto.KeyValuePair args = 5;
+}

@@ -19,6 +19,14 @@
 #include "primitives/Address.h"
 #include "primitives/Signature.h"
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+inline void EVP_MD_CTX_free(EVP_MD_CTX *ctx)
+{
+  EVP_MD_CTX_cleanup(ctx);
+  OPENSSL_free(ctx);
+}
+#endif
+
 /** Gets the EC_GROUP for normal transactions.
  *  @return a pointer to the EC_GROUP
  */
@@ -68,7 +76,9 @@ static EC_KEY* GenerateEcKey(std::string& publicKey, std::string& pk
     state = EC_KEY_generate_key(eckey);
     if (1 != state) { LOG_ERROR << "Failed to generate EC key."; }
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     OpenSSL_add_all_algorithms();
+#endif
     EVP_PKEY* pkey = EVP_PKEY_new();
     if (!EVP_PKEY_set1_EC_KEY(pkey, eckey)) {
       LOG_ERROR << "Could not export private key";
@@ -94,8 +104,9 @@ static EC_KEY* GenerateEcKey(std::string& publicKey, std::string& pk
       memset(buffer, 0, 1024);
     }
     BIO_free(fOut);
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     EVP_cleanup();
-
+#endif
     const EC_POINT *pubKey = EC_KEY_get0_public_key(eckey);
     publicKey = EC_POINT_point2hex(ecGroup, pubKey, POINT_CONVERSION_COMPRESSED, NULL);
 
@@ -148,7 +159,7 @@ static bool ValidateKey(EC_KEY* key) {
   }
 
   int ret = EC_KEY_check_key(key);
-  //LOG_DEBUG << "ossl version: " << OPENSSL_VERSION_NUMBER;
+  LOG_DEBUG << "OpenSSL version: " << OPENSSL_VERSION_NUMBER;
   if (ret != 1) {
 	auto ossl_ver = OPENSSL_VERSION_NUMBER;
 	auto err = ERR_get_error();
@@ -160,10 +171,10 @@ static bool ValidateKey(EC_KEY* key) {
 	 * code and only throw if it not a private key error.
 	 *
 	 * if ((ossl_ver == 1.0.2) and (err == invalid private key) or
-	 *     (ossl_ver == 1.1.0) and (err == invalid private key))
+	 *     (ossl_ver >= 1.1.0) and (err == invalid private key))
 	 */
 	if ((ossl_ver == 268443775 && err == 269160571) ||
-		(ossl_ver == 269484159 && err == 269492347)) {
+		(ossl_ver >= 269484159 && err == 269492347)) {
 	  // error because private key is not set - ignore
 	  return false;
 	} else {
@@ -260,7 +271,7 @@ static EC_KEY* LoadPublicKey(const Devv::Address& public_key) {
       ec_key = GetNodeKey();
     } else {
       throw std::runtime_error("Invalid public key!");
-	}
+    }
     if (ec_group == nullptr) {
       throw std::runtime_error("Failed to generate EC group.");
     }
@@ -286,11 +297,18 @@ static EC_KEY* LoadPublicKey(const Devv::Address& public_key) {
     if (ec_key == nullptr) { LOG_ERROR << "Invalid public key point."; }
 
     ret = EC_KEY_set_public_key(ec_key, tempPoint);
+
     if (ret != 1) {
       LOG_ERROR << "set_public_key failed";
       std::string err(ERR_error_string(ERR_get_error(),NULL));
+      EC_POINT_free(tempPoint);
+      EC_GROUP_free(ec_group);
+      EC_KEY_free(ec_key);
       throw std::runtime_error("set_public_key failed:"+err);
     }
+
+    EC_POINT_free(tempPoint); // good results
+    EC_GROUP_free(ec_group); // good results
 
     return(ec_key);
 }
@@ -328,16 +346,22 @@ static bool VerifyByteSig(EC_KEY* ecKey, const Devv::Hash& msg
     }
     Devv::Hash temp = msg;
     std::vector<unsigned char> raw_sig(sig.getRawSignature());
-    unsigned char* copy_sig = (unsigned char*) malloc(raw_sig.size()+1);
+    std::vector<unsigned char> copy_sig(raw_sig.size()+1);
     for (size_t i=0; i<raw_sig.size(); ++i) {
       copy_sig[i] = raw_sig[i];
     }
-    ECDSA_SIG *signature = d2i_ECDSA_SIG(NULL
-        , (const unsigned char**) &copy_sig
-        , raw_sig.size());
-    int state = ECDSA_do_verify((const unsigned char*) &temp[0]
-        , SHA256_DIGEST_LENGTH, signature, ecKey);
+    auto p = &copy_sig[0];
 
+    ECDSA_SIG *signature = d2i_ECDSA_SIG(NULL,
+                                         const_cast<const unsigned char**>(&p),
+					 raw_sig.size());
+
+    int state = ECDSA_do_verify((const unsigned char*) &temp[0],
+                                SHA256_DIGEST_LENGTH,
+                                signature,
+                                ecKey);
+    ECDSA_SIG_free(signature);
+    EVP_MD_CTX_free(ctx);
     return(1 == state);
   } catch (const std::exception& e) {
     LOG_WARNING << Devv::FormatException(&e, "Crypto.verifySignature");
@@ -377,6 +401,7 @@ static Devv::Signature SignBinary(EC_KEY* ec_key, const Devv::Hash& msg) {
       len = i2d_ECDSA_SIG(signature, &ptr);
       std::vector<unsigned char> vec_sig(std::begin(a),std::end(a));
       Devv::Signature sig(vec_sig);
+      ECDSA_SIG_free(signature);
       return sig;
     } else { //otherwise 384-bit
       std::array<unsigned char, Devv::kNODE_SIG_SIZE> a;
@@ -385,6 +410,7 @@ static Devv::Signature SignBinary(EC_KEY* ec_key, const Devv::Hash& msg) {
       len = i2d_ECDSA_SIG(signature, &ptr);
       std::vector<unsigned char> vec_sig(std::begin(a),std::end(a));
       Devv::Signature sig(vec_sig);
+      ECDSA_SIG_free(signature);
       return sig;
     }
   } catch (const std::exception& e) {

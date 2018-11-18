@@ -392,11 +392,14 @@ class Tier2Transaction : public Transaction {
         throw std::runtime_error("TransactionError: INN transaction not performed by INN");
       }
 
-      EC_KEY* eckey(keys.getKey(sender));
+      EC_KEY* eckey = keys.getKey(sender);
       std::vector<byte> msg(getMessageDigest());
       Signature sig = getSignature();
 
-      if (!VerifyByteSig(eckey, DevvHash(msg), sig)) {
+      auto verified = VerifyByteSig(eckey, DevvHash(msg), sig);
+      EC_KEY_free(eckey);
+
+      if (!verified) {
         std::string err = "TransactionError: transaction signature did not validate";
         LOG_DEBUG << "Transaction state is: " + getJSON();
         LOG_DEBUG << "Sender addr is: " + sender.getJSON();

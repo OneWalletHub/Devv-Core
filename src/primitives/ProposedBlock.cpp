@@ -25,7 +25,10 @@ bool ProposedBlock::validate(const KeyRing& keys) const {
 
   std::vector<byte> md = summary_.getCanonical();
   for (auto& sig : vals_.getValidationMap()) {
-    if (!VerifyByteSig(keys.getKey(sig.first), DevvHash(md), sig.second)) {
+    EC_KEY* eckey = keys.getKey(sig.first);
+    auto verified = VerifyByteSig(eckey, DevvHash(md), sig.second);
+    EC_KEY_free(eckey);
+    if (!verified) {
       LOG_WARNING << "Invalid block signature";
       LOG_DEBUG << "Block state: " + GetJSON(*this);
       LOG_DEBUG << "Block Node Addr: " + sig.first.getJSON();

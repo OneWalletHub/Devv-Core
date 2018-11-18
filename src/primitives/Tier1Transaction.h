@@ -199,7 +199,7 @@ class Tier1Transaction : public Transaction {
     if (is_sound_) { return (is_sound_); }
 
     Address node_addr = getNodeAddress();
-    EC_KEY* eckey(keys.getKey(node_addr));
+    EC_KEY* eckey = keys.getKey(node_addr);
     std::vector<byte> msg(getMessageDigest());
     Signature sig = getSignature();
 

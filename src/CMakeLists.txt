@@ -146,6 +146,7 @@ endif()
 
 # Find OpenSSL and setup variables
 find_package (OpenSSL REQUIRED)
+include_directories(${OPENSSL_INCLUDE_DIR})
 
 # Find thread library and setup variables
 find_package(Threads REQUIRED)

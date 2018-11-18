@@ -64,7 +64,7 @@ public:
  *  @param the address to check
  *  @return the number of this type of coins at this address
 */
-  long getAmount(uint64_t type, const Address& addr) const;
+  int64_t getAmount(uint64_t type, const Address& addr) const;
 
 /** Get the map describing this chain state
  *  @return the map describing this chain state
