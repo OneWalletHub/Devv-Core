@@ -284,17 +284,11 @@ void handle_old_tx(pqxx::nontransaction& stmt, int shard, unsigned int chain_hei
   } //endif recent result not empty
 }
 
-bool updateDatabase(const BlockchainPtr& chain, size_t height
-    , pqxx::nontransaction& stmt, size_t shard_index, const ChainState& prior
-    , eAppMode mode) {
+bool updateDatabase(const FinalBlock& top_block, ChainState& state, size_t height, size_t shard_index
+    , pqxx::nontransaction& stmt) {
   try {
-    InputBuffer buffer(chain->raw_at(height));
-    KeyRing keys;
-
-    FinalBlock one_block(buffer, prior, keys, mode);
-    uint64_t blocktime = one_block.getBlockTime();
-    std::vector<TransactionPtr> txs = one_block.CopyTransactions();
-    ChainState state = chain->getHighestChainState();
+    uint64_t blocktime = top_block.getBlockTime();
+    std::vector<TransactionPtr> txs = top_block.CopyTransactions();
 
     for (TransactionPtr& one_tx : txs) {
       LOG_INFO << "Begin processing transaction.";
@@ -528,8 +522,8 @@ int main(int argc, char* argv[]) {
           if (db_connected) {
             pqxx::nontransaction stmt(*db_link);
             size_t height = chain->size();
-            new boost::thread(updateDatabase, chain, height, boost::ref(stmt), options->shard_index
-              , prior, options->mode);
+            auto chain_state = chain->getHighestChainState();
+            new boost::thread(updateDatabase, *top_block, chain_state, height, options->shard_index, boost::ref(stmt));
             //only clean once per round to avoid a race with the updater
             //pending txs get 6 blocks to be confirmed before they are rejected
             //@TODO (nick@devv.io) - base this on the number of validator peers
