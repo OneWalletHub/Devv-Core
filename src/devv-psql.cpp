@@ -521,23 +521,23 @@ int main(int argc, char* argv[]) {
     peer_listener->attachCallback([&](DevvMessageUniquePtr p) {
       if (p->message_type == eMessageType::FINAL_BLOCK) {
         try {
-          ChainState prior = chain.getHighestChainState();
+          ChainState prior = chain->getHighestChainState();
           InputBuffer buffer(p->data);
           FinalPtr top_block = std::make_shared<FinalBlock>(FinalBlock::Create(buffer, prior));
-          chain.push_back(top_block);
+          chain->push_back(top_block);
           if (db_connected) {
             pqxx::nontransaction stmt(*db_link);
             size_t height = chain->size();
-            new boost::thread(updateDatabase, chain, height, boost::cref(stmt), options->shard_index
+            new boost::thread(updateDatabase, chain, height, boost::ref(stmt), options->shard_index
               , prior, options->mode);
             //only clean once per round to avoid a race with the updater
             //pending txs get 6 blocks to be confirmed before they are rejected
             //@TODO (nick@devv.io) - base this on the number of validator peers
             if (height % 3 == 1) {
               LOG_DEBUG << "Clean old pending transactions.";
-			  pqxx::nontransaction clean_stmt(*db_link);
-			  new boost::thread(handle_old_tx, boost::cref(clean_stmt), options->shard_index
-			    , height, top_block.getBlockTime());
+              pqxx::nontransaction clean_stmt(*db_link);
+              new boost::thread(handle_old_tx, boost::ref(clean_stmt)
+                , options->shard_index, height, top_block->getBlockTime());
             }
 		  }
 	    } catch (const std::exception& e) {
