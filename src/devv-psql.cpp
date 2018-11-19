@@ -510,6 +510,7 @@ int main(int argc, char* argv[]) {
 
     //@todo(nick@devv.io): read pre-existing chain
     BlockchainPtr chain = std::make_shared<Blockchain>(shard_name);
+    KeyRing keys;
 
     auto peer_listener = io::CreateTransactionClient(options->host_vector, zmq_context);
     peer_listener->attachCallback([&](DevvMessageUniquePtr p) {
@@ -517,7 +518,7 @@ int main(int argc, char* argv[]) {
         try {
           ChainState prior = chain->getHighestChainState();
           InputBuffer buffer(p->data);
-          FinalPtr top_block = std::make_shared<FinalBlock>(FinalBlock::Create(buffer, prior));
+          FinalPtr top_block = std::make_shared<FinalBlock>(buffer, prior, keys, options->mode);
           chain->push_back(top_block);
           if (db_connected) {
             pqxx::nontransaction stmt(*db_link);
