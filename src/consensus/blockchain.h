@@ -165,4 +165,6 @@ private:
   uint64_t genesis_time_;
 };
 
+typedef std::shared_ptr<Blockchain> BlockchainPtr;
+
 } // namespace Devv

@@ -284,22 +284,24 @@ void handle_old_tx(pqxx::nontransaction& stmt, int shard, unsigned int chain_hei
   } //endif recent result not empty
 }
 
-bool updateDatabase(const Blockchain& chain, size_t height
-    , pqxx::nontransaction& stmt, size_t shard_index) {
+bool updateDatabase(const BlockchainPtr& chain, size_t height
+    , pqxx::nontransaction& stmt, size_t shard_index, const ChainState& prior
+    , eAppMode mode) {
   try {
-    InputBuffer buffer(chain.raw_at(height));
+    InputBuffer buffer(chain->raw_at(height));
     KeyRing keys;
-    FinalBlock one_block(buffer, state, keys, options->mode);
+
+    FinalBlock one_block(buffer, prior, keys, mode);
     uint64_t blocktime = one_block.getBlockTime();
     std::vector<TransactionPtr> txs = one_block.CopyTransactions();
-    ChainState state = chain.getHighestChainState();
+    ChainState state = chain->getHighestChainState();
 
     for (TransactionPtr& one_tx : txs) {
       LOG_INFO << "Begin processing transaction.";
       std::string sig_hex = one_tx->getSignature().getJSON();
       if (one_tx->getSignature().isNodeSignature()) {
         LOG_DEBUG << "one_tx->getSignature().isNodeSignature(): calling handle_inn_tx()";
-        handle_inn_tx(stmt, options->shard_index, chain_height, blocktime, state);
+        handle_inn_tx(stmt, shard_index, height, blocktime, state);
         continue;
       }
       try {
@@ -513,26 +515,28 @@ int main(int argc, char* argv[]) {
     }
 
     //@todo(nick@devv.io): read pre-existing chain
-    Blockchain chain(options->shard_name);
+    BlockchainPtr chain = std::make_shared<Blockchain>(shard_name);
 
     auto peer_listener = io::CreateTransactionClient(options->host_vector, zmq_context);
     peer_listener->attachCallback([&](DevvMessageUniquePtr p) {
       if (p->message_type == eMessageType::FINAL_BLOCK) {
         try {
+          ChainState prior = chain.getHighestChainState();
           InputBuffer buffer(p->data);
-          FinalPtr top_block = std::make_shared<FinalBlock>(FinalBlock::Create(buffer, state));
+          FinalPtr top_block = std::make_shared<FinalBlock>(FinalBlock::Create(buffer, prior));
           chain.push_back(top_block);
           if (db_connected) {
             pqxx::nontransaction stmt(*db_link);
-            size_t height = chain.size();
-            new boost::thread(updateDatabase, chain, height, stmt, options->shard_index);
+            size_t height = chain->size();
+            new boost::thread(updateDatabase, chain, height, boost::cref(stmt), options->shard_index
+              , prior, options->mode);
             //only clean once per round to avoid a race with the updater
             //pending txs get 6 blocks to be confirmed before they are rejected
             //@TODO (nick@devv.io) - base this on the number of validator peers
             if (height % 3 == 1) {
               LOG_DEBUG << "Clean old pending transactions.";
 			  pqxx::nontransaction clean_stmt(*db_link);
-			  new boost::thread(handle_old_tx, clean_stmt, options->shard_index
+			  new boost::thread(handle_old_tx, boost::cref(clean_stmt), options->shard_index
 			    , height, top_block.getBlockTime());
             }
 		  }
