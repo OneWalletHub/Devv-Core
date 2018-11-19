@@ -112,7 +112,7 @@ int main(int argc, char* argv[]) {
 
     std::string shard_name = "Shard-"+std::to_string(options->shard_index);
 
-    //@todo(nick@cloudsolar.co): read pre-existing chain
+    //@todo(nick@devv.io): read pre-existing chain
     Blockchain chain(options->shard_name);
     ChainState state;
 
@@ -151,7 +151,7 @@ int main(int argc, char* argv[]) {
     });
     peer_listener->listenTo(this_context.get_shard_uri());
     peer_listener->startClient();
-    LOG_INFO << "Repeater is listening to shard: "+this_context.get_shard_uri();
+    LOG_INFO << "Devv-query is listening to shard: "+this_context.get_shard_uri();
 
     zmq::context_t context(1);
     zmq::socket_t socket (context, ZMQ_REP);
