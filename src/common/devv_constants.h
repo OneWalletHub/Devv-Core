@@ -8,6 +8,8 @@
 #include <cstdlib>
 #include <string>
 
+#include "common/devv_types.h"
+
 namespace Devv {
 
 static const unsigned int kDEFAULT_WORKERS = 8;
