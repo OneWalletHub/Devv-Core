@@ -16,6 +16,8 @@
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/thread/thread.hpp>
+#include <boost/asio.hpp>
+
 #include <pqxx/pqxx>
 #include <pqxx/nontransaction>
 
@@ -164,7 +166,7 @@ int64_t update_balance(pqxx::nontransaction& stmt, std::string hex_addr
     }
   } catch (const pqxx::pqxx_exception& e) {
     LOG_ERROR << e.base().what() << std::endl;
-    const pqxx::sql_error* s = dynamic_cast<const pqxx::sql_error*>(&e.base());
+    auto s = dynamic_cast<const pqxx::sql_error*>(&e.base());
     if (s) LOG_ERROR << "Query was: " << s->query() << std::endl;
     throw;
   } catch (const std::exception& e) {
@@ -188,7 +190,7 @@ int64_t update_balance(pqxx::nontransaction& stmt, std::string hex_addr
     }
   } catch (const pqxx::pqxx_exception& e) {
     LOG_ERROR << e.base().what() << std::endl;
-    const pqxx::sql_error* s = dynamic_cast<const pqxx::sql_error*>(&e.base());
+    auto s = dynamic_cast<const pqxx::sql_error*>(&e.base());
     if (s) LOG_ERROR << "Query was: " << s->query() << std::endl;
     throw;
   } catch (const std::exception& e) {
@@ -203,7 +205,7 @@ int64_t update_balance(pqxx::nontransaction& stmt, std::string hex_addr
   return new_balance;
 }
 
-void handle_inn_tx(pqxx::nontransaction& stmt, int shard
+void handle_inn_tx(pqxx::nontransaction& stmt, size_t shard
     , unsigned int chain_height, uint64_t blocktime, const ChainState& state) {
   pqxx::result inn_result = stmt.prepared(kSELECT_PENDING_INN).exec();
   LOG_DEBUG << "SELECT_PENDING_INN returned (" << inn_result.size() << ") transactions";
@@ -237,7 +239,7 @@ void handle_inn_tx(pqxx::nontransaction& stmt, int shard
         stmt.exec("commit;");
       } catch (const pqxx::pqxx_exception& e) {
         LOG_ERROR << e.base().what() << std::endl;
-        const pqxx::sql_error* s = dynamic_cast<const pqxx::sql_error*>(&e.base());
+        auto s = dynamic_cast<const pqxx::sql_error*>(&e.base());
         if (s) LOG_ERROR << "Query was: " << s->query() << std::endl;
       } catch (const std::exception& e) {
         LOG_WARNING << FormatException(&e, "Exception selecting wallet");
@@ -261,7 +263,7 @@ void handle_old_tx(pqxx::nontransaction& stmt, int shard, unsigned int chain_hei
         stmt.prepared(kDELETE_PENDING_TX)(old_uuid).exec();
       } catch (const pqxx::pqxx_exception& e) {
         LOG_ERROR << e.base().what() << std::endl;
-        const pqxx::sql_error* s = dynamic_cast<const pqxx::sql_error*>(&e.base());
+        auto s = dynamic_cast<const pqxx::sql_error*>(&e.base());
         if (s) LOG_ERROR << "Query was: " << s->query() << std::endl;
       } catch (const std::exception& e) {
         LOG_WARNING << FormatException(&e, "Exception selecting wallet");
@@ -275,7 +277,7 @@ void handle_old_tx(pqxx::nontransaction& stmt, int shard, unsigned int chain_hei
         stmt.prepared(kMARK_OLD_PENDING)(recent_uuid).exec();
       } catch (const pqxx::pqxx_exception& e) {
         LOG_ERROR << e.base().what() << std::endl;
-        const pqxx::sql_error* s = dynamic_cast<const pqxx::sql_error*>(&e.base());
+        auto s = dynamic_cast<const pqxx::sql_error*>(&e.base());
         if (s) LOG_ERROR << "Query was: " << s->query() << std::endl;
       } catch (const std::exception& e) {
         LOG_WARNING << FormatException(&e, "Exception selecting wallet");
@@ -284,18 +286,18 @@ void handle_old_tx(pqxx::nontransaction& stmt, int shard, unsigned int chain_hei
   } //endif recent result not empty
 }
 
-bool updateDatabase(const FinalBlock& top_block, ChainState& state, size_t height, size_t shard_index
-    , pqxx::nontransaction& stmt) {
+bool updateDatabase(const FinalPtr top_block, ChainState& state, size_t height, size_t shard_index
+    , std::shared_ptr<pqxx::nontransaction> stmt) {
   try {
-    uint64_t blocktime = top_block.getBlockTime();
-    std::vector<TransactionPtr> txs = top_block.CopyTransactions();
+    uint64_t blocktime = top_block->getBlockTime();
+    std::vector<TransactionPtr> txs = top_block->CopyTransactions();
 
     for (TransactionPtr& one_tx : txs) {
       LOG_INFO << "Begin processing transaction.";
       std::string sig_hex = one_tx->getSignature().getJSON();
       if (one_tx->getSignature().isNodeSignature()) {
         LOG_DEBUG << "one_tx->getSignature().isNodeSignature(): calling handle_inn_tx()";
-        handle_inn_tx(stmt, shard_index, height, blocktime, state);
+        handle_inn_tx(*stmt, shard_index, height, blocktime, state);
         continue;
       }
       try {
@@ -317,17 +319,17 @@ bool updateDatabase(const FinalBlock& top_block, ChainState& state, size_t heigh
         } //end sender search loop
 
         LOG_INFO << "Updating sender balance.";
-        update_balance(stmt, sender_hex, height, coin_id, send_amount, shard_index, state);
+        update_balance(*stmt, sender_hex, height, coin_id, send_amount, shard_index, state);
         LOG_INFO << "Updated sender balance.";
 
         //copy transfers
         pqxx::result pending_result;
         try {
-          pending_result = stmt.prepared(kSELECT_PENDING_TX)(sig_hex).exec();
+          pending_result = stmt->prepared(kSELECT_PENDING_TX)(sig_hex).exec();
           LOG_DEBUG << LOG_RESULT(pending_result);
         } catch (const pqxx::pqxx_exception &e) {
           LOG_ERROR << e.base().what() << std::endl;
-          const pqxx::sql_error *s=dynamic_cast<const pqxx::sql_error*>(&e.base());
+          auto s = dynamic_cast<const pqxx::sql_error*>(&e.base());
           if (s) LOG_ERROR << "Query was: " << s->query() << std::endl;
         } catch (const std::exception& e) {
           LOG_WARNING << FormatException(&e, "Exception updating database for transfer, no rollback: "+sig_hex);
@@ -340,7 +342,7 @@ bool updateDatabase(const FinalBlock& top_block, ChainState& state, size_t heigh
         if (!pending_result.empty()) {
           LOG_INFO << "Pending transaction exists.";
           auto pending_tx_id = pending_result[0][0].as<std::string>();
-          stmt.prepared(kTX_CONFIRM)(shard_index)(height)(blocktime)(sig_hex)(pending_tx_id).exec();
+          stmt->prepared(kTX_CONFIRM)(shard_index)(height)(blocktime)(sig_hex)(pending_tx_id).exec();
           for (TransferPtr& one_xfer : xfers) {
             int64_t rcv_amount = one_xfer->getAmount();
             if (rcv_amount < 0) continue;
@@ -349,15 +351,15 @@ bool updateDatabase(const FinalBlock& top_block, ChainState& state, size_t heigh
             try {
               LOG_INFO << "Begin processing transfer.";
               LOG_INFO << "Updating receiver balance.";
-              update_balance(stmt, rcv_addr, height, rcv_coin_id, rcv_amount, shard_index, state);
+              update_balance(*stmt, rcv_addr, height, rcv_coin_id, rcv_amount, shard_index, state);
               LOG_INFO << "Update receiver balance.";
-              pqxx::result rx_result = stmt.prepared(kSELECT_PENDING_RX)(sig_hex)(pending_tx_id).exec();
+              pqxx::result rx_result = stmt->prepared(kSELECT_PENDING_RX)(sig_hex)(pending_tx_id).exec();
               if (!rx_result.empty()) {
                 std::string pending_rx_id = rx_result[0][0].as<std::string>();
                 LOG_INFO << "Insert rx row.";
-                stmt.prepared(kRX_CONFIRM)(shard_index)(height)(blocktime)(pending_rx_id).exec();
+                stmt->prepared(kRX_CONFIRM)(shard_index)(height)(blocktime)(pending_rx_id).exec();
                 LOG_INFO << "Deleting pending_rx with pending_rx_id : " << pending_rx_id;
-                stmt.prepared(kDELETE_PENDING_RX)(pending_rx_id).exec();
+                stmt->prepared(kDELETE_PENDING_RX)(pending_rx_id).exec();
               } else {
                 LOG_WARNING << "Pending tx missing corresponding rx '"+sig_hex+"'!";
               }
@@ -372,15 +374,15 @@ bool updateDatabase(const FinalBlock& top_block, ChainState& state, size_t heigh
 
           } // end rx copy loop
           LOG_INFO << "Deleting pending_tx with pending_tx_id : " << pending_tx_id;
-          stmt.prepared(kDELETE_PENDING_TX)(pending_tx_id).exec();
-          stmt.exec("commit;");
+          stmt->prepared(kDELETE_PENDING_TX)(pending_tx_id).exec();
+          stmt->exec("commit;");
         } else { //no pending exists, so create new transaction
           LOG_INFO << "Pending transaction does not exist.";
-          pqxx::result uuid_result = stmt.prepared(kSELECT_UUID).exec();
+          pqxx::result uuid_result = stmt->prepared(kSELECT_UUID).exec();
           if (!uuid_result.empty()) {
             LOG_INFO << "!uuid_result.empty()";
             std::string tx_uuid = uuid_result[0][0].as<std::string>();
-            stmt.prepared(kTX_INSERT)(tx_uuid)(shard_index)(height)(blocktime)(coin_id)(send_amount)(sender_hex).exec();
+            stmt->prepared(kTX_INSERT)(tx_uuid)(shard_index)(height)(blocktime)(coin_id)(send_amount)(sender_hex).exec();
             for (TransferPtr& one_xfer : xfers) {
               //only do receivers
               int64_t rcv_amount = one_xfer->getAmount();
@@ -394,7 +396,7 @@ bool updateDatabase(const FinalBlock& top_block, ChainState& state, size_t heigh
                 //update receiver balance
                 LOG_INFO << "Update receiver balance.";
                 try {
-                  update_balance(stmt, rcv_addr, height, rcv_coin_id, rcv_amount, shard_index, state);
+                  update_balance(*stmt, rcv_addr, height, rcv_coin_id, rcv_amount, shard_index, state);
                 } catch (const pqxx::pqxx_exception& e) {
                   LOG_ERROR << e.base().what() << std::endl;
                 } catch (const std::exception& e) {
@@ -404,7 +406,7 @@ bool updateDatabase(const FinalBlock& top_block, ChainState& state, size_t heigh
                 }
 
                 LOG_INFO << "Insert rx row.";
-                stmt.prepared(kRX_INSERT)(shard_index)(height)(blocktime)(rcv_coin_id)(rcv_amount)(delay)(tx_uuid)(sender_hex)(rcv_addr).exec();
+                stmt->prepared(kRX_INSERT)(shard_index)(height)(blocktime)(rcv_coin_id)(rcv_amount)(delay)(tx_uuid)(sender_hex)(rcv_addr).exec();
 
                 LOG_INFO << "Transfer committed.";
               } catch (const std::exception& e) {
@@ -420,7 +422,7 @@ bool updateDatabase(const FinalBlock& top_block, ChainState& state, size_t heigh
         }
       } catch (const pqxx::pqxx_exception &e) {
         LOG_ERROR << e.base().what() << std::endl;
-        const pqxx::sql_error *s=dynamic_cast<const pqxx::sql_error*>(&e.base());
+        auto s = dynamic_cast<const pqxx::sql_error*>(&e.base());
         if (s) LOG_ERROR << "Query was: " << s->query() << std::endl;
       } catch (const std::exception& e) {
         LOG_WARNING << FormatException(&e, "Exception updating database for transfer, no rollback: "+sig_hex);
@@ -518,13 +520,17 @@ int main(int argc, char* argv[]) {
         try {
           ChainState prior = chain->getHighestChainState();
           InputBuffer buffer(p->data);
-          FinalPtr top_block = std::make_shared<FinalBlock>(buffer, prior, keys, options->mode);
+          auto top_block = std::make_shared<FinalBlock>(buffer, prior, keys, options->mode);
           chain->push_back(top_block);
           if (db_connected) {
-            pqxx::nontransaction stmt(*db_link);
+            auto stmt_ptr = std::make_shared<pqxx::nontransaction>(*db_link);
             size_t height = chain->size();
             auto chain_state = chain->getHighestChainState();
-            new boost::thread(updateDatabase, *top_block, chain_state, height, options->shard_index, boost::ref(stmt));
+//            auto lambda = [&]() {
+//              updateDatabase(*top_block, chain_state, height, options->shard_index, boost::ref(stmt));
+//            };
+            new boost::thread(updateDatabase, top_block, chain_state, height,
+                              options->shard_index, stmt_ptr);
             //only clean once per round to avoid a race with the updater
             //pending txs get 6 blocks to be confirmed before they are rejected
             //@TODO (nick@devv.io) - base this on the number of validator peers
@@ -534,7 +540,9 @@ int main(int argc, char* argv[]) {
               new boost::thread(handle_old_tx, boost::ref(clean_stmt)
                 , options->shard_index, height, top_block->getBlockTime());
             }
-		  }
+		  } else {
+            LOG_ERROR << "Error: database is not connected";
+          }
 	    } catch (const std::exception& e) {
           std::exception_ptr p = std::current_exception();
           std::string err("");
