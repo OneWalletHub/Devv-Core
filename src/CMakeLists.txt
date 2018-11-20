@@ -1,7 +1,18 @@
 cmake_minimum_required(VERSION 2.8.2 FATAL_ERROR)
 set(CMAKE_LEGACY_CYGWIN_WIN32 0)
+option(WITH_JAVA_SUPPORT "Enable the java build" OFF)
 
-project("Devv" C CXX)
+if(WITH_JAVA_SUPPORT)
+  add_definitions(-DUSE_FEATURE_A)
+  project("DevvJava" C CXX)
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+  #Include JNI
+  include_directories(${JAVA_HOME}/include)
+  include_directories(${JAVA_HOME}/include/linux)
+else()
+  project("Devv" C CXX)
+endif()
 
 set (CMAKE_CXX_STANDARD 14)
 set (CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -46,6 +57,10 @@ include_directories(${PROTOBUF_INCLUDE_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS pbuf/devv.proto)
 protobuf_generate_python(PROTO_PY pbuf/devv.proto)
+
+if(WITH_JAVA_SUPPORT)
+    EXEC_PROGRAM(${PROTOBUF_PROTOC_EXECUTABLE} ARGS --proto_path ${CMAKE_CURRENT_SOURCE_DIR} --java_out ${CMAKE_CURRENT_SOURCE_DIR} pbuf/devv.proto)
+endif()
 
 # Dummy target that triggers python protobuf generation
 add_custom_target(myTarget ALL DEPENDS ${PROTO_PY})
@@ -176,6 +191,23 @@ add_executable(devv-validator devv-validator.cpp)
 target_link_libraries (devv-validator ${devv_all_libs})
 target_include_directories(devv-validator PRIVATE ${dcInclude})
 install (TARGETS devv-validator DESTINATION bin)
+
+#
+# JNI Library
+#
+if(WITH_JAVA_SUPPORT)
+    # Uncomment the next line if you want to regenerate the jni-based header files.
+    # EXEC_PROGRAM(javah -classpath ${CMAKE_CURRENT_SOURCE_DIR} -d ${CMAKE_CURRENT_SOURCE_DIR}/jni jni.devv.java)
+    file(GLOB devvjni_SRC
+        "jni/*.cpp"
+    )
+    add_library(devvjni SHARED
+      ${devvjni_SRC}
+      ${dcInclude}
+    )
+    install (TARGETS devvjni DESTINATION lib)
+    target_link_libraries(devvjni ${devv_all_libs})
+endif()
 
 #
 # devv-scanner

@@ -4,11 +4,11 @@
  * @copywrite  2018 Devvio Inc
  */
 
-#include "io_devv_test_DevvTestMain.h"
+#include "jni_devv_test_DevvTestMain.h"
 #include "devv.pb.h"
 #include "pbuf/devv_pbuf.h"
 
-JNIEXPORT jbyteArray JNICALL Java_io_devv_test_DevvTestMain_SignTransaction
+JNIEXPORT jbyteArray JNICALL Java_jni_devv_test_DevvTestMain_SignTransaction
   (JNIEnv* env, jobject obj, jbyteArray proto_tx
   , jstring password, jbyteArray private_key) {
 
@@ -19,7 +19,7 @@ JNIEXPORT jbyteArray JNICALL Java_io_devv_test_DevvTestMain_SignTransaction
     for (int i=0; i<tx_pbuf_len; i++) {
       pbuf_str.push_back(tx_pbuf_body[i]);
     }
-    Devv::proto::Transaction tx_in;
+    devv::proto::Transaction tx_in;
     tx_in.ParseFromString(pbuf_str);
 
     const char *pass_ptr= env->GetStringUTFChars(password, &do_copy);
@@ -32,18 +32,20 @@ JNIEXPORT jbyteArray JNICALL Java_io_devv_test_DevvTestMain_SignTransaction
       key_str.push_back(key_pbuf_body[i]);
     }
 
-    Tier2TransactionPtr t2tx_ptr = CreateTransaction(tx_in, key_str, pass);
-    Devv::proto::Transaction tx_out;
-    for (const TransferPtr& xfer_ptr : t2tx_ptr->getTransfers()) {
-      Devv::proto::Transfer* xfer = tx_out.add_xfers();
-      xfer->set_address(Bin2Str(xfer_ptr->getAddress().getCanonical()));
+    Devv::Tier2TransactionPtr t2tx_ptr = Devv::CreateTransaction(tx_in, key_str, pass);
+    devv::proto::Transaction tx_out;
+
+    for (const Devv::TransferPtr& xfer_ptr : t2tx_ptr->getTransfers()) {
+      devv::proto::Transfer* xfer = tx_out.add_xfers();
+      xfer->set_address(Devv::Bin2Str(xfer_ptr->getAddress().getCanonical()));
       xfer->set_coin(xfer_ptr->getCoin());
       xfer->set_amount(xfer_ptr->getAmount());
       xfer->set_delay(xfer_ptr->getDelay());
     }
-    tx_out.set_nonce(Bin2Str(t2tx_ptr->getNonce()));
-    tx_out.set_sig(Bin2Str(t2tx_ptr->getSignature().getCanonical()));
-    tx_out.set_operation((Devv::proto::eOpType) t2tx_ptr->getOperation());
+
+    tx_out.set_nonce(Devv::Bin2Str(t2tx_ptr->getNonce()));
+    tx_out.set_sig(Devv::Bin2Str(t2tx_ptr->getSignature().getCanonical()));
+    tx_out.set_operation((devv::proto::eOpType) t2tx_ptr->getOperation());
 
     size_t final_tx_len = tx_out.ByteSizeLong();
     void* buffer = malloc(final_tx_len);
@@ -58,7 +60,7 @@ JNIEXPORT jbyteArray JNICALL Java_io_devv_test_DevvTestMain_SignTransaction
     return ret;
   }
 
-JNIEXPORT jbyteArray JNICALL Java_io_devv_test_DevvTestMain_CreateProposal
+JNIEXPORT jbyteArray JNICALL Java_jni_devv_test_DevvTestMain_CreateProposal
   (JNIEnv* env, jobject obj, jstring oracle_name, jbyteArray proto_proposal
   , jstring address, jstring password, jbyteArray private_key) {
 
@@ -73,7 +75,7 @@ JNIEXPORT jbyteArray JNICALL Java_io_devv_test_DevvTestMain_CreateProposal
     for (int i=0; i<prop_pbuf_len; i++) {
       pbuf_str.push_back(prop_pbuf_body[i]);
     }
-    Devv::proto::Proposal prop_in;
+    devv::proto::Proposal prop_in;
     prop_in.set_oraclename(oracle);
     prop_in.set_data(pbuf_str);
 
@@ -90,7 +92,7 @@ JNIEXPORT jbyteArray JNICALL Java_io_devv_test_DevvTestMain_CreateProposal
       key_str.push_back(key_pbuf_body[i]);
     }
 
-    Devv::proto::Proposal prop_out;
+    devv::proto::Proposal prop_out;
     prop_out.set_oraclename(oracle);
     prop_out.set_data(pbuf_str);
 
