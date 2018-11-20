@@ -286,9 +286,74 @@ void handle_old_tx(pqxx::nontransaction& stmt, int shard, unsigned int chain_hei
   } //endif recent result not empty
 }
 
-bool updateDatabase(const FinalPtr top_block, ChainState& state, size_t height, size_t shard_index
-    , std::shared_ptr<pqxx::nontransaction> stmt) {
+std::unique_ptr<pqxx::connection>
+    getDatabaseConnection(std::shared_ptr<struct psql_options> options) {
+
+  std::unique_ptr<pqxx::connection> db_link = nullptr;
+  if ((!options->db_host.empty() || !options->db_ip.empty()) && !options->db_user.empty()) {
+    std::string db_params("dbname = "+options->db_name +
+        " user = "+options->db_user+
+        " password = "+options->db_pass);
+    if (!options->db_host.empty()) {
+      db_params += " host = "+options->db_host;
+    } else if (!options->db_ip.empty()) {
+      db_params += " hostaddr = "+options->db_ip;
+    } else {
+      LOG_FATAL << "Database hostname or IP is required!";
+      throw std::runtime_error("Database hostname or IP is required!");
+    }
+    db_params += " port = "+std::to_string(options->db_port);
+    LOG_NOTICE << "Using db connection params: "+db_params;
+    try {
+      //throws an exception if the connection failes
+      db_link = std::make_unique<pqxx::connection>(db_params);
+    } catch (const std::exception& e) {
+      LOG_FATAL << FormatException(&e, "Database connection failed: "
+        + db_params);
+      throw;
+    }
+    //comments in pqxx say to resist the urge to immediately call
+    //db_link->is_open(), if there was no exception above the
+    //connection should be established
+    LOG_INFO << "Successfully connected to database.";
+    db_connected = true;
+    db_link->prepare(kSELECT_UUID, kSELECT_UUID_STATEMENT);
+    db_link->prepare(kSELECT_PENDING_TX, kSELECT_PENDING_TX_STATEMENT);
+    db_link->prepare(kSELECT_PENDING_RX, kSELECT_PENDING_RX_STATEMENT);
+    db_link->prepare(kSELECT_PENDING_INN, kSELECT_PENDING_INN_STATEMENT);
+    db_link->prepare(kSELECT_ADDR, kSELECT_ADDR_STATEMENT);
+    db_link->prepare(kSELECT_OLD_PENDING, kSELECT_OLD_PENDING_STATEMENT);
+    db_link->prepare(kTX_SELECT, kTX_SELECT_STATEMENT);
+    db_link->prepare(kTX_INSERT, kTX_INSERT_STATEMENT);
+    db_link->prepare(kTX_CONFIRM, kTX_CONFIRM_STATEMENT);
+    db_link->prepare(kRX_INSERT, kRX_INSERT_STATEMENT);
+    db_link->prepare(kRX_INSERT_COMMENT, kRX_INSERT_COMMENT_STATEMENT);
+    db_link->prepare(kRX_CONFIRM, kRX_CONFIRM_STATEMENT);
+    db_link->prepare(kSELECT_WALLET, kSELECT_WALLET_STATEMENT);
+    db_link->prepare(kSELECT_BALANCE, kSELECT_BALANCE_STATEMENT);
+    db_link->prepare(kINSERT_BALANCE, kINSERT_BALANCE_STATEMENT);
+    db_link->prepare(kUPDATE_BALANCE, kUPDATE_BALANCE_STATEMENT);
+    db_link->prepare(kDELETE_PENDING_TX, kDELETE_PENDING_TX_STATEMENT);
+    db_link->prepare(kDELETE_PENDING_RX, kDELETE_PENDING_RX_STATEMENT);
+    db_link->prepare(kDELETE_PENDING_RX_BY_TX, kDELETE_PENDING_RX_BY_TX_STATEMENT);
+    db_link->prepare(kMARK_OLD_PENDING, kMARK_OLD_PENDING_STATEMENT);
+    db_link->prepare(kSELECT_RECENT_PENDING, kSELECT_RECENT_PENDING_STATEMENT);
+    db_link->prepare(kTX_REJECT, kTX_REJECT_STATEMENT);
+  } else {
+    LOG_FATAL << "Database host and user not set!";
+  }
+  return db_link;
+}
+
+bool updateDatabase(const FinalPtr top_block, ChainState& state, size_t height
+    , std::shared_ptr<struct psql_options> options) {
   try {
+    bool db_connected = false;
+    auto db_link = getDatabaseConnection(options);
+    if (db_link == nullptr) return false;
+    db_connected = true;
+    pqxx::nontransaction stmt(*db_link);
+
     uint64_t blocktime = top_block->getBlockTime();
     std::vector<TransactionPtr> txs = top_block->CopyTransactions();
 
@@ -297,7 +362,7 @@ bool updateDatabase(const FinalPtr top_block, ChainState& state, size_t height, 
       std::string sig_hex = one_tx->getSignature().getJSON();
       if (one_tx->getSignature().isNodeSignature()) {
         LOG_DEBUG << "one_tx->getSignature().isNodeSignature(): calling handle_inn_tx()";
-        handle_inn_tx(*stmt, shard_index, height, blocktime, state);
+        handle_inn_tx(stmt, options->shard_index, height, blocktime, state);
         continue;
       }
       try {
@@ -319,13 +384,13 @@ bool updateDatabase(const FinalPtr top_block, ChainState& state, size_t height, 
         } //end sender search loop
 
         LOG_INFO << "Updating sender balance.";
-        update_balance(*stmt, sender_hex, height, coin_id, send_amount, shard_index, state);
+        update_balance(stmt, sender_hex, height, coin_id, send_amount, options->shard_index, state);
         LOG_INFO << "Updated sender balance.";
 
         //copy transfers
         pqxx::result pending_result;
         try {
-          pending_result = stmt->prepared(kSELECT_PENDING_TX)(sig_hex).exec();
+          pending_result = stmt.prepared(kSELECT_PENDING_TX)(sig_hex).exec();
           LOG_DEBUG << LOG_RESULT(pending_result);
         } catch (const pqxx::pqxx_exception &e) {
           LOG_ERROR << e.base().what() << std::endl;
@@ -342,7 +407,7 @@ bool updateDatabase(const FinalPtr top_block, ChainState& state, size_t height, 
         if (!pending_result.empty()) {
           LOG_INFO << "Pending transaction exists.";
           auto pending_tx_id = pending_result[0][0].as<std::string>();
-          stmt->prepared(kTX_CONFIRM)(shard_index)(height)(blocktime)(sig_hex)(pending_tx_id).exec();
+          stmt.prepared(kTX_CONFIRM)(options->shard_index)(height)(blocktime)(sig_hex)(pending_tx_id).exec();
           for (TransferPtr& one_xfer : xfers) {
             int64_t rcv_amount = one_xfer->getAmount();
             if (rcv_amount < 0) continue;
@@ -351,15 +416,15 @@ bool updateDatabase(const FinalPtr top_block, ChainState& state, size_t height, 
             try {
               LOG_INFO << "Begin processing transfer.";
               LOG_INFO << "Updating receiver balance.";
-              update_balance(*stmt, rcv_addr, height, rcv_coin_id, rcv_amount, shard_index, state);
+              update_balance(stmt, rcv_addr, height, rcv_coin_id, rcv_amount, options->shard_index, state);
               LOG_INFO << "Update receiver balance.";
-              pqxx::result rx_result = stmt->prepared(kSELECT_PENDING_RX)(sig_hex)(pending_tx_id).exec();
+              pqxx::result rx_result = stmt.prepared(kSELECT_PENDING_RX)(sig_hex)(pending_tx_id).exec();
               if (!rx_result.empty()) {
                 std::string pending_rx_id = rx_result[0][0].as<std::string>();
                 LOG_INFO << "Insert rx row.";
-                stmt->prepared(kRX_CONFIRM)(shard_index)(height)(blocktime)(pending_rx_id).exec();
+                stmt.prepared(kRX_CONFIRM)(options->shard_index)(height)(blocktime)(pending_rx_id).exec();
                 LOG_INFO << "Deleting pending_rx with pending_rx_id : " << pending_rx_id;
-                stmt->prepared(kDELETE_PENDING_RX)(pending_rx_id).exec();
+                stmt.prepared(kDELETE_PENDING_RX)(pending_rx_id).exec();
               } else {
                 LOG_WARNING << "Pending tx missing corresponding rx '"+sig_hex+"'!";
               }
@@ -374,15 +439,15 @@ bool updateDatabase(const FinalPtr top_block, ChainState& state, size_t height, 
 
           } // end rx copy loop
           LOG_INFO << "Deleting pending_tx with pending_tx_id : " << pending_tx_id;
-          stmt->prepared(kDELETE_PENDING_TX)(pending_tx_id).exec();
-          stmt->exec("commit;");
+          stmt.prepared(kDELETE_PENDING_TX)(pending_tx_id).exec();
+          stmt.exec("commit;");
         } else { //no pending exists, so create new transaction
           LOG_INFO << "Pending transaction does not exist.";
-          pqxx::result uuid_result = stmt->prepared(kSELECT_UUID).exec();
+          pqxx::result uuid_result = stmt.prepared(kSELECT_UUID).exec();
           if (!uuid_result.empty()) {
             LOG_INFO << "!uuid_result.empty()";
             std::string tx_uuid = uuid_result[0][0].as<std::string>();
-            stmt->prepared(kTX_INSERT)(tx_uuid)(shard_index)(height)(blocktime)(coin_id)(send_amount)(sender_hex).exec();
+            stmt.prepared(kTX_INSERT)(tx_uuid)(options->shard_index)(height)(blocktime)(coin_id)(send_amount)(sender_hex).exec();
             for (TransferPtr& one_xfer : xfers) {
               //only do receivers
               int64_t rcv_amount = one_xfer->getAmount();
@@ -396,7 +461,7 @@ bool updateDatabase(const FinalPtr top_block, ChainState& state, size_t height, 
                 //update receiver balance
                 LOG_INFO << "Update receiver balance.";
                 try {
-                  update_balance(*stmt, rcv_addr, height, rcv_coin_id, rcv_amount, shard_index, state);
+                  update_balance(stmt, rcv_addr, height, rcv_coin_id, rcv_amount, options->shard_index, state);
                 } catch (const pqxx::pqxx_exception& e) {
                   LOG_ERROR << e.base().what() << std::endl;
                 } catch (const std::exception& e) {
@@ -406,7 +471,7 @@ bool updateDatabase(const FinalPtr top_block, ChainState& state, size_t height, 
                 }
 
                 LOG_INFO << "Insert rx row.";
-                stmt->prepared(kRX_INSERT)(shard_index)(height)(blocktime)(rcv_coin_id)(rcv_amount)(delay)(tx_uuid)(sender_hex)(rcv_addr).exec();
+                stmt.prepared(kRX_INSERT)(options->shard_index)(height)(blocktime)(rcv_coin_id)(rcv_amount)(delay)(tx_uuid)(sender_hex)(rcv_addr).exec();
 
                 LOG_INFO << "Transfer committed.";
               } catch (const std::exception& e) {
@@ -432,6 +497,16 @@ bool updateDatabase(const FinalPtr top_block, ChainState& state, size_t height, 
 
       LOG_DEBUG << "Finished processing transaction.";
     } //end transaction loop
+    //only clean once per round to avoid a race with the updater
+    //pending txs get 6 blocks to be confirmed before they are rejected
+    //@TODO (nick@devv.io) - base this on the number of validator peers
+    if (height % 3 == 1) {
+      LOG_DEBUG << "Clean old pending transactions.";
+      pqxx::nontransaction clean_stmt(*db_link);
+      handle_old_tx(clean_stmt, options->shard_index, height
+        , top_block->getBlockTime());
+    }
+    if (db_connected) db_link->disconnect();
   } catch (const std::exception& e) {
     LOG_WARNING << FormatException(&e, "Exception updating database height "+std::to_string(height));
     return false;
@@ -456,58 +531,12 @@ int main(int argc, char* argv[]) {
     std::string shard_name = "Shard-"+std::to_string(options->shard_index);
 
     bool db_connected = false;
-    std::unique_ptr<pqxx::connection> db_link = nullptr;
-    if ((!options->db_host.empty() || !options->db_ip.empty()) && !options->db_user.empty()) {
-      std::string db_params("dbname = "+options->db_name +
-          " user = "+options->db_user+
-          " password = "+options->db_pass);
-      if (!options->db_host.empty()) {
-        db_params += " host = "+options->db_host;
-      } else if (!options->db_ip.empty()) {
-        db_params += " hostaddr = "+options->db_ip;
-      } else {
-        LOG_FATAL << "Database hostname or IP is required!";
-        throw std::runtime_error("Database hostname or IP is required!");
-      }
-      db_params += " port = "+std::to_string(options->db_port);
-      LOG_NOTICE << "Using db connection params: "+db_params;
-      try {
-        //throws an exception if the connection failes
-        db_link = std::make_unique<pqxx::connection>(db_params);
-      } catch (const std::exception& e) {
-        LOG_FATAL << FormatException(&e, "Database connection failed: "
-          + db_params);
-        throw;
-      }
-      //comments in pqxx say to resist the urge to immediately call
-      //db_link->is_open(), if there was no exception above the
-      //connection should be established
-      LOG_INFO << "Successfully connected to database.";
-      db_connected = true;
-      db_link->prepare(kSELECT_UUID, kSELECT_UUID_STATEMENT);
-      db_link->prepare(kSELECT_PENDING_TX, kSELECT_PENDING_TX_STATEMENT);
-      db_link->prepare(kSELECT_PENDING_RX, kSELECT_PENDING_RX_STATEMENT);
-      db_link->prepare(kSELECT_PENDING_INN, kSELECT_PENDING_INN_STATEMENT);
-      db_link->prepare(kSELECT_ADDR, kSELECT_ADDR_STATEMENT);
-      db_link->prepare(kSELECT_OLD_PENDING, kSELECT_OLD_PENDING_STATEMENT);
-      db_link->prepare(kTX_SELECT, kTX_SELECT_STATEMENT);
-      db_link->prepare(kTX_INSERT, kTX_INSERT_STATEMENT);
-      db_link->prepare(kTX_CONFIRM, kTX_CONFIRM_STATEMENT);
-      db_link->prepare(kRX_INSERT, kRX_INSERT_STATEMENT);
-      db_link->prepare(kRX_INSERT_COMMENT, kRX_INSERT_COMMENT_STATEMENT);
-      db_link->prepare(kRX_CONFIRM, kRX_CONFIRM_STATEMENT);
-      db_link->prepare(kSELECT_WALLET, kSELECT_WALLET_STATEMENT);
-      db_link->prepare(kSELECT_BALANCE, kSELECT_BALANCE_STATEMENT);
-      db_link->prepare(kINSERT_BALANCE, kINSERT_BALANCE_STATEMENT);
-      db_link->prepare(kUPDATE_BALANCE, kUPDATE_BALANCE_STATEMENT);
-      db_link->prepare(kDELETE_PENDING_TX, kDELETE_PENDING_TX_STATEMENT);
-      db_link->prepare(kDELETE_PENDING_RX, kDELETE_PENDING_RX_STATEMENT);
-      db_link->prepare(kDELETE_PENDING_RX_BY_TX, kDELETE_PENDING_RX_BY_TX_STATEMENT);
-      db_link->prepare(kMARK_OLD_PENDING, kMARK_OLD_PENDING_STATEMENT);
-      db_link->prepare(kSELECT_RECENT_PENDING, kSELECT_RECENT_PENDING_STATEMENT);
-      db_link->prepare(kTX_REJECT, kTX_REJECT_STATEMENT);
+    auto db_link = getDatabaseConnection(options);
+    if (db_link == nullptr) {
+      LOG_FATAL << "Failed to connect to database.";
+      return false;
     } else {
-      LOG_FATAL << "Database host and user not set!";
+      db_connected = true;
     }
 
     //@todo(nick@devv.io): read pre-existing chain
@@ -523,27 +552,13 @@ int main(int argc, char* argv[]) {
           auto top_block = std::make_shared<FinalBlock>(buffer, prior, keys, options->mode);
           chain->push_back(top_block);
           if (db_connected) {
-            auto stmt_ptr = std::make_shared<pqxx::nontransaction>(*db_link);
             size_t height = chain->size();
             auto chain_state = chain->getHighestChainState();
-//            auto lambda = [&]() {
-//              updateDatabase(*top_block, chain_state, height, options->shard_index, boost::ref(stmt));
-//            };
-            new boost::thread(updateDatabase, top_block, chain_state, height,
-                              options->shard_index, stmt_ptr);
-            //only clean once per round to avoid a race with the updater
-            //pending txs get 6 blocks to be confirmed before they are rejected
-            //@TODO (nick@devv.io) - base this on the number of validator peers
-            if (height % 3 == 1) {
-              LOG_DEBUG << "Clean old pending transactions.";
-              pqxx::nontransaction clean_stmt(*db_link);
-              new boost::thread(handle_old_tx, boost::ref(clean_stmt)
-                , options->shard_index, height, top_block->getBlockTime());
-            }
+            new boost::thread(updateDatabase, top_block, chain_state, height, options);
 		  } else {
             LOG_ERROR << "Error: database is not connected";
           }
-	    } catch (const std::exception& e) {
+        } catch (const std::exception& e) {
           std::exception_ptr p = std::current_exception();
           std::string err("");
           err += (p ? p.__cxa_exception_type()->name() : "null");
@@ -580,11 +595,11 @@ int main(int argc, char* argv[]) {
   }
 }
 
-std::unique_ptr<struct psql_options> ParsePsqlOptions(int argc, char** argv) {
+std::shared_ptr<struct psql_options> ParsePsqlOptions(int argc, char** argv) {
 
   namespace po = boost::program_options;
 
-  std::unique_ptr<psql_options> options(new psql_options());
+  std::shared_ptr<psql_options> options(new psql_options());
   std::vector<std::string> config_filenames;
 
   try {
