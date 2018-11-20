@@ -127,7 +127,7 @@ pqxx::result exec_and_log(Prepared& prep) {
  * @param argv
  * @return
  */
-std::unique_ptr<struct psql_options> ParsePsqlOptions(int argc, char** argv);
+std::shared_ptr<struct psql_options> ParsePsqlOptions(int argc, char** argv);
 
 /**
  * Update wallet balance
@@ -316,7 +316,6 @@ std::unique_ptr<pqxx::connection>
     //db_link->is_open(), if there was no exception above the
     //connection should be established
     LOG_INFO << "Successfully connected to database.";
-    db_connected = true;
     db_link->prepare(kSELECT_UUID, kSELECT_UUID_STATEMENT);
     db_link->prepare(kSELECT_PENDING_TX, kSELECT_PENDING_TX_STATEMENT);
     db_link->prepare(kSELECT_PENDING_RX, kSELECT_PENDING_RX_STATEMENT);
