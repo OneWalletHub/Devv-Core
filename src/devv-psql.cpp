@@ -93,7 +93,8 @@ static const std::string kTX_CONFIRM_STATEMENT = "INSERT INTO tx (tx_id, shard_i
 
 static const std::string kRX_INSERT = "rx_insert";
 static const std::string kRX_INSERT_STATEMENT = "INSERT INTO rx (rx_id, shard_id, block_height, block_time, tx_wallet, rx_wallet, coin_id, amount, delay, tx_id) (select devv_uuid(), $1, $2, $3, tx.wallet_id, rx.wallet_id, $4, $5, $6, cast($7 as uuid) from wallet tx, wallet rx where tx.wallet_addr = upper($8) and rx.wallet_addr = upper($9));";
-
+static const std::string kWALLET_INSERT = "wallet_insert";
+static const std::string kWALLET_INSERT_STATEMENT = "INSERT INTO wallet (wallet_id, wallet_addr, account_id, shard_id, wallet_name) (select cast($1 as uuid), $2, "+kNIL_UUID_PSQL+", 1, 'Unknown')";
 static const std::string kRX_INSERT_COMMENT = "rx_insert_comment";
 static const std::string kRX_INSERT_COMMENT_STATEMENT = "INSERT INTO rx (rx_id, shard_id, block_height, block_time, tx_wallet, rx_wallet, coin_id, amount, delay, comment, tx_id) (select devv_uuid(), $1, $2, $3, tx.wallet_id, rx.wallet_id, $4, $5, $6, $7, cast($8 as uuid) from wallet tx, wallet rx where tx.wallet_addr = upper($9) and rx.wallet_addr = upper($10));";
 
@@ -156,6 +157,7 @@ int64_t update_balance(pqxx::nontransaction& stmt, std::string hex_addr
         LOG_INFO << "!uuid_result.empty():";
         wallet_id = uuid_result[0][0].as<std::string>();
         LOG_INFO << "UUID is: " + wallet_id;
+        stmt.prepared(kWALLET_INSERT)(wallet_id)(hex_addr).exec();
       } else {
         LOG_WARNING << "Failed to generate a UUID for new wallet!";
         return 0;
@@ -183,6 +185,7 @@ int64_t update_balance(pqxx::nontransaction& stmt, std::string hex_addr
     //pqxx::result balance_result = stmt.prepared(kSELECT_BALANCE)(wallet_id)(coin).exec();
     if (balance_result.empty()) {
       LOG_INFO << "No balance, insert wallet_coin";
+
       stmt.prepared(kINSERT_BALANCE)(wallet_id)(chain_height)(coin)(new_balance).exec();
     } else {
       LOG_INFO << "New balance is: " + std::to_string(new_balance);
@@ -328,6 +331,7 @@ std::unique_ptr<pqxx::connection>
     db_link->prepare(kRX_INSERT, kRX_INSERT_STATEMENT);
     db_link->prepare(kRX_INSERT_COMMENT, kRX_INSERT_COMMENT_STATEMENT);
     db_link->prepare(kRX_CONFIRM, kRX_CONFIRM_STATEMENT);
+    db_link->prepare(kWALLET_INSERT, kWALLET_INSERT_STATEMENT);
     db_link->prepare(kSELECT_WALLET, kSELECT_WALLET_STATEMENT);
     db_link->prepare(kSELECT_BALANCE, kSELECT_BALANCE_STATEMENT);
     db_link->prepare(kINSERT_BALANCE, kINSERT_BALANCE_STATEMENT);
@@ -554,7 +558,7 @@ int main(int argc, char* argv[]) {
             size_t height = chain->size();
             auto chain_state = chain->getHighestChainState();
             new boost::thread(updateDatabase, top_block, chain_state, height, options);
-		  } else {
+          } else {
             LOG_ERROR << "Error: database is not connected";
           }
         } catch (const std::exception& e) {
