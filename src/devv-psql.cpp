@@ -355,12 +355,12 @@ bool updateDatabase(const FinalPtr top_block, ChainState& state, size_t height
     auto db_link = getDatabaseConnection(options);
     if (db_link == nullptr) return false;
     db_connected = true;
-    pqxx::nontransaction stmt(*db_link);
 
     uint64_t blocktime = top_block->getBlockTime();
     std::vector<TransactionPtr> txs = top_block->CopyTransactions();
 
     for (TransactionPtr& one_tx : txs) {
+      pqxx::nontransaction stmt(*db_link);
       LOG_INFO << "Begin processing transaction.";
       std::string sig_hex = one_tx->getSignature().getJSON();
       if (one_tx->getSignature().isNodeSignature()) {
@@ -443,7 +443,6 @@ bool updateDatabase(const FinalPtr top_block, ChainState& state, size_t height
           } // end rx copy loop
           LOG_INFO << "Deleting pending_tx with pending_tx_id : " << pending_tx_id;
           stmt.prepared(kDELETE_PENDING_TX)(pending_tx_id).exec();
-          stmt.exec("commit;");
         } else { //no pending exists, so create new transaction
           LOG_INFO << "Pending transaction does not exist.";
           pqxx::result uuid_result = stmt.prepared(kSELECT_UUID).exec();
@@ -498,6 +497,7 @@ bool updateDatabase(const FinalPtr top_block, ChainState& state, size_t height
         LOG_WARNING << "caught (...)";
       }
 
+      stmt.exec("commit;");
       LOG_DEBUG << "Finished processing transaction.";
     } //end transaction loop
     //only clean once per round to avoid a race with the updater
