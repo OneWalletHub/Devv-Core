@@ -370,8 +370,10 @@ bool updateDatabase(const FinalPtr top_block, ChainState& state, size_t height
       }
     }
     if (num_inn_tx > 0) {
+      pqxx::nontransaction inn_stmt(*db_link);
       LOG_DEBUG << "one_tx->getSignature().isNodeSignature(): calling handle_inn_tx()";
-      handle_inn_tx(stmt, options->shard_index, height, blocktime, state, inn_mutex, num_inn_tx);
+      handle_inn_tx(inn_stmt, options->shard_index, height, blocktime, state, inn_mutex, num_inn_tx);
+      inn_stmt.exec("commit;");
     }
 
     for (TransactionPtr& one_tx : txs) {
