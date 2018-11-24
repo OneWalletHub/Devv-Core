@@ -65,7 +65,7 @@ static const std::string kSELECT_ADDR_STATEMENT = "select wallet_addr from walle
 static const std::string kSELECT_PENDING_RX = "select_pending_rx";
 static const std::string kSELECT_PENDING_RX_STATEMENT = "select p.pending_rx_id from pending_rx p where p.sig = upper($1) and p.pending_tx_id = cast($2 as uuid);";
 static const std::string kSELECT_PENDING_INN = "select_pending_inn";
-static const std::string kSELECT_PENDING_INN_STATEMENT = "select pending_rx_id, sig, rx_wallet, coin_id, amount from pending_rx where comment = '"+kREQUEST_COMMENT+"'";
+static const std::string kSELECT_PENDING_INN_STATEMENT = "select pending_rx_id, sig, rx_wallet, coin_id, amount from pending_rx where comment = '"+kREQUEST_COMMENT+"' limit $1";
 static const std::string kSELECT_BALANCE = "balance_select";
 static const std::string kSELECT_BALANCE_STATEMENT = "select balance from wallet_coin where wallet_id = cast($1 as uuid) and coin_id = $2;";
 static const std::string kSELECT_WALLET = "wallet_select";
@@ -211,9 +211,9 @@ int64_t update_balance(pqxx::nontransaction& stmt, std::string hex_addr
 
 void handle_inn_tx(pqxx::nontransaction& stmt, size_t shard
     , unsigned int chain_height, uint64_t blocktime, const ChainState& state
-    , std::mutex& inn_mutex) {
+    , std::mutex& inn_mutex, size_t inn_tx_count) {
   std::lock_guard<std::mutex> guard(inn_mutex);
-  pqxx::result inn_result = stmt.prepared(kSELECT_PENDING_INN).exec();
+  pqxx::result inn_result = stmt.prepared(kSELECT_PENDING_INN)(inn_tx_count).exec();
   LOG_DEBUG << "SELECT_PENDING_INN returned (" << inn_result.size() << ") transactions";
   if (!inn_result.empty()) {
     for (size_t i=0; i < inn_result.size(); ++i) {
@@ -362,13 +362,23 @@ bool updateDatabase(const FinalPtr top_block, ChainState& state, size_t height
     uint64_t blocktime = top_block->getBlockTime();
     std::vector<TransactionPtr> txs = top_block->CopyTransactions();
 
+    size_t num_inn_tx = 0;
+    for (TransactionPtr& one_tx : txs) {
+      std::string sig_hex = one_tx->getSignature().getJSON();
+      if (one_tx->getSignature().isNodeSignature()) {
+        num_inn_tx++;
+      }
+    }
+    if (num_inn_tx > 0) {
+      LOG_DEBUG << "one_tx->getSignature().isNodeSignature(): calling handle_inn_tx()";
+      handle_inn_tx(stmt, options->shard_index, height, blocktime, state, inn_mutex, num_inn_tx);
+    }
+
     for (TransactionPtr& one_tx : txs) {
       pqxx::nontransaction stmt(*db_link);
       LOG_INFO << "Begin processing transaction.";
       std::string sig_hex = one_tx->getSignature().getJSON();
       if (one_tx->getSignature().isNodeSignature()) {
-        LOG_DEBUG << "one_tx->getSignature().isNodeSignature(): calling handle_inn_tx()";
-        handle_inn_tx(stmt, options->shard_index, height, blocktime, state, inn_mutex);
         continue;
       }
       try {

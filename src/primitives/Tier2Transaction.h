@@ -499,7 +499,8 @@ class Tier2Transaction : public Transaction {
             int64_t historic = prior.getAmount(coin, addr);
             int64_t committed = addr_it->second.getAmount();
             //if sum of negative transfers < 0 a bad ordering is possible
-            if ((historic+committed+amount) < 0) return false;
+            if (addr.isWalletAddress()
+                && ((historic+committed+amount) < 0)) return false;
             SmartCoin sc(addr, coin, amount+committed);
             addr_it->second = sc;
           } else {
