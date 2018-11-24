@@ -495,7 +495,7 @@ class Tier2Transaction : public Transaction {
                      << " state.getAmount(): " << state.getAmount(coin, addr);
           }
           auto addr_it = aggregate.find(addr);
-          if (addr.isWalletAddress() && addr_it != aggregate.end()) {
+          if (addr_it != aggregate.end()) {
             int64_t historic = prior.getAmount(coin, addr);
             int64_t committed = addr_it->second.getAmount();
             //if sum of negative transfers < 0 a bad ordering is possible
