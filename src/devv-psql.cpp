@@ -6,6 +6,7 @@
  * @copywrite  2018 Devvio Inc
  */
 
+#include <atomic>
 #include <fstream>
 #include <functional>
 #include <iostream>
@@ -209,7 +210,9 @@ int64_t update_balance(pqxx::nontransaction& stmt, std::string hex_addr
 }
 
 void handle_inn_tx(pqxx::nontransaction& stmt, size_t shard
-    , unsigned int chain_height, uint64_t blocktime, const ChainState& state) {
+    , unsigned int chain_height, uint64_t blocktime, const ChainState& state
+    , std::mutex& inn_mutex) {
+  std::lock_guard<std::mutex> guard(inn_mutex);
   pqxx::result inn_result = stmt.prepared(kSELECT_PENDING_INN).exec();
   LOG_DEBUG << "SELECT_PENDING_INN returned (" << inn_result.size() << ") transactions";
   if (!inn_result.empty()) {
@@ -349,7 +352,7 @@ std::unique_ptr<pqxx::connection>
 }
 
 bool updateDatabase(const FinalPtr top_block, ChainState& state, size_t height
-    , std::shared_ptr<struct psql_options> options) {
+    , std::shared_ptr<struct psql_options> options, std::mutex& inn_mutex) {
   try {
     bool db_connected = false;
     auto db_link = getDatabaseConnection(options);
@@ -365,7 +368,7 @@ bool updateDatabase(const FinalPtr top_block, ChainState& state, size_t height
       std::string sig_hex = one_tx->getSignature().getJSON();
       if (one_tx->getSignature().isNodeSignature()) {
         LOG_DEBUG << "one_tx->getSignature().isNodeSignature(): calling handle_inn_tx()";
-        handle_inn_tx(stmt, options->shard_index, height, blocktime, state);
+        handle_inn_tx(stmt, options->shard_index, height, blocktime, state, inn_mutex);
         continue;
       }
       try {
@@ -532,6 +535,7 @@ int main(int argc, char* argv[]) {
     MTR_SCOPE_FUNC();
 
     std::string shard_name = "Shard-"+std::to_string(options->shard_index);
+    std::mutex inn_mutex;
 
     bool db_connected = false;
     auto db_link = getDatabaseConnection(options);
@@ -557,7 +561,7 @@ int main(int argc, char* argv[]) {
           if (db_connected) {
             size_t height = chain->size();
             auto chain_state = chain->getHighestChainState();
-            new boost::thread(updateDatabase, top_block, chain_state, height, options);
+            new boost::thread(updateDatabase, top_block, chain_state, height, options, std::ref(inn_mutex));
           } else {
             LOG_ERROR << "Error: database is not connected";
           }
