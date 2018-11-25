@@ -470,6 +470,11 @@ class UnrecordedTransactionPool {
     std::map<Address, SmartCoin> aggregate;
     ChainState state(prior);
     for (auto const& tx : pending_proposal_.getTransactions()) {
+      auto it = txs_.find(tx->getSignature());
+      if (it == txs_.end()) {
+        //transaction removed from the pool, so pending_proposal is invalid
+        return false;
+      }
       if (!tx->isValidInAggregate(state, keys, summary, aggregate, prior)) {
         return false;
       }
