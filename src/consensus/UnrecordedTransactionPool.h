@@ -231,9 +231,12 @@ class UnrecordedTransactionPool {
                         const DevvContext& context) {
     LOG_DEBUG << "ReverifyProposal()";
     MTR_SCOPE_FUNC();
-    std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
-    if (pending_proposal_.isNull()) { return false; }
+    {
+      std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
+      if (pending_proposal_.isNull()) { return false; }
+    }
     if (ReverifyTransactions(prior, keys)) {
+      std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
       pending_proposal_.setPrevHash(prev_hash);
       return true;
     } else {
