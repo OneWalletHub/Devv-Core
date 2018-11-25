@@ -549,15 +549,6 @@ int main(int argc, char* argv[]) {
     std::string shard_name = "Shard-"+std::to_string(options->shard_index);
     std::mutex inn_mutex;
 
-    bool db_connected = false;
-    auto db_link = getDatabaseConnection(options);
-    if (db_link == nullptr) {
-      LOG_FATAL << "Failed to connect to database.";
-      return false;
-    } else {
-      db_connected = true;
-    }
-
     //@todo(nick@devv.io): read pre-existing chain
     BlockchainPtr chain = std::make_shared<Blockchain>(shard_name);
     KeyRing keys;
@@ -570,13 +561,9 @@ int main(int argc, char* argv[]) {
           InputBuffer buffer(p->data);
           auto top_block = std::make_shared<FinalBlock>(buffer, prior, keys, options->mode);
           chain->push_back(top_block);
-          if (db_connected) {
-            size_t height = chain->size();
-            auto chain_state = chain->getHighestChainState();
-            new boost::thread(updateDatabase, top_block, chain_state, height, options, std::ref(inn_mutex));
-          } else {
-            LOG_ERROR << "Error: database is not connected";
-          }
+          size_t height = chain->size();
+          auto chain_state = chain->getHighestChainState();
+          new boost::thread(updateDatabase, top_block, chain_state, height, options, std::ref(inn_mutex));
         } catch (const std::exception& e) {
           std::exception_ptr p = std::current_exception();
           std::string err("");
@@ -599,7 +586,6 @@ int main(int argc, char* argv[]) {
         break;
       }
     }
-    if (db_connected) db_link->disconnect();
     peer_listener->stopClient();
     return (true);
   }
