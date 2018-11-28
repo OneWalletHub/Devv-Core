@@ -16,6 +16,7 @@ namespace Devv {
 class Blockchain {
 public:
   typedef std::shared_ptr<FinalBlock> BlockSharedPtr;
+  typedef std::shared_ptr<const FinalBlock> ConstBlockSharedPtr;
 
   explicit Blockchain(const std::string& name)
     : name_(name), chain_size_(0), num_transactions_(0), genesis_time_(0)
@@ -96,6 +97,15 @@ public:
   size_t size() const {
     LOG_TRACE << name_ << ": size(" << chain_size_ << ")";
     return chain_size_;
+  }
+
+  /**
+   *
+   * @param loc
+   * @return
+   */
+  BlockSharedPtr at(size_t loc) const {
+    return chain_.at(loc);
   }
 
   /**

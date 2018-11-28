@@ -14,8 +14,46 @@
 
 #include "primitives/Transaction.h"
 #include "primitives/FinalBlock.h"
+#include "consensus/blockchain.h"
 
 namespace Devv {
+
+/**
+ *
+ */
+class BlockchainWrapper {
+ public:
+  explicit BlockchainWrapper(const std::string& name)
+  : chain_(name)
+  {
+  }
+
+  ~BlockchainWrapper() = default;
+
+  void push_back(Blockchain::BlockSharedPtr block) {
+    std::lock_guard<std::mutex> guard(mutex_);
+    chain_.push_back(block);
+  }
+
+  ConstFinalBlockSharedPtr at(size_t loc) const {
+    std::lock_guard<std::mutex> guard(mutex_);
+    return chain_.at(loc);
+  }
+
+  size_t size() const {
+    std::lock_guard<std::mutex> guard(mutex_);
+    return chain_.size();
+  }
+
+  ChainState getHighestChainState() const {
+    std::lock_guard<std::mutex> guard(mutex_);
+    return chain_.getHighestChainState();
+  }
+
+ private:
+  mutable std::mutex mutex_;
+  Blockchain chain_;
+};
 
 class PSQLInterface {
  public:
@@ -28,7 +66,7 @@ class PSQLInterface {
                 const std::string& name,
                 const std::string& user,
                 const std::string& pass,
-                std::mutex& inn_mutex);
+                const std::string& blockchain_name = "psql_interface");
 
   bool isConnected() const {
     if (db_connection_) {
@@ -43,13 +81,31 @@ class PSQLInterface {
    */
   std::string getWallet(const std::string& hex_address);
 
+  /**
+   *
+   * @param hex_address
+   * @param chain_height
+   * @param coin
+   * @param delta
+   * @return
+   */
   uint64_t updateBalance(const std::string& hex_address,
                          size_t chain_height,
                          uint64_t coin,
                          int64_t delta);
 
+  /**
+   *
+   * @param block
+   * @param chain_height
+   */
   void updateINNTransactions(FinalPtr block, size_t chain_height);
 
+  /**
+   *
+   * @param block
+   * @param chain_height
+   */
   void updateWalletTransactions(FinalPtr block, size_t chain_height);
 
   bool deletePendingTx(const std::string& pending_tx_id);
@@ -77,7 +133,7 @@ class PSQLInterface {
 
   size_t shard_ = 1;
 
-  std::mutex& inn_mutex_;
+  BlockchainWrapper wrapped_chain_;
 };
 
 } // namespace Devv

@@ -12,6 +12,8 @@
 
 namespace Devv {
 
+#define LOG_RESULT(res) res.size() << " : " << res.query()
+
 const std::string kREQUEST_COMMENT = "Test Devv from the INN";
 
 const std::string kNIL_UUID = "00000000-0000-0000-0000-000000000000";
@@ -96,14 +98,14 @@ PSQLInterface::PSQLInterface(const std::string& host,
                              const std::string& name,
                              const std::string& user,
                              const std::string& pass,
-                             std::mutex& inn_mutex)
+                             const std::string& blockchain_name)
   : hostname_(host),
     ip_(ip),
     port_(port),
     name_(name),
     user_(user),
     pass_(pass),
-    inn_mutex_(inn_mutex)
+    wrapped_chain_(blockchain_name)
 {
 }
 
@@ -173,6 +175,7 @@ uint64_t PSQLInterface::updateBalance(const std::string& hex_address,
                                       size_t chain_height,
                                       uint64_t coin,
                                       int64_t delta) {
+/*
   LOG_INFO << "update_balance(" + hex_addr + ", " +
         std::to_string(coin) + ", " +
         std::to_string(delta) + ")";
@@ -238,6 +241,8 @@ uint64_t PSQLInterface::updateBalance(const std::string& hex_address,
 
   LOG_INFO << "balance updated to: "+std::to_string(new_balance);
   return new_balance;
+  */
+  return 0;
 }
 
 void PSQLInterface::updateINNTransactions(FinalPtr block, size_t chain_height) {
@@ -256,7 +261,7 @@ void PSQLInterface::updateINNTransactions(FinalPtr block, size_t chain_height) {
   // Only continue if we have INN transactions
   if (num_inn_tx < 1) return;
 
-  std::lock_guard<std::mutex> guard(inn_mutex_);
+  //std::lock_guard<std::mutex> guard(inn_mutex_);
   pqxx::result inn_result = db_transaction_->prepared(kSELECT_PENDING_INN)(num_inn_tx).exec();
   LOG_DEBUG << "SELECT_PENDING_INN returned (" << inn_result.size() << ") transactions";
   for (auto result : inn_result) {
@@ -291,7 +296,8 @@ void PSQLInterface::updateINNTransactions(FinalPtr block, size_t chain_height) {
 }
 
 void PSQLInterface::updateWalletTransactions(FinalPtr block, size_t chain_height) {
-  auto blocktime = block->getBlockTime();
+/*
+ * auto blocktime = block->getBlockTime();
   auto transactions = block->CopyTransactions();
 
   /// updateINNTransactions(block, height);
@@ -323,7 +329,7 @@ void PSQLInterface::updateWalletTransactions(FinalPtr block, size_t chain_height
       }
     } // end sender search loop
 
-    update_balance(stmt, sender_hex, chain_height, coin_id, send_amount, options->shard_index, state);
+    //update_balance(stmt, sender_hex, chain_height, coin_id, send_amount, options->shard_index, state);
 
     // copy transfers
     pqxx::result pending_result;
@@ -342,6 +348,7 @@ void PSQLInterface::updateWalletTransactions(FinalPtr block, size_t chain_height
 
 
   }
+  */
 }
 
 bool PSQLInterface::deletePendingTx(const std::string& pending_tx_id) {

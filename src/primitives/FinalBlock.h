@@ -403,6 +403,8 @@ class FinalBlock {
 };
 
 typedef std::shared_ptr<FinalBlock> FinalPtr;
+typedef std::shared_ptr<const FinalBlock> FinalBlockSharedPtr;
+typedef std::shared_ptr<const FinalBlock> ConstFinalBlockSharedPtr;
 
 }  // end namespace Devv
 
