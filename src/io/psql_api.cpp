@@ -108,31 +108,38 @@ void ThreadedDBServer::push_queue(Devv::ConstFinalBlockSharedPtr block) {
 }
 
 void ThreadedDBServer::run() noexcept {
-  std::unique_lock<std::mutex> lk(input_mutex_);
-  std::cerr << "Waiting... \n";
-  sync_variable_.wait(lk, [&] {
-                        std::unique_lock<std::mutex> input_lock;
-                        return !input_queue_.empty();
-                      }
-  );
 
-  // Create a local deque and empty the shared deque into
-  // the local copy quickly and release the lock
-  std::deque<ConstFinalBlockSharedPtr> tmp_vec;
+  // Run forever (break on shutdown)
+  for (;;) {
+    std::unique_lock<std::mutex> lk(input_mutex_);
+    std::cerr << "Waiting... \n";
+    sync_variable_.wait(lk, [&] {
+                          std::unique_lock<std::mutex> input_lock;
+                          return !input_queue_.empty();
+                        }
+    );
 
-  {
-    std::unique_lock<std::mutex> input_lock;
-    for (auto block : input_queue_) {
-      tmp_vec.push_back(block);
+    // Create a local deque and empty the shared deque into
+    // the local copy quickly and release the lock
+    std::deque<ConstFinalBlockSharedPtr> tmp_vec;
+
+    {
+      std::unique_lock<std::mutex> input_lock;
+      for (auto block : input_queue_) {
+        tmp_vec.push_back(block);
+      }
+      input_queue_.clear();
     }
-    input_queue_.clear();
-  }
 
-  // Now that the lock is released, loop through
-  // the temp vector and handle blocks
-  for (auto block : tmp_vec) {
-    callback_(block, block_number_);
-    ++block_number_;
+    // Now that the lock is released, loop through
+    // the temp vector and handle blocks
+    for (auto block : tmp_vec) {
+      callback_(block, block_number_);
+      ++block_number_;
+    }
+
+    // Exit thread loop
+    if (!keep_running_) break;
   }
 }
 
