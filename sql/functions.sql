@@ -92,6 +92,7 @@ begin
       update_count := handle_default_tx(tx.rx_sig, tx.shard_id, tx.block_height, tx.block_time)+update_count;
     END IF;
   END LOOP;
+  delete from fresh_tx whre block_height = height;
   return update_count;
 end;
 $$ language plpgsql;
