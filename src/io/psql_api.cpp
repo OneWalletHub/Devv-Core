@@ -15,7 +15,10 @@ namespace Devv {
 #define LOG_RESULT(res) res.size() << " : " << res.query()
 
 const std::string kINSERT_FRESH_TX = "insert_fresh_tx";
-const std::string kINSERT_FRESH_TX_STATEMENT = "inaert into fresh_tx (fresh_tx_id, shard_id, block_height, block_time, sig, tx_addr, rx_addr, coin_id, amount, nonce, oracle_name) (select devv_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10);";
+const std::string kINSERT_FRESH_TX_STATEMENT = "insert into fresh_tx (fresh_tx_id, shard_id, block_height, block_time, sig, tx_addr, rx_addr, coin_id, amount, nonce, oracle_name) (select devv_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10);";
+
+const std::string kREJECT_OLD_TX = "reject_old_tx";
+const std::string kREJECT_OLD_TX_STATEMENT = "select reject_old_txs();";
 
 const std::string kUPDATE_FOR_BLOCK = "update_for_block";
 const std::string kUPDATE_FOR_BLOCK_STATEMENT = "select update_for_block($1);";
@@ -69,7 +72,8 @@ void PSQLInterface::initializeDatabaseConnection() {
   db_connection_ = std::make_unique<pqxx::connection>(params);
   LOG_INFO << "Successfully connected to database.";
 
-  db_connection_->prepare(kINSERT_FRESH_TX_STATEMENT, kINSERT_FRESH_TX_STATEMENT);
+  db_connection_->prepare(kINSERT_FRESH_TX, kINSERT_FRESH_TX_STATEMENT);
+  db_connection_->prepare(kREJECT_OLD_TX, kREJECT_OLD_TX_STATEMENT);
   db_connection_->prepare(kUPDATE_FOR_BLOCK, kUPDATE_FOR_BLOCK_STATEMENT);
 }
 
@@ -106,6 +110,7 @@ void PSQLInterface::handleNextBlock(ConstFinalBlockSharedPtr next_block
 	}
   }
   db_context.prepared(kUPDATE_FOR_BLOCK)(block_height).exec();
+  if (block_height % 10 == 1) db_context.prepared(kREJECT_OLD_TX).exec();
   db_context.exec("commit;");
 }
 
