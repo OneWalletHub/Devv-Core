@@ -79,34 +79,53 @@ void PSQLInterface::initializeDatabaseConnection() {
 
 void PSQLInterface::handleNextBlock(ConstFinalBlockSharedPtr next_block
                                     , size_t block_height) {
-  auto block_time = next_block->getBlockTime();
+  auto blocktime = next_block->getBlockTime();
   const std::vector<TransactionPtr>& transactions = next_block->getTransactions();
 
-  for (auto& tx : transactions) {
-    const std::string kINSERT_FRESH_TX_STATEMENT = "insert into fresh_tx (fresh_tx_id, shard_id,"
-                                                   " block_height, block_time, sig, tx_addr, rx_addr, coin_id,"
-                                                   " amount, nonce, oracle_name) (select devv_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10);";
-    auto sig = tx->getSignature();
-    Tier2Transaction* const t2x = dynamic_cast<Tier2Transaction* const>(tx.get());
-    auto nonce = t2x->getNonce();
-    std::string oracle_name = "none";
+  pqxx::nontransaction db_context(*db_connection_);
+  for (auto& one_tx : transactions) {
+    auto sig = one_tx->getSignature();
+    auto sig_hex = sig.getJSON();
+    if (sig.isNodeSignature()) {
+      //coin request transaction in this version
+      std::vector<TransferPtr> xfers = one_tx->getTransfers();
+      std::string sender_hex;
+      std::string receiver_hex;
+      uint64_t coin_id = 0;
+      int64_t amount = 0;
+      std::string oracle_name = "io.devv.coin_request";
 
-    auto transfers = t2x->getTransfers();
-    for (auto& transfer : transfers) {
-      auto tx_addr = transfer->getAddress();
-      auto coin_id = transfer->getCoin();
-      auto amount = transfer->getAmount();
-      LOG_DEBUG << "TX: shard(" << std::to_string(shard_) << ")"
-                << " block_height(" << std::to_string(block_height) << ")"
-                << " block_time(" << std::to_string(block_time) << ")"
-                << " sig(" << sig.getJSON() << ")"
-                << " addr(" << tx_addr.getHexString() << ")"
-                << " coin_id(" << std::to_string(coin_id) << ")"
-                << " amount(" << std::to_string(amount) << ")"
-                << " nonce(" << ToHex(nonce) << ")"
-                << " oracle_name(" << oracle_name << ")";
+      for (TransferPtr& one_xfer : xfers) {
+        if (one_xfer->getAmount() < 0) {
+          sender_hex = one_xfer->getAddress().getHexString();
+        } else {
+          receiver_hex = one_xfer->getAddress().getHexString();
+          coin_id = one_xfer->getCoin();
+          amount = one_xfer->getAmount();
+        }
+        LOG_DEBUG << "coin_request: shard(" << std::to_string(shard_) << ")"
+                  << " block_height(" << std::to_string(block_height) << ")"
+                  << " block_time(" << std::to_string(blocktime) << ")"
+                  << " sig_hex(" << sig_hex << ")"
+                  << " tx_addr(" << sender_hex << ")"
+                  << " rx_addr(" << receiver_hex << ")"
+                  << " coin_id(" << std::to_string(coin_id) << ")"
+                  << " amount(" << std::to_string(amount) << ")"
+                  << " nonce()"
+                  << " oracle_name(" << oracle_name << ")";
+      }
+      db_context.prepared(kINSERT_FRESH_TX)(shard_)(block_height)(blocktime)(sig_hex)(sender_hex)(receiver_hex)(coin_id)(amount)()(oracle_name).exec();
+    } else {
+      //basic transaction
+      db_context.prepared(kINSERT_FRESH_TX)(shard_)(block_height)(blocktime)(sig_hex)()()()()()().exec();
+        LOG_DEBUG << "coin_request: shard(" << std::to_string(shard_) << ")"
+                  << " block_height(" << std::to_string(block_height) << ")"
+                  << " block_time(" << std::to_string(blocktime) << ")"
+                  << " sig_hex(" << sig_hex << ")";
     }
   }
+  db_context.prepared(kUPDATE_FOR_BLOCK)(block_height).exec();
+  db_context.exec("commit;");
 }
 
 void ThreadedDBServer::startServer() {
