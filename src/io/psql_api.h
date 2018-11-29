@@ -76,45 +76,8 @@ class PSQLInterface {
     }
   }
 
-  /**
-   * Get the wallet_id associated with this hex_address
-   */
-  std::string getWallet(const std::string& hex_address);
-
-  /**
-   *
-   * @param hex_address
-   * @param chain_height
-   * @param coin
-   * @param delta
-   * @return
-   */
-  uint64_t updateBalance(const std::string& hex_address,
-                         size_t chain_height,
-                         uint64_t coin,
-                         int64_t delta);
-
-  /**
-   *
-   * @param block
-   * @param chain_height
-   */
-  void updateINNTransactions(FinalPtr block, size_t chain_height);
-
-  /**
-   *
-   * @param block
-   * @param chain_height
-   */
-  void updateWalletTransactions(FinalPtr block, size_t chain_height);
-
-  bool deletePendingTx(const std::string& pending_tx_id);
-
-  bool deletePendingRx(const std::string& pending_rx_id);
-
-  bool insertTx();
-
-  bool insertRx();
+  void handleNextBlock(ConstFinalBlockSharedPtr next_block
+                       , size_t block_height);
 
  private:
   void initializeDatabaseConnection();

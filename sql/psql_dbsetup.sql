@@ -134,6 +134,21 @@ CREATE TABLE rejected_tx (
     comment text    
 ) tablespace devvdata;
 
+--fresh_blocks table (tracks new block info to update other tables)
+CREATE TABLE fresh_tx (
+    fresh_tx_id uuid constraint pk_fresh_txid primary key using index tablespace devvdex,   
+    shard_id INTEGER NOT NULL references shard,
+    block_height INTEGER NOT NULL,
+    block_time BIGINT NOT NULL,
+    sig text NOT NULL,
+    tx_addr text,
+    rx_addr text,
+    coin_id BIGINT,
+    amount BIGINT,
+    nonce text,
+    oracle_name text
+) tablespace devvdata;
+
 create or replace function reset_state() returns void as $$
 begin
 truncate table pending_rx cascade;
