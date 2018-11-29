@@ -98,14 +98,15 @@ void PSQLInterface::handleNextBlock(ConstFinalBlockSharedPtr next_block
           amount = one_xfer->getAmount();
         }
       }
-      stmt.prepared(kINSERT_FRESH_TX)(shard_)(block_height)(blocktime)(sig_hex)(sender_hex)(receiver_hex)(coin_id)(amount)()(oracle_name).exec();
+      db_context.prepared(kINSERT_FRESH_TX)(shard_)(block_height)(blocktime)(sig_hex)(sender_hex)(receiver_hex)(coin_id)(amount)()(oracle_name).exec();
       shard_id, block_height, block_time, sig, tx_addr, rx_addr, coin_id, amount, nonce, oracle_name
     } else {
       //basic transaction
-      stmt.prepared(kINSERT_FRESH_TX)(shard_)(block_height)(blocktime)(sig_hex)()()()()()().exec();
+      db_context.prepared(kINSERT_FRESH_TX)(shard_)(block_height)(blocktime)(sig_hex)()()()()()().exec();
 	}
   }
-  stmt.prepared(kUPDATE_FOR_BLOCK)(block_height).exec();
+  db_context.prepared(kUPDATE_FOR_BLOCK)(block_height).exec();
+  db_context.exec("commit;");
 }
 
 }
