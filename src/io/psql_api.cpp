@@ -79,6 +79,34 @@ void PSQLInterface::initializeDatabaseConnection() {
 
 void PSQLInterface::handleNextBlock(ConstFinalBlockSharedPtr next_block
                                     , size_t block_height) {
+  auto block_time = next_block->getBlockTime();
+  const std::vector<TransactionPtr>& transactions = next_block->getTransactions();
+
+  for (auto& tx : transactions) {
+    const std::string kINSERT_FRESH_TX_STATEMENT = "insert into fresh_tx (fresh_tx_id, shard_id,"
+                                                   " block_height, block_time, sig, tx_addr, rx_addr, coin_id,"
+                                                   " amount, nonce, oracle_name) (select devv_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10);";
+    auto sig = tx->getSignature();
+    Tier2Transaction* const t2x = dynamic_cast<Tier2Transaction* const>(tx.get());
+    auto nonce = t2x->getNonce();
+    std::string oracle_name = "none";
+
+    auto transfers = t2x->getTransfers();
+    for (auto& transfer : transfers) {
+      auto tx_addr = transfer->getAddress();
+      auto coin_id = transfer->getCoin();
+      auto amount = transfer->getAmount();
+      LOG_DEBUG << "TX: shard(" << std::to_string(shard_) << ")"
+                << " block_height(" << std::to_string(block_height) << ")"
+                << " block_time(" << std::to_string(block_time) << ")"
+                << " sig(" << sig.getJSON() << ")"
+                << " addr(" << tx_addr.getHexString() << ")"
+                << " coin_id(" << std::to_string(coin_id) << ")"
+                << " amount(" << std::to_string(amount) << ")"
+                << " nonce(" << ToHex(nonce) << ")"
+                << " oracle_name(" << oracle_name << ")";
+    }
+  }
 }
 
 void ThreadedDBServer::startServer() {
@@ -87,16 +115,16 @@ void ThreadedDBServer::startServer() {
     LOG_WARNING << "Attempted to start a ThreadedDBServer that was already running";
     return;
   }
-  server_thread_ = std::make_unique<std::thread>([this]() { this->run(); });
   keep_running_ = true;
+  server_thread_ = std::make_unique<std::thread>([this]() { this->run(); });
 }
 
 void ThreadedDBServer::stopServer() {
-  LOG_DEBUG << "Stopping TransactionServer";
+  LOG_DEBUG << "Stopping ThreadedDBServer";
   if (keep_running_) {
     keep_running_ = false;
     server_thread_->join();
-    LOG_INFO << "Stopped TransactionServer";
+    LOG_INFO << "Stopped ThreadedDBServer";
   } else {
     LOG_WARNING << "Attempted to stop a stopped server!";
   }
@@ -105,13 +133,16 @@ void ThreadedDBServer::stopServer() {
 void ThreadedDBServer::push_queue(Devv::ConstFinalBlockSharedPtr block) {
   std::lock_guard<std::mutex> guard(input_mutex_);
   input_queue_.push_back(block);
+
+  std::unique_lock<std::mutex> lk(cv_mutex_);
+  sync_variable_.notify_one();
 }
 
 void ThreadedDBServer::run() noexcept {
 
   // Run forever (break on shutdown)
-  for (;;) {
-    std::unique_lock<std::mutex> lk(input_mutex_);
+  do {
+    std::unique_lock<std::mutex> lk(cv_mutex_);
     std::cerr << "Waiting... \n";
     sync_variable_.wait(lk, [&] {
                           std::unique_lock<std::mutex> input_lock;
@@ -137,10 +168,7 @@ void ThreadedDBServer::run() noexcept {
       callback_(block, block_number_);
       ++block_number_;
     }
-
-    // Exit thread loop
-    if (!keep_running_) break;
-  }
+  } while (keep_running_);
 }
 
 } // namespace Devv

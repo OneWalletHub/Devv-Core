@@ -118,7 +118,7 @@ int main(int argc, char* argv[]) {
   });
   peer_listener->listenTo(get_shard_uri(options->shard_index));
   peer_listener->startClient();
-  LOG_INFO << "Devv-psql is listening to shard: "+get_shard_uri(options->shard_index);
+  LOG_INFO << "devv-psql is listening to shard: "+get_shard_uri(options->shard_index);
 
   auto ms = kMAIN_WAIT_INTERVAL;
   int dolog = 0;
