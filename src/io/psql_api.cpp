@@ -105,6 +105,7 @@ void PSQLInterface::handleNextBlock(ConstFinalBlockSharedPtr next_block
       stmt.prepared(kINSERT_FRESH_TX)(shard_)(block_height)(blocktime)(sig_hex)()()()()()().exec();
 	}
   }
+  stmt.prepared(kUPDATE_FOR_BLOCK)(block_height).exec();
 }
 
 }
