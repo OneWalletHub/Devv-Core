@@ -79,39 +79,61 @@ void PSQLInterface::initializeDatabaseConnection() {
 
 void PSQLInterface::handleNextBlock(ConstFinalBlockSharedPtr next_block
                                     , size_t block_height) {
-  uint64_t blocktime = top_block->getBlockTime();
-  std::vector<TransactionPtr> txs = top_block->CopyTransactions();
-  pqxx::nontransaction db_context(*db_connection_);
-  for (TransactionPtr& one_tx : txs) {
-    std::string sig_hex = one_tx->getSignature().getJSON();
-    if (one_tx->getSignature().isNodeSignature()) {
-      //coin request transaction in this version
-      std::vector<TransferPtr> xfers = one_tx->getTransfers();
-      std::string sender_hex;
-      std::string receiver_hex;
-      uint64_t coin_id = 0;
-      int64_t amount = 0;
-      std::string oracle_name = "io.devv.coin_request";
+}
 
-      for (TransferPtr& one_xfer : xfers) {
-        if (one_xfer->getAmount() < 0) {
-          sender_hex = one_xfer->getAddress().getHexString();
-		} else {
-          receiver_hex = one_xfer->getAddress().getHexString();
-          coin_id = one_xfer->getCoin();
-          amount = one_xfer->getAmount();
-        }
-      }
-      db_context.prepared(kINSERT_FRESH_TX)(shard_)(block_height)(blocktime)(sig_hex)(sender_hex)(receiver_hex)(coin_id)(amount)()(oracle_name).exec();
-      shard_id, block_height, block_time, sig, tx_addr, rx_addr, coin_id, amount, nonce, oracle_name
-    } else {
-      //basic transaction
-      db_context.prepared(kINSERT_FRESH_TX)(shard_)(block_height)(blocktime)(sig_hex)()()()()()().exec();
-	}
+void ThreadedDBServer::startServer() {
+  LOG_DEBUG << "Starting DBServer";
+  if (keep_running_) {
+    LOG_WARNING << "Attempted to start a ThreadedDBServer that was already running";
+    return;
   }
-  db_context.prepared(kUPDATE_FOR_BLOCK)(block_height).exec();
-  if (block_height % 10 == 1) db_context.prepared(kREJECT_OLD_TX).exec();
-  db_context.exec("commit;");
+  server_thread_ = std::make_unique<std::thread>([this]() { this->run(); });
+  keep_running_ = true;
 }
 
+void ThreadedDBServer::stopServer() {
+  LOG_DEBUG << "Stopping TransactionServer";
+  if (keep_running_) {
+    keep_running_ = false;
+    server_thread_->join();
+    LOG_INFO << "Stopped TransactionServer";
+  } else {
+    LOG_WARNING << "Attempted to stop a stopped server!";
+  }
 }
+
+void ThreadedDBServer::push_queue(Devv::ConstFinalBlockSharedPtr block) {
+  std::lock_guard<std::mutex> guard(input_mutex_);
+  input_queue_.push_back(block);
+}
+
+void ThreadedDBServer::run() noexcept {
+  std::unique_lock<std::mutex> lk(input_mutex_);
+  std::cerr << "Waiting... \n";
+  sync_variable_.wait(lk, [&] {
+                        std::unique_lock<std::mutex> input_lock;
+                        return !input_queue_.empty();
+                      }
+  );
+
+  // Create a local deque and empty the shared deque into
+  // the local copy quickly and release the lock
+  std::deque<ConstFinalBlockSharedPtr> tmp_vec;
+
+  {
+    std::unique_lock<std::mutex> input_lock;
+    for (auto block : input_queue_) {
+      tmp_vec.push_back(block);
+    }
+    input_queue_.clear();
+  }
+
+  // Now that the lock is released, loop through
+  // the temp vector and handle blocks
+  for (auto block : tmp_vec) {
+    callback_(block, block_number_);
+    ++block_number_;
+  }
+}
+
+} // namespace Devv

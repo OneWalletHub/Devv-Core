@@ -109,18 +109,7 @@ class ThreadedDBServer {
   typedef std::function<void(ConstFinalBlockSharedPtr, size_t)> CallbackFunction;
 
  public:
-  /**
-   * Constructor
-   * @param shared_mutex mutex to sync communication between main and worker threads
-   * @param cv condition variable to wake up the worker thread
-   * @param input_mutex mutex to handle access to the block queue (deque)
-   */
-  ThreadedDBServer(std::mutex& shared_mutex, std::condition_variable& cv, std::mutex& input_mutex)
-  : cv_mutex_(shared_mutex)
-  , sync_variable_(cv)
-  , input_mutex_(input_mutex)
-  {
-  }
+  ThreadedDBServer() = default;
 
   /**
    * Attach a callback to be executed when a block is ready to be processed
@@ -133,83 +122,24 @@ class ThreadedDBServer {
   /**
    * Start the worker thread
    */
-  void startServer() {
-    LOG_DEBUG << "Starting DBServer";
-    if (keep_running_) {
-      LOG_WARNING << "Attempted to start a ThreadedDBServer that was already running";
-      return;
-    }
-    server_thread_ = std::make_unique<std::thread>([this]() { this->run(); });
-    keep_running_ = true;
-  }
+  void startServer();
 
   /**
    * Stop the worker thread
    */
-  void stopServer() {
-    LOG_DEBUG << "Stopping TransactionServer";
-    if (keep_running_) {
-      keep_running_ = false;
-      server_thread_->join();
-      LOG_INFO << "Stopped TransactionServer";
-    } else {
-      LOG_WARNING << "Attempted to stop a stopped server!";
-    }
-  }
+  void stopServer();
 
   /**
    * Push a FinalBlock onto the queue. Called from the main thread
    * @param block next block to handle
    */
-  void push_queue(ConstFinalBlockSharedPtr block) {
-    std::lock_guard<std::mutex> guard(input_mutex_);
-    input_queue_.push_back(block);
-  }
+  void push_queue(ConstFinalBlockSharedPtr block);
 
-  /**
-   * Pop a FinalBlock from the queue. Called from the worker thread
-   * @return
-   */
-/*
- * ConstFinalBlockSharedPtr pop_queue() {
-    std::lock_guard<std::mutex> guard(input_mutex_);
-    auto next = input_queue_.front();
-    input_queue_.pop_back();
-    return next;
-  }
-*/
  private:
   /**
    * Starts the thread and send loop
    */
-  void run() noexcept {
-    std::unique_lock<std::mutex> lk(input_mutex_);
-    std::cerr << "Waiting... \n";
-    sync_variable_.wait(lk, [&] {
-      std::unique_lock<std::mutex> input_lock;
-      return !input_queue_.empty();
-    }
-    );
-
-    // Create a local deque and empty the shared deque into
-    // the local copy quickly and release the lock
-    std::deque<ConstFinalBlockSharedPtr> tmp_vec;
-
-    {
-      std::unique_lock<std::mutex> input_lock;
-      for (auto block : input_queue_) {
-        tmp_vec.push_back(block);
-      }
-      input_queue_.clear();
-    }
-
-    // Now that the lock is released, loop through
-    // the temp vector and handle blocks
-    for (auto block : tmp_vec) {
-      callback_(block, block_number_);
-      ++block_number_;
-    }
-  }
+  void run() noexcept;
 
   /// Callback function to execute when a block is ready
   CallbackFunction callback_ = nullptr;
@@ -224,16 +154,16 @@ class ThreadedDBServer {
   bool keep_running_ = false;
 
   /// Mutex for synchronization with main thread
-  std::mutex& cv_mutex_;
+  std::mutex cv_mutex_;
 
   /// Condition variable for wake-up
-  std::condition_variable& sync_variable_;
+  std::condition_variable sync_variable_;
 
   /// Queue of incoming blocks. Main thread pushes, worker thread pops
   std::deque<ConstFinalBlockSharedPtr> input_queue_;
 
   /// Mutex for input queue
-  std::mutex& input_mutex_;
+  std::mutex input_mutex_;
 };
 
 } // namespace Devv
