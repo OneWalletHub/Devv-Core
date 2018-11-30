@@ -12,7 +12,7 @@ create or replace function add_balance(wallet uuid, coin bigint, amount bigint, 
 declare
   new_balance bigint;
 begin
-  new_balance := (SELECT balance+amount from wallet_coin where wallet_id = wallet and coin_id = coin);
+  SELECT balance+amount into new_balance from wallet_coin where wallet_id = wallet and coin_id = coin;
   IF FOUND THEN
     UPDATE wallet_coin set balance = new_balance, block_height = height where wallet_id = wallet and coin_id = coin;    
   ELSE
@@ -42,7 +42,7 @@ begin
   SELECT * INTO pending_inn from pending_rx where rx_wallet = receiver and comment = inn_comment limit 1;
   IF FOUND THEN
     INSERT INTO tx (tx_id, shard_id, block_height, block_time, tx_wallet, coin_id, amount) (SELECT new_tx_id, shard_id, block_height, block_time, nil_wallet, pending_inn.coin_id, pending_inn.amount);
-    INSERT INTO rx (rx_id, shard_id, block_height, block_time, tx_wallet, rx_wallet, coin_id, amount, delay, comment, tx_id) (SELECT devv_uuid(), shard_id, block_height, block_time, nil_wallet, receiver, pending_inn.coin_id, pending_inn.amount, 0, inn_comment, new_tx_id);    
+    INSERT INTO rx (rx_id, shard_id, block_height, block_time, tx_wallet, rx_wallet, coin_id, amount, delay, comment, tx_id) (SELECT devv_uuid(), shard_id, block_height, block_time, nil_wallet, receiver, pending_inn.coin_id, pending_inn.amount, 0, inn_comment, new_tx_id);
     PERFORM add_balance(receiver, pending_inn.coin_id, pending_inn.amount, block_height);
     delete from pending_rx where pending_rx_id = pending_inn.pending_rx_id;
     delete from pending_tx where pending_tx_id = cast(pending_inn.sig as uuid);
