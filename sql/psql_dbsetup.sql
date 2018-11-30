@@ -157,6 +157,7 @@ truncate table rejected_tx cascade;
 truncate table rx cascade;
 truncate table tx cascade;
 truncate table wallet_coin cascade;
+truncate table fresh_tx cascade;
 end;
 $$ language plpgsql;
 
