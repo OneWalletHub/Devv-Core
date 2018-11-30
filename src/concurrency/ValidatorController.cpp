@@ -94,7 +94,7 @@ void ValidatorController::validatorCallback(DevvMessageUniquePtr ptr) {
         if (!ProposedBlock::isNullProposal(proposal)) {
           if (utx_pool_.BreakNextProposal()) {
             LOG_WARNING << "ValidatorController breaks due to new FinalBlock.";
-            utx_pool_.NextProposalDone();
+            utx_pool_.UnlockProposals();
             return;
           }
           // Create message

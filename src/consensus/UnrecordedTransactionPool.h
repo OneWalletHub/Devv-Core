@@ -333,10 +333,10 @@ class UnrecordedTransactionPool {
  *  FinalBlock handler will or has proposed.
  *  @param break_proposal - trigger parallel proposal to break
  */
-  bool LockProposals(bool require_reverification) {
+  bool LockProposals(bool break_proposal) {
     std::lock_guard<std::mutex> guard(proposal_lock_mutex_);
     if (!ready_to_propose_) {
-      if (require_reverification) {
+      if (break_proposal) {
         break_next_proposal_ = true;
         //wait for break_next_proposal->false here
       }
@@ -350,6 +350,10 @@ class UnrecordedTransactionPool {
  * Indicate that this shard needs to propose.
  */
   void UnlockProposals() {
+    if (break_next_proposal_) {
+      break_next_proposal_ = false;
+      return;
+    }
     ready_to_propose_ = true;
   }
 
@@ -370,10 +374,6 @@ class UnrecordedTransactionPool {
  */
   bool BreakNextProposal() {
     return break_next_proposal_;
-  }
-
-  void NextProposalDone() {
-    break_next_proposal = false;
   }
 
  private:
