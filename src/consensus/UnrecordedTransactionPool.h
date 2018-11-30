@@ -234,6 +234,7 @@ class UnrecordedTransactionPool {
     {
       std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
       if (pending_proposal_.isNull()) { return false; }
+      reverify_next_proposal_ = false;
     }
     if (ReverifyTransactions(prior, keys)) {
       std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
@@ -331,9 +332,19 @@ class UnrecordedTransactionPool {
 /**
  *  Indicate that no proposals are needed at this time.
  *  FinalBlock handler will or has proposed.
+ *  @param break_proposal - trigger parallel proposal to break
  */
-  void LockProposals() {
+  bool LockProposals(bool require_reverification) {
+    std::lock_guard<std::mutex> guard(proposal_lock_mutex_);
+    if (!ready_to_propose_) {
+      if (require_reverification) {
+        break_next_proposal_ = true;
+        //wait for break_next_proposal->false here
+      }
+      return false;
+    }
     ready_to_propose_ = false;
+    return true;
   }
 
 /**
@@ -353,11 +364,26 @@ class UnrecordedTransactionPool {
     return ready_to_propose_;
   }
 
+/**
+ *  Did a FinalBlock just come in so any parallel proposal must be reverified?
+ *  Note: uses atomic<bool> indicator
+ *  @return true, if there is a recent FinalBlock that might contend with the current proposal
+ */
+  bool BreakNextProposal() {
+    return break_next_proposal_;
+  }
+
+  void NextProposalDone() {
+    break_next_proposal = false;
+  }
+
  private:
   TxMap txs_;
   mutable std::mutex txs_mutex_;
+  mutable std::mutex proposal_lock_mutex_;
   std::atomic<bool> has_proposal_ = ATOMIC_VAR_INIT(false);
   std::atomic<bool> ready_to_propose_ = ATOMIC_VAR_INIT(false);
+  std::atomic<bool> break_next_proposal_ = ATOMIC_VAR_INIT(false);
 
   ProposedBlock pending_proposal_;
   mutable std::mutex pending_proposal_mutex_;
@@ -407,6 +433,8 @@ class UnrecordedTransactionPool {
       return true;
     } else {
       LOG_INFO << "CollectValidTransactions returned 0 transactions - not proposing";
+      pending_proposal_.setNull();
+      has_proposal_ = false;
       return false;
     }
   }

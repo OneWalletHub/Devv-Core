@@ -78,7 +78,10 @@ void ValidatorController::validatorCallback(DevvMessageUniquePtr ptr) {
           return;
         }
         //claim the proposal, unlock if fail
-        utx_pool_.LockProposals();
+        if (!utx_pool_.LockProposals(false)) {
+          //another thread is already making a proposal, break
+          return;
+        }
 
         std::vector<byte> proposal;
         try {
@@ -89,6 +92,11 @@ void ValidatorController::validatorCallback(DevvMessageUniquePtr ptr) {
           return;
         }
         if (!ProposedBlock::isNullProposal(proposal)) {
+          if (utx_pool_.BreakNextProposal()) {
+            LOG_WARNING << "ValidatorController breaks due to new FinalBlock.";
+            utx_pool_.NextProposalDone();
+            return;
+          }
           // Create message
            auto propose_msg = std::make_unique<DevvMessage>(context_.get_shard_uri()
 	                                        , PROPOSAL_BLOCK
