@@ -72,7 +72,11 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
 
   ChainState prior = final_chain.getHighestChainState();
   LOG_DEBUG << "prior.size(): " << prior.size();
-  utx_pool.LockProposals();
+
+  while (!utx_pool.TryLock()) {
+    pthread_yield();
+  }
+
   FinalPtr top_block = std::make_shared<FinalBlock>(utx_pool.FinalizeRemoteBlock(
                                                buffer, prior, keys));
   final_chain.push_back(top_block);

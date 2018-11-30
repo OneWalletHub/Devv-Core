@@ -78,7 +78,9 @@ void ValidatorController::validatorCallback(DevvMessageUniquePtr ptr) {
           return;
         }
         //claim the proposal, unlock if fail
-        utx_pool_.LockProposals();
+        while (!utx_pool_.TryLock()) {
+          pthread_yield();
+        }
 
         std::vector<byte> proposal;
         try {

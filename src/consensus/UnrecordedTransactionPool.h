@@ -329,21 +329,20 @@ class UnrecordedTransactionPool {
   }
 
 /**
- *  Indicate that no proposals are needed at this time.
- *  FinalBlock handler will or has proposed.
- */
-  void LockProposals() {
-    ready_to_propose_ = false;
-  }
-
-/**
  * Indicate that this shard needs to propose.
  */
   void UnlockProposals() {
     ready_to_propose_ = true;
   }
 
-
+  bool TryLock() {
+    std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
+    if (ready_to_propose_) {
+      ready_to_propose_ = false;
+      return true;
+    }
+    return false;
+  }
 /**
  *  Is the shard waiting on a transaction for this validator to propose?
  *  Note: uses atomic<bool> indicator
