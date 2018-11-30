@@ -56,17 +56,17 @@ $$ language plpgsql;
 
 create or replace function handle_default_tx(next_sig text, shard int, height int, blocktime bigint) returns int as $$
 declare
-  pend_tx RECORD;
-  pend_rx RECORD;
+  pending_tx_row pending_tx%ROWTYPE;
+  pending_rx_row pending_rx%ROWTYPE;
 begin
-  pend_tx := (SELECT pending_tx_id, tx_wallet, coin_id, amount, comment from pending_tx where sig = upper(next_sig));
+  SELECT * INTO pending_tx_row from pending_tx where sig = upper(next_sig);
   IF FOUND THEN
-    SELECT add_balance(pend_tx.tx_wallet, pend_tx.coin_id, pend_tx.amount, height);
-    INSERT INTO tx (tx_id, shard_id, block_height, block_time, tx_wallet, coin_id, amount, comment) (SELECT pend_tx.pending_tx_id, shard, height, blocktime, pend_tx.tx_wallet, pend_tx.coin_id, pend_tx.amount, pend_tx.comment);
-    FOR pend_rx IN SELECT pending_rx_id, rx_wallet, coin_id, amount, comment from pending_rx where sig = upper(next_sig)
+    PERFORM add_balance(pending_tx_row.tx_wallet, pending_tx_row.coin_id, pending_tx_row.amount, height);
+    INSERT INTO tx (tx_id, shard_id, block_height, block_time, tx_wallet, coin_id, amount, comment) (SELECT pending_tx_row.pending_tx_id, shard, height, blocktime, pending_tx_row.tx_wallet, pending_tx_row.coin_id, pending_tx_row.amount, pending_tx_row.comment);
+    for pending_rx_row in select * from pending_rx where sig = upper(next_sig)
     LOOP
-      SELECT add_balance(pend_rx.rx_wallet, pend_rx.coin_id, pend_rx.amount, height);
-      INSERT INTO rx (rx_id, shard_id, block_height, block_time, tx_wallet, rx_wallet, coin_id, amount, delay, comment, tx_id) (SELECT pend_rx.pending_rx_id, shard, height, blocktime, pend_tx.tx_wallet, pend_rx.rx_wallet, pend_rx.coin_id, pend_rx.amount, 0, pend_rx.comment, pend_tx.pending_tx_id);
+      perform add_balance(pending_rx_row.rx_wallet, pending_rx_row.coin_id, pending_rx_row.amount, height);
+      INSERT INTO rx (rx_id, shard_id, block_height, block_time, tx_wallet, rx_wallet, coin_id, amount, delay, comment, tx_id) (SELECT pending_rx_row.pending_rx_id, shard, height, blocktime, pending_tx_row.tx_wallet, pending_rx_row.rx_wallet, pending_rx_row.coin_id, pending_rx_row.amount, 0, pending_rx_row.comment, pending_tx_row.pending_tx_id);
     END LOOP;
     delete from pending_rx where sig = upper(next_sig);
     delete from pending_tx where sig = upper(next_sig);
@@ -89,7 +89,7 @@ begin
     IF tx.oracle_name = 'io.devv.coin_request' THEN
       update_count := handle_coin_request(tx.rx_addr, tx.shard_id, tx.block_height, tx.block_time)+update_count;
     ELSE
-      update_count := handle_default_tx(tx.rx_sig, tx.shard_id, tx.block_height, tx.block_time)+update_count;
+      update_count := handle_default_tx(tx.sig, tx.shard_id, tx.block_height, tx.block_time)+update_count;
     END IF;
   END LOOP;
   delete from fresh_tx where block_height = height;
