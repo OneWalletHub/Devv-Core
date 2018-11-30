@@ -234,7 +234,6 @@ class UnrecordedTransactionPool {
     {
       std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
       if (pending_proposal_.isNull()) { return false; }
-      reverify_next_proposal_ = false;
     }
     if (ReverifyTransactions(prior, keys)) {
       std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
