@@ -82,6 +82,12 @@ void PSQLInterface::handleNextBlock(ConstFinalBlockSharedPtr next_block
   auto blocktime = next_block->getBlockTime();
   const std::vector<TransactionPtr>& transactions = next_block->getTransactions();
 
+  LOG_DEBUG << "handleNextBlock(), height: " << block_height << " txs: " << transactions.size();
+  if (db_connection_ == nullptr) {
+    LOG_ERROR << "Database not initialized - skipping block!";
+    return;
+  }
+
   pqxx::nontransaction db_context(*db_connection_);
   for (auto& one_tx : transactions) {
     auto sig = one_tx->getSignature();
@@ -150,19 +156,24 @@ void ThreadedDBServer::stopServer() {
 }
 
 void ThreadedDBServer::push_queue(Devv::ConstFinalBlockSharedPtr block) {
+  LOG_DEBUG << "push_queue(): waiting on lock";
   std::lock_guard<std::mutex> guard(input_mutex_);
   input_queue_.push_back(block);
 
   std::unique_lock<std::mutex> lk(cv_mutex_);
   sync_variable_.notify_one();
+  LOG_DEBUG << "push_queue(): sync_variable_.notify_one()";
 }
 
 void ThreadedDBServer::run() noexcept {
 
+  LOG_DEBUG << "run(): calling initialize_callback";
+  initialize_callback_();
+
   // Run forever (break on shutdown)
   do {
     std::unique_lock<std::mutex> lk(cv_mutex_);
-    std::cerr << "Waiting... \n";
+    LOG_DEBUG << "run(): Waiting for notification";
     sync_variable_.wait(lk, [&] {
                           std::unique_lock<std::mutex> input_lock;
                           return !input_queue_.empty();
@@ -173,6 +184,7 @@ void ThreadedDBServer::run() noexcept {
     // the local copy quickly and release the lock
     std::deque<ConstFinalBlockSharedPtr> tmp_vec;
 
+    LOG_DEBUG << "run(): creating tmp vector";
     {
       std::unique_lock<std::mutex> input_lock;
       for (auto block : input_queue_) {
@@ -180,6 +192,7 @@ void ThreadedDBServer::run() noexcept {
       }
       input_queue_.clear();
     }
+    LOG_DEBUG << "run(): tmp_vec created, size: " << tmp_vec.size();
 
     // Now that the lock is released, loop through
     // the temp vector and handle blocks

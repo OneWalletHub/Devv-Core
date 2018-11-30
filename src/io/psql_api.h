@@ -81,9 +81,9 @@ class PSQLInterface {
   void handleNextBlock(ConstFinalBlockSharedPtr next_block
                        , size_t block_height);
 
- private:
   void initializeDatabaseConnection();
 
+ private:
   std::string getPendingTransactionID(const Transaction& transaction);
 
   std::string  hostname_;
@@ -107,6 +107,7 @@ class PSQLInterface {
  */
 class ThreadedDBServer {
   typedef std::function<void(ConstFinalBlockSharedPtr, size_t)> CallbackFunction;
+  typedef std::function<void()> InitializeCallbackFunction;
 
  public:
   ThreadedDBServer() = default;
@@ -117,6 +118,10 @@ class ThreadedDBServer {
    */
   void attachCallback(CallbackFunction cb) {
     callback_ = cb;
+  }
+
+  void attachInitializeCallback(InitializeCallbackFunction cb) {
+    initialize_callback_ = cb;
   }
 
   /**
@@ -143,6 +148,9 @@ class ThreadedDBServer {
 
   /// Callback function to execute when a block is ready
   CallbackFunction callback_ = nullptr;
+
+  /// Callback function to execute after thread is created
+  InitializeCallbackFunction initialize_callback_ = nullptr;
 
   /// Current block number
   size_t block_number_ = 0;

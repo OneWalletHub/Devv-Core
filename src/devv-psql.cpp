@@ -96,6 +96,11 @@ int main(int argc, char* argv[]) {
     }
   );
 
+  db_server.attachInitializeCallback([&]() {
+      psql_interface.initializeDatabaseConnection();
+    }
+  );
+
   BlockchainPtr chain = std::make_shared<Blockchain>(shard_name);
   KeyRing keys;
 
@@ -118,6 +123,8 @@ int main(int argc, char* argv[]) {
   });
   peer_listener->listenTo(get_shard_uri(options->shard_index));
   peer_listener->startClient();
+  db_server.startServer();
+
   LOG_INFO << "devv-psql is listening to shard: "+get_shard_uri(options->shard_index);
 
   auto ms = kMAIN_WAIT_INTERVAL;
