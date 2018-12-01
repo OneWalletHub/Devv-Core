@@ -3,11 +3,11 @@
  *
  * @copywrite  2018 Devvio Inc
  */
-
 #include "consensus/tier2_message_handlers.h"
-#include "primitives/buffers.h"
 
+#include <memory>
 #include <boost/filesystem.hpp>
+#include "primitives/buffers.h"
 
 namespace fs = boost::filesystem;
 
@@ -57,15 +57,15 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
                       Blockchain& final_chain,
                       UnrecordedTransactionPool& utx_pool,
                       std::function<void(DevvMessageUniquePtr)> callback) {
-
   if (ptr->message_type != eMessageType::FINAL_BLOCK) {
     throw std::runtime_error("HandleFinalBlock: message != eMessageType::FINAL_BLOCK");
   }
 
+  // Profiling
   MTR_SCOPE_FUNC();
-  //Make the incoming block final
-  //if pending proposal, makes sure it is still valid
-  //if no pending proposal, check if should make one
+
+  // If another thread is proposing, forestall it immediately
+  utx_pool.forestallProposal();
 
   InputBuffer buffer(ptr->data);
   LogDevvMessageSummary(*ptr, "HandleFinalBlock()");
@@ -77,16 +77,18 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
   auto proposal_lock =  utx_pool.acquireProposalPermissionLock();
   LOG_DEBUG << "HandleFinalBlock(): proposal_lock acquired and locked";
 
-  FinalPtr top_block = std::make_shared<FinalBlock>(utx_pool.FinalizeRemoteBlock(
+  // Now that we have the lock, clear the forestall flag
+  // This must be called before CreateAndSendNextProposal() or we will
+  // forestall ourselves
+  utx_pool.forestallProposal(false);
+
+  FinalPtr top_block = std::make_shared<FinalBlock>(utx_pool.finalizeRemoteBlock(
                                                buffer, prior, keys));
   final_chain.push_back(top_block);
   LOG_NOTICE << "final_chain.push_back(): Estimated rate: (ntxs/duration): rate -> "
              << "(" << final_chain.getNumTransactions() << "/"
              << utx_pool.getElapsedTime() << "): "
              << final_chain.getNumTransactions() / (utx_pool.getElapsedTime()/1000) << " txs/sec";
-
-  // Did we send a message
-  bool sent_message = false;
 
   if (utx_pool.hasActiveProposal()) {
     LOG_DEBUG << "HandleFinalBlock: utx_pool.hasActiveProposal()"
@@ -99,49 +101,17 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
     LOG_DEBUG << "HandleFinalBlock: utx_pool.hasActiveProposal(): " << utx_pool.hasActiveProposal();
   }
 
-  size_t block_height = final_chain.size();
-
   if (!utx_pool.hasPendingTransactions()) {
     LOG_INFO << "All pending transactions processed.";
-    //utx_pool.UnlockProposals();
-  } else if (block_height % context.get_peer_count() == context.get_current_node() % context.get_peer_count()) {
-    auto proposal_lock = utx_pool.acquireProposalPermissionLock();
-    if (!utx_pool.hasActiveProposal()) {
-      std::vector<byte> proposal;
-      try {
-        proposal = CreateNextProposal(keys, final_chain, utx_pool, context);
-      } catch (std::runtime_error err) {
-        LOG_INFO << "NOT PROPOSING: " << err.what();
-        //utx_pool.UnlockProposals();
-        return false;
-      }
-      if (!ProposedBlock::isNullProposal(proposal)) {
-        // Create message
-        auto propose_msg =
-            std::make_unique<DevvMessage>(context.get_shard_uri(),
-                                             PROPOSAL_BLOCK,
-                                             proposal,
-                                             ((block_height + 1) + (context.get_current_node() + 1) * 1000000));
-        // FIXME (spm): define index value somewhere
-        LogDevvMessageSummary(*propose_msg, "CreateNextProposal");
-        callback(std::move(propose_msg));
-        sent_message = true;
-      } else {
-        LOG_WARNING << "HandleFinalBlock: proposal is null ;; ProposedBlock::isNullProposal(proposal) == NULL";
-      }
-    } else {
-      LOG_DEBUG << "HandleFinalBlock: Sent proposal, utx_pool has no more proposals";
-    }
-  } else {
-    LOG_DEBUG << "if (block_height % context.get_peer_count() == context.get_current_node() % context.get_peer_count())";
-    LOG_DEBUG << "Pending transactions but not my turn: " <<
-              "("<< block_height<<"%"<< context.get_peer_count()<< ") != " <<
-              "(" << context.get_current_node() << "%" << context.get_peer_count() << ") " <<
-              ": (" << block_height % context.get_peer_count() << " != " <<
-              context.get_current_node() % context.get_peer_count() <<
-              ") pending: " << utx_pool.hasPendingTransactions();
+    return false;
   }
-  return sent_message;
+
+  CreateAndSendNextProposal(keys,
+                            final_chain,
+                            utx_pool,
+                            context,
+                            callback);
+  return true;
 }
 
 bool HandleProposalBlock(DevvMessageUniquePtr ptr,
@@ -204,7 +174,7 @@ bool HandleValidationBlock(DevvMessageUniquePtr ptr,
   if (utx_pool.checkValidation(buffer, context)) {
     //block can be finalized, so finalize
     LOG_DEBUG << "Ready to finalize block.";
-    FinalPtr top_block = std::make_shared<FinalBlock>(utx_pool.FinalizeLocalBlock());
+    FinalPtr top_block = std::make_shared<FinalBlock>(utx_pool.finalizeLocalBlock());
     final_chain.push_back(top_block);
     LOG_NOTICE << "final_chain.push_back(): Estimated rate: (ntxs/duration): rate -> "
                << "(" << final_chain.getNumTransactions() << "/"
@@ -324,6 +294,58 @@ bool HandleBlocksSince(DevvMessageUniquePtr ptr,
     LOG_INFO << "Finished updating local state for Tier1 block height: "+std::to_string(height);
   }
   return false;
+}
+
+void CreateAndSendNextProposal(const KeyRing& keys,
+                               Blockchain& final_chain,
+                               UnrecordedTransactionPool& utx_pool,
+                               const DevvContext& context,
+                               DevvMessageCallback callback) {
+
+  if (utx_pool.hasActiveProposal()) {
+    LOG_INFO << "utx_pool_.hasActiveProposal() == true, not proposing";
+    return;
+  }
+
+  size_t block_height = final_chain.size();
+  LOG_DEBUG << "current_node(" << context.get_current_node() << ")" \
+            <<" peer_count(" << context.get_peer_count() << ")" \
+            << " block_height (" << block_height << ")";
+
+  if (block_height%context.get_peer_count() != context.get_current_node()%context.get_peer_count()) {
+    LOG_INFO << "NOT PROPOSING! (" << block_height % context.get_peer_count() << ")" <<
+             " (" << context.get_current_node() % context.get_peer_count() << ")";
+    return;
+  }
+
+  // Create the proposal and ensure it is not null
+  std::vector<byte> proposal;
+  try {
+    proposal = CreateNextProposal(keys, final_chain, utx_pool, context);
+  } catch (std::runtime_error err) {
+    LOG_INFO << "Proposal failed, releasing lock and returning: " << err.what();
+    return;
+  }
+  if (!ProposedBlock::isNullProposal(proposal)) {
+    LOG_INFO << "Proposal failed: ProposedBlock::isNullProposal(), unlock proposals";
+    return;
+  }
+
+  // Do not propose if proposal is forestalled by HandleFinalBlock
+  if (utx_pool.isProposalForestalled()) {
+    LOG_INFO << "utx_pool_.isProposalForestalled() == true, not proposing";
+    return;
+  }
+
+  // Create message
+  // FIXME (spm): define index value somewhere
+  auto propose_msg = std::make_unique<DevvMessage>(context.get_shard_uri()
+      , PROPOSAL_BLOCK
+      , proposal
+      , ((block_height+1) + (context.get_current_node()+1)*1000000));
+
+  LogDevvMessageSummary(*propose_msg, "CreateAndSendNextProposal");
+  callback(std::move(propose_msg));
 }
 
 }  // namespace Devv
