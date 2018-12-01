@@ -65,7 +65,7 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
   MTR_SCOPE_FUNC();
 
   // If another thread is proposing, forestall it immediately
-  utx_pool.forestallProposal();
+  utx_pool.indicateNewFinalBlock();
 
   InputBuffer buffer(ptr->data);
   LogDevvMessageSummary(*ptr, "HandleFinalBlock()");
@@ -77,10 +77,10 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
   auto proposal_lock =  utx_pool.acquireProposalPermissionLock();
   LOG_DEBUG << "HandleFinalBlock(): proposal_lock acquired and locked";
 
-  // Now that we have the lock, clear the forestall flag
+  // Now that we have the lock, clear the FinalBlockProcessing flag
   // This must be called before CreateAndSendNextProposal() or we will
-  // forestall ourselves
-  utx_pool.forestallProposal(false);
+  // block ourselves
+  utx_pool.indicateNewFinalBlock(false);
 
   FinalPtr top_block = std::make_shared<FinalBlock>(utx_pool.finalizeRemoteBlock(
                                                buffer, prior, keys));
@@ -118,7 +118,7 @@ bool HandleProposalBlock(DevvMessageUniquePtr ptr,
                          const DevvContext& context,
                          const KeyRing& keys,
                          const Blockchain& final_chain,
-                         TransactionCreationManager& tcm,
+                         UnrecordedTransactionPool& utx_pool,
                          std::function<void(DevvMessageUniquePtr)> callback) {
 
   if (ptr->message_type != eMessageType::PROPOSAL_BLOCK) {
@@ -131,8 +131,18 @@ bool HandleProposalBlock(DevvMessageUniquePtr ptr,
 
   ChainState prior = final_chain.getHighestChainState();
   InputBuffer buffer(ptr->data);
-  ProposedBlock to_validate(ProposedBlock::Create(buffer, prior, keys, tcm));
+  ProposedBlock to_validate(ProposedBlock::Create(buffer, prior, keys
+      , utx_pool_.get_transaction_creation_manager()));
 
+  // Block if a new FinalBlock is still processing
+  if (utx_pool.isNewFinalBlockProcessing()) {
+    utx_pool_.acquireProposalPermissionLock(true);
+    //should go out of scope/release immediately
+  }
+  if (!utx_pool_.isRemoteProposalDuplicateFree(to_validate)) {
+    LOG_WARNING << "ProposedBlock contains duplicate transactions!";
+    return false;
+  }
   if (!to_validate.validate(keys)) {
     LOG_WARNING << "ProposedBlock is invalid!";
     return false;
@@ -332,14 +342,15 @@ void CreateAndSendNextProposal(const KeyRing& keys,
     return;
   }
 
-  // Do not propose if proposal is forestalled by HandleFinalBlock
-  if (utx_pool.isProposalForestalled()) {
-    LOG_INFO << "utx_pool_.isProposalForestalled() == true, not proposing";
+  // Do not propose if HandleFinalBlock is currently processing a new block
+  if (utx_pool.isNewFinalBlockProcessing()) {
+    LOG_INFO << "utx_pool_.isNewFinalBlockProcessing() == true, not proposing";
     return;
   }
 
   // Create message
-  // FIXME (spm): define index value somewhere
+  // FIXME (spm): define index value somewhere (would the proposal time work?)
+  utx_pool.setProposalTime();
   auto propose_msg = std::make_unique<DevvMessage>(context.get_shard_uri()
       , PROPOSAL_BLOCK
       , proposal

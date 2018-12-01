@@ -47,7 +47,7 @@ void ConsensusController::consensusCallback(DevvMessageUniquePtr ptr) {
                                              context_,
                                              keys_,
                                              final_chain_,
-                                             utx_pool_.get_transaction_creation_manager(),
+                                             utx_pool_,
                                              [this](DevvMessageUniquePtr p) { this->outgoing_callback_(std::move(p)); });
         break;
       case eMessageType::VALID:LOG_DEBUG << "ConsensusController()::consensusCallback(): VALIDATION";

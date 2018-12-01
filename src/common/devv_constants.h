@@ -26,6 +26,9 @@ static const size_t kNODE_ADDR_BUF_SIZE = kNODE_ADDR_SIZE + 1;
 static const size_t kFILE_KEY_SIZE = 379;
 static const size_t kFILE_NODEKEY_SIZE = 448;
 
+static const uint64_t kDUPLICATE_HORIZON_MILLIS = 1000*60*60*24;
+static const uint64_t kPROPOSAL_EXPIRATION_MILLIS = 2000;
+
 //Transaction constants
 
 /**

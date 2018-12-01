@@ -57,7 +57,7 @@ bool HandleProposalBlock(DevvMessageUniquePtr ptr,
                          const DevvContext& context,
                          const KeyRing& keys,
                          const Blockchain& final_chain,
-                         TransactionCreationManager& tcm,
+                         UnrecordedTransactionPool& utx_pool,
                          std::function<void(DevvMessageUniquePtr)> callback);
 
 /**

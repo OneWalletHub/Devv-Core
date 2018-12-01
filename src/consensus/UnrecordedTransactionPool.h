@@ -204,6 +204,10 @@ class UnrecordedTransactionPool {
    * @return true, iff this pool has an active ProposedBlock
    */
   bool hasActiveProposal() const {
+    if (proposal_time < GetMillisecondsSinceEpoch()-kPROPOSAL_EXPIRATION_MILLIS) {
+      has_active_proposal_ = false;
+      pending_proposal_.setNull();
+    }
     return(has_active_proposal_);
   }
 
@@ -257,6 +261,28 @@ class UnrecordedTransactionPool {
   }
 
   /**
+   *  Checks a remote proposal against this pool's recent transactions
+   *  @param proposed - the remote ProposedBlock
+   *  @return true, iff no transactions in the remote proposal match
+   *                transactions recently finalized in this pool
+   *  @return false, a duplicate transaction was detected
+   */
+  bool isRemoteProposalDuplicateFree(const ProposedBlock& proposed) {
+    std::vector<TransactionPtr> proposed_tx = proposed.getTransactions();
+    for (auto iter = proposed_tx.begin(); iter != proposed_tx.end(); ++iter) {
+      if (recent_txs_.find(iter->getSignature()) != recent_txs_.end()) {
+        return false;
+	  }
+    }
+    return true;
+  }
+
+  uint64_t setProposalTime() {
+    proposal_time_ = GetMillisecondsSinceEpoch();
+    return proposal_time_;
+  }
+
+  /**
    *  Checks a remote validation against this pool's ProposedBlock
    *  @param remote - a binary representation of the remote Validation
    *  @param context - the Devv context of this shard
@@ -272,7 +298,12 @@ class UnrecordedTransactionPool {
       LOG_WARNING << "checkValidation(): pending_proposal_.isNull()";
       return false;
     }
-    return pending_proposal_.checkValidationData(buffer, context);
+    if (pending_proposal_.checkValidationData(buffer, context)) {
+      //provide more time for this proposal since it was just remotely validated
+      setProposalTime();
+      return true;
+	}
+	return false;
   }
 
   /**
@@ -314,6 +345,17 @@ class UnrecordedTransactionPool {
   int GarbageCollect() {
     LOG_DEBUG << "GarbageCollect()";
     //TODO: delete old unrecorded Transactions periodically
+    std::unordered_set<Signature> to_erase;
+    for (auto iter = recent_txs_.begin(); iter != recent_txs_.end(); ++iter) {
+      if (iter->second < GetMillisecondsSinceEpoch()-kDUPLICATE_HORIZON_MILLIS) {
+        to_erase.insert(iter->first);
+      }
+    }
+    for (auto iter = to_erase.begin(); iter != to_erase.end(); ++iter) {
+      recent_txs_.erase(*iter);
+    }
+    //this only cleans the map of potential duplicates
+    //the main pool still needs to be garbage collected
     return 0;
   }
 
@@ -350,28 +392,31 @@ class UnrecordedTransactionPool {
     }
   }
 
-  bool isProposalForestalled() const {
-    return is_proposal_forestalled_;
+  bool isNewFinalBlockProcessing() const {
+    return is_new_final_block_processing_;
   }
 
-  void forestallProposal(bool do_forestall = true) {
-    is_proposal_forestalled_ = do_forestall;
+  void indicateNewFinalBlock(bool processing_now = true) {
+    is_new_final_block_processing_ = processing_now;
   }
 
  private:
   TxMap txs_;
+  std::map<Signature, uint64_t> recent_txs_;
+
   mutable std::mutex txs_mutex_;
 
   /// True if this validator has an active proposal currently pending validation
   std::atomic<bool> has_active_proposal_ = ATOMIC_VAR_INIT(false);
 
 
-  std::atomic<bool> is_proposal_forestalled_ = ATOMIC_VAR_INIT(false);
+  std::atomic<bool> is_new_final_block_processing_ = ATOMIC_VAR_INIT(false);
 
   mutable std::mutex proposal_permission_lock_;
 
   ProposedBlock pending_proposal_;
   mutable std::mutex pending_proposal_mutex_;
+  uint64_t proposal_time_ = 0;
 
   // Total number of transactions that have been
   // added to the transaction map
@@ -418,6 +463,7 @@ class UnrecordedTransactionPool {
       return true;
     } else {
       LOG_INFO << "collectValidTransactions returned 0 transactions - not proposing";
+      pending_proposal_.setNull();
       return false;
     }
   }
@@ -537,6 +583,8 @@ class UnrecordedTransactionPool {
 
   /** Removes Transactions in a ProposedBlock from this pool
    *  @param proposed - the ProposedBlock containing Transactions to remove
+   *  @pre this should only be called for a ProposedBlock that is finalizing
+   *  @pre do not call if there is any chance a PropsedBlock will not finalize
    *  @return true iff, all transactions in the block were removed
    *  @return false otherwise
    */
@@ -548,6 +596,8 @@ class UnrecordedTransactionPool {
         LOG_WARNING << "removeTransactions(): ret = 0, transaction not found: "
                     << item->getSignature().getJSON();
       } else {
+        recent_txs_.insert(std::pair<Signature, uint64_t>(item->getSignature()
+          , GetMillisecondsSinceEpoch()));
         LOG_TRACE << "removeTransactions(): erase returned 1: " << item->getSignature().getJSON();
       }
     }
@@ -566,6 +616,8 @@ class UnrecordedTransactionPool {
     size_t txs_size = txs_.size();
     for (auto const& item : final_block.getTransactions()) {
       txs_.erase(item->getSignature());
+      recent_txs_.insert(std::pair<Signature, uint64_t>(item->getSignature()
+          , GetMillisecondsSinceEpoch()));
     }
     LOG_DEBUG << "removeTransactions: (size pre/size post) ("
               << txs_size << "/"
