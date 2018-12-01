@@ -326,8 +326,9 @@ void CreateAndSendNextProposal(const KeyRing& keys,
     LOG_INFO << "Proposal failed, releasing lock and returning: " << err.what();
     return;
   }
-  if (!ProposedBlock::isNullProposal(proposal)) {
-    LOG_INFO << "Proposal failed: ProposedBlock::isNullProposal(), unlock proposals";
+
+  if (ProposedBlock::isNullProposal(proposal)) {
+    LOG_INFO << "Proposal failed: ProposedBlock::isNullProposal()";
     return;
   }
 

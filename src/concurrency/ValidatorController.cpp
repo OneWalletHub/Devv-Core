@@ -78,11 +78,6 @@ void ValidatorController::validatorCallback(DevvMessageUniquePtr ptr) {
              " (" << context_.get_current_node() % context_.get_peer_count() << ")";
     return;
   }
-  // Make sure there are enough blocks to be our turn
-  if (block_height < context_.get_current_node()) {
-    LOG_INFO << "block_height < context_.get_current_node(), not proposing";
-    return;
-  }
 
   // Acquire the proposal lock, but don't lock it yet (we don't want to block
   // on a lock here)
