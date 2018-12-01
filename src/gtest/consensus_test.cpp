@@ -706,7 +706,7 @@ TEST_F(UnrecordedTransactionPoolTest, finalize_0) {
 
   InputBuffer validation(to_validate.getValidationData());
 
-  EXPECT_TRUE(utx_pool_ptr_->CheckValidation(validation, t2_context_));
+  EXPECT_TRUE(utx_pool_ptr_->checkValidation(validation, t2_context_));
 /*
     //block can be finalized, so finalize
     LOG_DEBUG << "Ready to finalize block.";

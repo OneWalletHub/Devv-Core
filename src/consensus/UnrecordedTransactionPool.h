@@ -9,6 +9,7 @@
 #include <atomic>
 #include <map>
 #include <vector>
+#include <mutex>
 
 #include "concurrency/TransactionCreationManager.h"
 #include "primitives/FinalBlock.h"
@@ -200,11 +201,13 @@ class UnrecordedTransactionPool {
    *  Note: uses atomic<bool> indicator
    *  @return true, iff this pool has a ProposedBlock
    */
-  bool HasProposal() {
-    LOG_DEBUG << "HasProposal()";
-    return(has_proposal_);
+  bool hasActiveProposal() const {
+    return(has_active_proposal_);
   }
 
+  void setHasActiveProposal(bool is_active_propoal) {
+    has_active_proposal_= is_active_propoal;
+  }
   /**
    *  @return a binary representation of this pool's ProposedBlock
    */
@@ -225,11 +228,11 @@ class UnrecordedTransactionPool {
    *  @return true, iff this pool updated its ProposedBlock
    *  @return false, if anything went wrong
    */
-  bool ReverifyProposal(const Hash& prev_hash,
+  bool reverifyProposal(const Hash& prev_hash,
                         const ChainState& prior,
                         const KeyRing& keys,
                         const DevvContext& context) {
-    LOG_DEBUG << "ReverifyProposal()";
+    LOG_DEBUG << "reverifyProposal()";
     MTR_SCOPE_FUNC();
     {
       std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
@@ -254,11 +257,11 @@ class UnrecordedTransactionPool {
    *                 the Validation is for a different ProposedBlock,
    *                 or the Validation signature did not verify
    */
-  bool CheckValidation(InputBuffer& buffer, const DevvContext& context) {
-    LOG_DEBUG << "CheckValidation()";
+  bool checkValidation(InputBuffer& buffer, const DevvContext& context) {
+    LOG_DEBUG << "checkValidation()";
     std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
     if (pending_proposal_.isNull()) {
-      LOG_WARNING << "CheckValidation(): pending_proposal_.isNull()";
+      LOG_WARNING << "checkValidation(): pending_proposal_.isNull()";
       return false;
     }
     return pending_proposal_.checkValidationData(buffer, context);
@@ -274,9 +277,9 @@ class UnrecordedTransactionPool {
     LOG_DEBUG << "FinalizeLocalBlock()";
     MTR_SCOPE_FUNC();
     std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
-    const FinalBlock final_block(FinalizeBlock(pending_proposal_));
+    const FinalBlock final_block(finalizeBlock(pending_proposal_));
     pending_proposal_.setNull();
-    has_proposal_ = false;
+    setHasActiveProposal(false);
     return final_block;
   }
 
@@ -328,36 +331,58 @@ class UnrecordedTransactionPool {
     return mode_;
   }
 
+  /**
+   * Acquire a lock to ensure permission to propose
+   * @return
+   */
+  std::unique_lock<std::mutex> acquireProposalPermissionLock(bool lock_on_acquire = true) const {
+    if (lock_on_acquire){
+      return std::unique_lock<std::mutex>(proposal_permission_lock_);
+    } else {
+      return std::unique_lock<std::mutex>(proposal_permission_lock_, std::defer_lock);
+    }
+  }
+
 /**
  *  Indicate that no proposals are needed at this time.
  *  FinalBlock handler will or has proposed.
  */
-  void LockProposals() {
-    ready_to_propose_ = false;
-  }
+  //void LockProposals() {
+  //  ready_to_propose_ = false;
+  //}
 
 /**
  * Indicate that this shard needs to propose.
  */
-  void UnlockProposals() {
-    ready_to_propose_ = true;
-  }
-
+  //void UnlockProposals() {
+  //  ready_to_propose_ = true;
+  //}
 
 /**
  *  Is the shard waiting on a transaction for this validator to propose?
  *  Note: uses atomic<bool> indicator
  *  @return true, if the most recent FinalBlock thread proposal failed or genesis proposal
  */
-  bool ReadyToPropose() {
+  bool isReadyToPropose() const {
     return ready_to_propose_;
+  }
+
+/**
+ *  Is the shard waiting on a transaction for this validator to propose?
+ *  Note: uses atomic<bool> indicator
+ *  @return true, if the most recent FinalBlock thread proposal failed or genesis proposal
+ */
+  void setReadyToPropose(bool is_ready) {
+    ready_to_propose_ = is_ready;
   }
 
  private:
   TxMap txs_;
   mutable std::mutex txs_mutex_;
-  std::atomic<bool> has_proposal_ = ATOMIC_VAR_INIT(false);
+  std::atomic<bool> has_active_proposal_ = ATOMIC_VAR_INIT(false);
   std::atomic<bool> ready_to_propose_ = ATOMIC_VAR_INIT(false);
+
+  mutable std::mutex proposal_permission_lock_;
 
   ProposedBlock pending_proposal_;
   mutable std::mutex pending_proposal_mutex_;
@@ -403,7 +428,7 @@ class UnrecordedTransactionPool {
       std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
       LOG_WARNING << "proposeBlock(): canon size: " << new_proposal.getCanonical().size();
       pending_proposal_.shallowCopy(new_proposal);
-      has_proposal_ = true;
+      setHasActiveProposal(true);
       return true;
     } else {
       LOG_INFO << "CollectValidTransactions returned 0 transactions - not proposing";
@@ -565,8 +590,8 @@ class UnrecordedTransactionPool {
    *  @param proposed - the ProposedBlock to finalize
    *  @return the FinalBlock based on the provided ProposedBlock
    */
-  const FinalBlock FinalizeBlock(const ProposedBlock& proposal) {
-    LOG_DEBUG << "FinalizeBlock()";
+  const FinalBlock finalizeBlock(const ProposedBlock& proposal) {
+    LOG_DEBUG << "finalizeBlock()";
     MTR_SCOPE_FUNC();
     RemoveTransactions(proposal);
     FinalBlock final(proposal);

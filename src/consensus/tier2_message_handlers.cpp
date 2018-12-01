@@ -24,7 +24,7 @@ std::vector<byte> CreateNextProposal(const KeyRing& keys,
     LOG_NOTICE << "Processing @ final_chain_.size: (" << std::to_string(block_height) << ")";
   }
 
-  if (!utx_pool.HasProposal() && utx_pool.hasPendingTransactions()) {
+  if (!utx_pool.hasActiveProposal() && utx_pool.hasPendingTransactions()) {
     LOG_DEBUG << "block_height: " << block_height;
     bool result = true;
     if (block_height > 0) {
@@ -72,7 +72,7 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
 
   ChainState prior = final_chain.getHighestChainState();
   LOG_DEBUG << "prior.size(): " << prior.size();
-  utx_pool.LockProposals();
+  // FIXME utx_pool.LockProposals();
   FinalPtr top_block = std::make_shared<FinalBlock>(utx_pool.FinalizeRemoteBlock(
                                                buffer, prior, keys));
   final_chain.push_back(top_block);
@@ -84,28 +84,31 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
   // Did we send a message
   bool sent_message = false;
 
-  if (utx_pool.HasProposal()) {
-    LOG_DEBUG << "HandleFinalBlock: utx_pool.HasProposal: " << utx_pool.HasProposal();
+  if (utx_pool.hasActiveProposal()) {
+    LOG_DEBUG << "HandleFinalBlock: utx_pool.hasActiveProposal()"
+                 ""
+                 "Proposal: " << utx_pool.hasActiveProposal();
     ChainState current = top_block->getChainState();
     Hash prev_hash = DevvHash(top_block->getCanonical());
-    utx_pool.ReverifyProposal(prev_hash, current, keys, context);
+    utx_pool.reverifyProposal(prev_hash, current, keys, context);
   } else {
-    LOG_DEBUG << "HandleFinalBlock: utx_pool.HasProposal: " << utx_pool.HasProposal();
+    LOG_DEBUG << "HandleFinalBlock: utx_pool.hasActiveProposal(): " << utx_pool.hasActiveProposal();
   }
 
   size_t block_height = final_chain.size();
 
   if (!utx_pool.hasPendingTransactions()) {
     LOG_INFO << "All pending transactions processed.";
-    utx_pool.UnlockProposals();
+    //utx_pool.UnlockProposals();
   } else if (block_height % context.get_peer_count() == context.get_current_node() % context.get_peer_count()) {
-    if (!utx_pool.HasProposal()) {
+    auto proposal_lock = utx_pool.acquireProposalPermissionLock();
+    if (!utx_pool.hasActiveProposal()) {
       std::vector<byte> proposal;
       try {
         proposal = CreateNextProposal(keys, final_chain, utx_pool, context);
       } catch (std::runtime_error err) {
         LOG_INFO << "NOT PROPOSING: " << err.what();
-        utx_pool.UnlockProposals();
+        //utx_pool.UnlockProposals();
         return false;
       }
       if (!ProposedBlock::isNullProposal(proposal)) {
@@ -194,7 +197,7 @@ bool HandleValidationBlock(DevvMessageUniquePtr ptr,
   InputBuffer buffer(ptr->data);
   LogDevvMessageSummary(*ptr, "HandleValidationBlock() -> Incoming");
 
-  if (utx_pool.CheckValidation(buffer, context)) {
+  if (utx_pool.checkValidation(buffer, context)) {
     //block can be finalized, so finalize
     LOG_DEBUG << "Ready to finalize block.";
     FinalPtr top_block = std::make_shared<FinalBlock>(utx_pool.FinalizeLocalBlock());
