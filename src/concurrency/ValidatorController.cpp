@@ -117,6 +117,7 @@ void ValidatorController::validatorCallback(DevvMessageUniquePtr ptr) {
       LOG_INFO << "NOT PROPOSING! (" << block_height%context_.get_peer_count() << ")" <<
             " (" << context_.get_current_node()%context_.get_peer_count() << ")";
     }
+    utx_pool_.UnlockProposals();
   } else {
     throw DevvMessageError("Wrong message type arrived: " + std::to_string(ptr->message_type));
   }

@@ -381,7 +381,7 @@ class UnrecordedTransactionPool {
   mutable std::mutex txs_mutex_;
   mutable std::mutex proposal_lock_mutex_;
   std::atomic<bool> has_proposal_ = ATOMIC_VAR_INIT(false);
-  std::atomic<bool> ready_to_propose_ = ATOMIC_VAR_INIT(false);
+  std::atomic<bool> ready_to_propose_ = ATOMIC_VAR_INIT(true);
   std::atomic<bool> break_next_proposal_ = ATOMIC_VAR_INIT(false);
 
   ProposedBlock pending_proposal_;
@@ -399,6 +399,11 @@ class UnrecordedTransactionPool {
 #endif
   TransactionCreationManager tcm_;
   eAppMode mode_;
+
+  void nullifyProposal() {
+    pending_proposal_.setNull();
+    has_proposal_ = false;
+  }
 
   /**
    *  Create a new ProposedBlock based on pending Transaction in this pool
@@ -425,6 +430,10 @@ class UnrecordedTransactionPool {
       ProposedBlock new_proposal(prev_hash, validated, summary, validation, new_state, keys);
       size_t node_num = context.get_current_node() % context.get_peer_count();
       new_proposal.signBlock(keys, node_num);
+      if (break_next_proposal_) {
+        nullifyProposal();
+        return false;
+      }
       std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
       LOG_WARNING << "proposeBlock(): canon size: " << new_proposal.getCanonical().size();
       pending_proposal_.shallowCopy(new_proposal);
@@ -432,8 +441,7 @@ class UnrecordedTransactionPool {
       return true;
     } else {
       LOG_INFO << "CollectValidTransactions returned 0 transactions - not proposing";
-      pending_proposal_.setNull();
-      has_proposal_ = false;
+      nullifyProposal();
       return false;
     }
   }
