@@ -85,9 +85,10 @@ void ValidatorController::validatorCallback(DevvMessageUniquePtr ptr) {
 
     // Try to acquire the lock, break out if the lock is in use
     if (!proposal_lock.try_lock()) {
-      LOG_INFO << "proposal_lock.try_lock() == false, not proposing";
+      LOG_INFO << "validatorCallback(): proposal_lock.try_lock() == false, not proposing";
       return;
     }
+    LOG_DEBUG << "validatorCallback(): proposal_lock acquired";
 
     if (utx_pool_.hasActiveProposal()) {
       LOG_INFO << "utx_pool_.hasActiveProposal() == true, not proposing";

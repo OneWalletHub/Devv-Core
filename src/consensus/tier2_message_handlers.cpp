@@ -72,7 +72,11 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
 
   ChainState prior = final_chain.getHighestChainState();
   LOG_DEBUG << "prior.size(): " << prior.size();
-  // FIXME utx_pool.LockProposals();
+
+  LOG_DEBUG << "HandleFinalBlock(): acquiring proposal_lock";
+  auto proposal_lock =  utx_pool.acquireProposalPermissionLock();
+  LOG_DEBUG << "HandleFinalBlock(): proposal_lock acquired and locked";
+
   FinalPtr top_block = std::make_shared<FinalBlock>(utx_pool.FinalizeRemoteBlock(
                                                buffer, prior, keys));
   final_chain.push_back(top_block);
