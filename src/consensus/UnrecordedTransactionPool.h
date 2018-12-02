@@ -489,7 +489,15 @@ class UnrecordedTransactionPool {
     std::map<Address, SmartCoin> aggregate;
     ChainState post_state(ChainState::Copy(state));
     for (auto iter = txs_.begin(); iter != txs_.end(); ++iter) {
-      if (iter->second.second->isValidInAggregate(post_state, keys,
+      if (recent_txs_.find(iter->second.second->getSignature()) != recent_txs_.end()) {
+        LOG_INFO << "CollectValidTransactions: Duplicate transaction in pool.";
+        removeTransaction(iter->second.second->getSignature());
+        //if valid transactions, propose them
+        if (num_txs > 0) break;
+        //otherwise, don't need to clean prior to isValidInAggregate()
+        //but start the collection procedure over
+        return collectValidTransactions(state, keys, pre_sum, context);
+      } else if (iter->second.second->isValidInAggregate(post_state, keys,
                                          post_sum, aggregate, state)) {
         valid.push_back(std::move(iter->second.second->clone()));
         iter->second.first++;
