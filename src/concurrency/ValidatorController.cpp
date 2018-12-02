@@ -91,7 +91,7 @@ void ValidatorController::validatorCallback(DevvMessageUniquePtr ptr) {
   LOG_DEBUG << "validatorCallback(): proposal_lock acquired";
 
   // Do not propose if proposal is forestalled by HandleFinalBlock
-  if (utx_pool_.isProposalForestalled()) {
+  if (utx_pool_.isNewFinalBlockProcessing()) {
     LOG_INFO << "utx_pool_.isProposalForestalled() == true, not proposing";
     return;
   }

@@ -293,6 +293,16 @@ class ProposedBlock {
     return out;
   }
 
+  const std::vector<Signature> copyTransactionSingatures() const {
+    std::vector<Signature> out;
+    for (auto const& item : transaction_vector_) {
+      Signature tx_sig(item->getSignature());
+      out.push_back(tx_sig);
+    }
+    return out;
+  }
+
+
   /**
    *
    * @return

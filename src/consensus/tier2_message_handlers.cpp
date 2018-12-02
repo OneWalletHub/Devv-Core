@@ -132,14 +132,14 @@ bool HandleProposalBlock(DevvMessageUniquePtr ptr,
   ChainState prior = final_chain.getHighestChainState();
   InputBuffer buffer(ptr->data);
   ProposedBlock to_validate(ProposedBlock::Create(buffer, prior, keys
-      , utx_pool_.get_transaction_creation_manager()));
+      , utx_pool.get_transaction_creation_manager()));
 
   // Block if a new FinalBlock is still processing
   if (utx_pool.isNewFinalBlockProcessing()) {
-    utx_pool_.acquireProposalPermissionLock(true);
+    utx_pool.acquireProposalPermissionLock(true);
     //should go out of scope/release immediately
   }
-  if (!utx_pool_.isRemoteProposalDuplicateFree(to_validate)) {
+  if (!utx_pool.isRemoteProposalDuplicateFree(to_validate)) {
     LOG_WARNING << "ProposedBlock contains duplicate transactions!";
     return false;
   }

@@ -203,8 +203,8 @@ class UnrecordedTransactionPool {
    * @note uses atomic<bool> indicator
    * @return true, iff this pool has an active ProposedBlock
    */
-  bool hasActiveProposal() const {
-    if (proposal_time < GetMillisecondsSinceEpoch()-kPROPOSAL_EXPIRATION_MILLIS) {
+  bool hasActiveProposal() {
+    if (proposal_time_ < GetMillisecondsSinceEpoch()-kPROPOSAL_EXPIRATION_MILLIS) {
       has_active_proposal_ = false;
       pending_proposal_.setNull();
     }
@@ -268,9 +268,9 @@ class UnrecordedTransactionPool {
    *  @return false, a duplicate transaction was detected
    */
   bool isRemoteProposalDuplicateFree(const ProposedBlock& proposed) {
-    std::vector<TransactionPtr> proposed_tx = proposed.getTransactions();
-    for (auto iter = proposed_tx.begin(); iter != proposed_tx.end(); ++iter) {
-      if (recent_txs_.find(iter->getSignature()) != recent_txs_.end()) {
+    std::vector<Signature> sigs = proposed.copyTransactionSignatures();
+    for (auto iter = sigs.begin(); iter != sigs.end(); ++iter) {
+      if (recent_txs_.find(*iter) != recent_txs_.end()) {
         return false;
 	  }
     }
@@ -345,10 +345,10 @@ class UnrecordedTransactionPool {
   int GarbageCollect() {
     LOG_DEBUG << "GarbageCollect()";
     //TODO: delete old unrecorded Transactions periodically
-    std::unordered_set<Signature> to_erase;
+    std::vector<Signature> to_erase;
     for (auto iter = recent_txs_.begin(); iter != recent_txs_.end(); ++iter) {
       if (iter->second < GetMillisecondsSinceEpoch()-kDUPLICATE_HORIZON_MILLIS) {
-        to_erase.insert(iter->first);
+        to_erase.push_back(iter->first);
       }
     }
     for (auto iter = to_erase.begin(); iter != to_erase.end(); ++iter) {
