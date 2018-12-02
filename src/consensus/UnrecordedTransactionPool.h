@@ -268,7 +268,7 @@ class UnrecordedTransactionPool {
    *  @return false, a duplicate transaction was detected
    */
   bool isRemoteProposalDuplicateFree(const ProposedBlock& proposed) {
-    std::vector<Signature> sigs = proposed.copyTransactionSignatures();
+    const std::vector<Signature> sigs = proposed.copyTransactionSignatures();
     for (auto iter = sigs.begin(); iter != sigs.end(); ++iter) {
       if (recent_txs_.find(*iter) != recent_txs_.end()) {
         return false;
