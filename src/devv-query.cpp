@@ -41,6 +41,7 @@ struct repeater_options {
   eAppMode mode = eAppMode::T1;
   unsigned int node_index = 0;
   unsigned int shard_index = 0;
+  unsigned int pad_amount = 0;
   std::string shard_name;
   std::string working_dir;
   std::string inn_keys;
@@ -124,7 +125,11 @@ int main(int argc, char* argv[]) {
         fs::path dir_path(shard_dir);
         if (is_directory(dir_path)) {
           std::string block_height(std::to_string(chain.size()));
-          std::string out_file(shard_dir + "/" + block_height + ".blk");
+          std::string padded_height = block_height;
+          if (block_height.length() < options->pad_amount) {
+            padded_height = std::string(options->pad_amount - block_height.length(), '0')+block_height;
+          }
+          std::string out_file(shard_dir + "/" + padded_height + ".blk");
           std::ofstream block_file(out_file
             , std::ios::out | std::ios::binary);
           if (block_file.is_open()) {
@@ -263,6 +268,7 @@ Listens for FinalBlock messages and saves them to a file\n\
         ("key-pass", po::value<std::string>(), "Password for private keys")
         ("stop-file", po::value<std::string>(), "A file in working-dir indicating that this node should stop.")
         ("testnet", po::bool_switch()->default_value(false), "Set to true for the testnet.")
+        ("pad-amount", po::bool_switch()->default_value(false), "Zeros to leftpad block file names.")
         ;
 
     po::options_description all_options;
@@ -403,6 +409,14 @@ Listens for FinalBlock messages and saves them to a file\n\
     if (vm.count("testnet")) {
       options->testnet = vm["testnet"].as<bool>();
       if (options->testnet) LOG_INFO << "TESTNET";
+    }
+
+    if (vm.count("pad-amount")) {
+      options->pad_amount = vm["pad-amount"].as<unsigned int>();
+      LOG_INFO << "Pad Amount: " << options->pad_amount;
+    } else {
+      options->pad_amount = 8;
+      LOG_INFO << "Pad Amount was not set, default to 8.";
     }
   }
   catch(std::exception& e) {

@@ -126,6 +126,8 @@ int main(int argc, char* argv[])
     for(auto& entry : boost::make_iterator_range(fs::directory_iterator(p), {})) {
       files.push_back(entry.path().string());
     }
+    std::sort(files.begin(), files.end());
+
     for  (auto const& file_name : files) {
       LOG_DEBUG << "Reading " << file_name;
       std::ifstream file(file_name, std::ios::binary);
@@ -155,6 +157,7 @@ int main(int argc, char* argv[])
 
       ChainState priori;
       ChainState posteri;
+      Hash prev_hash = DevvHash({'G', 'e', 'n', 'e', 's', 'i', 's'});
 
       InputBuffer buffer(raw);
       while (buffer.getOffset() < static_cast<size_t>(file_size)) {
@@ -177,6 +180,11 @@ int main(int argc, char* argv[])
             blocktime = one_block.getBlockTime();
             uint64_t duration = blocktime-previous_time;
             priori = one_block.getChainState();
+            Hash p_hash = one_block.getPreviousHash();
+            if (!std::equal(std::begin(prev_hash), std::end(prev_hash), std::begin(p_hash)) {
+              LOG_WARNING << "CHAINBREAK: The previous hash referenced in this block does not match the previous block hash.";
+            }
+            prev_hash = DevvHash(one_block.getCanonical());
 
             add_to_tree(GetJSON(one_block), block_array, block_counter);
 
