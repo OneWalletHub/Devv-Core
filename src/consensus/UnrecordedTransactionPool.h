@@ -55,7 +55,7 @@ class UnrecordedTransactionPool {
     InputBuffer buffer(serial);
     while (buffer.getOffset() < buffer.size()) {
       auto tx = CreateTransaction(buffer, keys, mode_);
-      if (recent_txs_.find(tx.getSignature()) == recent_txs_.end()) {
+      if (recent_txs_.find(tx->getSignature()) == recent_txs_.end()) {
         temp.push_back(std::move(tx));
       } else {
         LOG_DEBUG << "Avoided adding duplicate tx.";
