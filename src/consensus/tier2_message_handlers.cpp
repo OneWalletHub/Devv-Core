@@ -84,13 +84,12 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
 
   FinalPtr top_block = std::make_shared<FinalBlock>(utx_pool.finalizeRemoteBlock(
                                                buffer, prior, keys));
-  final_chain.push_back(top_block);
   LOG_NOTICE << "final_chain.push_back(): Estimated rate: (ntxs/duration): rate -> "
              << "(" << final_chain.getNumTransactions() << "/"
              << utx_pool.getElapsedTime() << "): "
              << final_chain.getNumTransactions() / (utx_pool.getElapsedTime()/1000) << " txs/sec";
 
-  if (utx_pool.hasActiveProposal()) {
+  /*if (utx_pool.hasActiveProposal()) {
     LOG_DEBUG << proposal_lock << " HandleFinalBlock(): utx_pool.hasActiveProposal()"
                  ""
                  "Proposal: " << utx_pool.hasActiveProposal();
@@ -99,8 +98,8 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
     utx_pool.reverifyProposal(prev_hash, current, keys, context);
   } else {
     LOG_DEBUG << proposal_lock << " HandleFinalBlock(): utx_pool.hasActiveProposal(): " << utx_pool.hasActiveProposal();
-  }
-
+  }*/
+  final_chain.push_back(top_block);
   if (!utx_pool.hasPendingTransactions()) {
     LOG_INFO << proposal_lock << " All pending transactions processed.";
     return false;
