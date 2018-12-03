@@ -551,6 +551,11 @@ class UnrecordedTransactionPool {
         //transaction removed from the pool, so pending_proposal is invalid
         return false;
       }
+      if (recent_txs_.find(tx->getSignature()) != recent_txs_.end()) {
+        LOG_DEBUG << "Duplicate transaction detected, remove and re-propose.";
+        removeTransaction(tx->getSignature());
+        return false;
+      }
       if (!tx->isValidInAggregate(state, keys, summary, aggregate, prior)) {
         return false;
       }
