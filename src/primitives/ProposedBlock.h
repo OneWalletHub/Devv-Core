@@ -83,6 +83,7 @@ class ProposedBlock {
       , val_count_(other.val_count_)
       , transaction_vector_(std::move(other.transaction_vector_))
       , summary_(Summary::Copy(other.summary_))
+      , proposal_hash_(other.proposal_hash_)
       , vals_(other.vals_)
       , block_state_(other.block_state_) {}
 
@@ -118,6 +119,10 @@ class ProposedBlock {
 	  }
     }
     sum_size_ = summary_.getByteSize();
+
+    std::vector<byte> proposal_unique = summary_.getCanonical();
+    proposal_unique.insert(std::begin(proposal_unique), std::begin(prev_hash_), std::end(prev_hash_));
+    proposal_hash_ = DevvHash(proposal_unique);
 
     num_bytes_ = MinSize() + tx_size_ + sum_size_ + val_count_ * vals_.pairSize();
   }
@@ -224,7 +229,7 @@ class ProposedBlock {
     }
     Hash incoming_hash;
     buffer.copy(incoming_hash);
-    if (incoming_hash == prev_hash_) {  // validations are for this proposal
+    if (incoming_hash == proposal_hash_) {  // validations are for this proposal
       Validation val_temp(Validation::Create(buffer));
       vals_.addValidation(val_temp);
       val_count_ = vals_.getValidationCount();
@@ -235,7 +240,7 @@ class ProposedBlock {
     } else {
       std::stringstream out;
       out << "Invalid validation data, hash does not match this proposal - "
-             << "incoming: " << ToHex(incoming_hash, 8) << " prev: " << ToHex(prev_hash_, 8);
+             << "incoming: " << ToHex(incoming_hash, 8) << " prev: " << ToHex(proposal_hash_, 8);
       LOG_INFO << out.str();
       /// @todo(mckenney) Up the stack, we need to check that this incoming_hash has already
       /// been added to the chain, or this is a bigger problem
@@ -322,7 +327,7 @@ class ProposedBlock {
   std::vector<byte> getValidationData() {
     MTR_SCOPE_FUNC();
     std::vector<byte> out;
-    out.insert(out.end(), prev_hash_.begin(), prev_hash_.end());
+    out.insert(out.end(), proposal_hash_.begin(), proposal_hash_.end());
     const std::vector<byte> val_canon(vals_.getCanonical());
     out.insert(out.end(), val_canon.begin(), val_canon.end());
     return out;
@@ -361,6 +366,7 @@ class ProposedBlock {
     val_count_ = other.val_count_;
     transaction_vector_ = std::move(other.transaction_vector_);
     summary_ = std::move(other.summary_);
+    proposal_hash_ = other.proposal_hash_;
     vals_ = other.vals_;
     block_state_ = other.block_state_;
     return *this;
@@ -419,6 +425,8 @@ class ProposedBlock {
   std::vector<TransactionPtr> transaction_vector_;
   /// Summary
   Summary summary_ = Summary::Create();
+  /// unique Hash(prev_hash_ + Summary in canonical form)
+  Hash proposal_hash_ = {};
   /// Validation
   Validation vals_ = Validation::Create();
   /// ChainState
@@ -478,6 +486,9 @@ inline ProposedBlock ProposedBlock::Create(InputBuffer &buffer,
 
   MTR_STEP("proposed_block", "construct", &proposed_block_int, "step3");
   new_block.summary_ = Summary::Create(buffer);
+  std::vector<byte> proposal_unique = new_block.summary_.getCanonical();
+  proposal_unique.insert(std::begin(proposal_unique), std::begin(new_block.prev_hash_), std::end(new_block.prev_hash_));
+  new_block.proposal_hash_ = DevvHash(proposal_unique);
 
   MTR_STEP("proposed_block", "construct", &proposed_block_int, "step4");
   Validation val_temp(Validation::Create(buffer));
