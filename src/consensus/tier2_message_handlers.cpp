@@ -75,7 +75,7 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
 
   LOG_DEBUG << "HandleFinalBlock(): acquiring proposal_lock";
   auto proposal_lock =  utx_pool.acquireProposalPermissionLock();
-  LOG_DEBUG << "HandleFinalBlock(): proposal_lock acquired and locked";
+  LOG_DEBUG << proposal_lock << " HandleFinalBlock(): proposal_lock acquired and locked";
 
   // Now that we have the lock, clear the FinalBlockProcessing flag
   // This must be called before CreateAndSendNextProposal() or we will
@@ -91,18 +91,18 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
              << final_chain.getNumTransactions() / (utx_pool.getElapsedTime()/1000) << " txs/sec";
 
   if (utx_pool.hasActiveProposal()) {
-    LOG_DEBUG << "HandleFinalBlock: utx_pool.hasActiveProposal()"
+    LOG_DEBUG << proposal_lock << " HandleFinalBlock(): utx_pool.hasActiveProposal()"
                  ""
                  "Proposal: " << utx_pool.hasActiveProposal();
     ChainState current = top_block->getChainState();
     Hash prev_hash = DevvHash(top_block->getCanonical());
     utx_pool.reverifyProposal(prev_hash, current, keys, context);
   } else {
-    LOG_DEBUG << "HandleFinalBlock: utx_pool.hasActiveProposal(): " << utx_pool.hasActiveProposal();
+    LOG_DEBUG << proposal_lock << " HandleFinalBlock(): utx_pool.hasActiveProposal(): " << utx_pool.hasActiveProposal();
   }
 
   if (!utx_pool.hasPendingTransactions()) {
-    LOG_INFO << "All pending transactions processed.";
+    LOG_INFO << proposal_lock << " All pending transactions processed.";
     return false;
   }
 
@@ -111,6 +111,8 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
                             utx_pool,
                             context,
                             callback);
+
+  LOG_INFO << proposal_lock << " HandleFinalBlock:(): Done sending transaction";
   return true;
 }
 

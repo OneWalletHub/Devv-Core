@@ -85,14 +85,14 @@ void ValidatorController::validatorCallback(DevvMessageUniquePtr ptr) {
 
   // Try to acquire the lock, break out if the lock is in use
   if (!proposal_lock.try_lock()) {
-    LOG_INFO << "validatorCallback(): proposal_lock.try_lock() == false, not proposing";
+    LOG_INFO << proposal_lock << " validatorCallback(): proposal_lock.try_lock() == false, not proposing";
     return;
   }
-  LOG_DEBUG << "validatorCallback(): proposal_lock acquired";
+  LOG_DEBUG << proposal_lock << " validatorCallback(): proposal_lock acquired";
 
   // Do not propose if proposal is forestalled by HandleFinalBlock
   if (utx_pool_.isNewFinalBlockProcessing()) {
-    LOG_INFO << "utx_pool_.isProposalForestalled() == true, not proposing";
+    LOG_INFO << proposal_lock << " utx_pool_.isProposalForestalled() == true, not proposing";
     return;
   }
 
@@ -102,7 +102,7 @@ void ValidatorController::validatorCallback(DevvMessageUniquePtr ptr) {
                             context_,
                             outgoing_callback_
   );
-  LOG_DEBUG << "ValidatorController::validatorCallback(): proposal message sent";
+  LOG_DEBUG << proposal_lock << " ValidatorController::validatorCallback(): proposal message sent";
 }
 
 } //end namespace Devv

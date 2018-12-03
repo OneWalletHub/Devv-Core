@@ -77,6 +77,7 @@ class FinalBlock {
     for (auto& tx : transaction_vector_) {
       auto summary = Summary::Create();
       tx->isValid(block_state_, keys, summary);
+      LOG_DEBUG << "FINALBLOCK VERIFIED blk("<<block_state_.size()<<"): " << tx->getSignature().getJSON();
     }
 
     summary_ = Summary::Create(buffer);

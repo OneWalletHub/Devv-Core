@@ -10,6 +10,7 @@
 #include <map>
 #include <vector>
 #include <mutex>
+#include <ostream>
 
 #include "concurrency/TransactionCreationManager.h"
 #include "primitives/FinalBlock.h"
@@ -18,6 +19,57 @@
 
 namespace Devv
 {
+
+struct UniqueLock {
+public:
+  UniqueLock(std::mutex& mutex, bool lock_on_acquire = true)
+  : lock_ptr_(nullptr)
+  {
+    if (lock_on_acquire) {
+      lock_ptr_ = std::make_unique<std::unique_lock<std::mutex>>(mutex);
+    } else {
+      lock_ptr_ = std::make_unique<std::unique_lock<std::mutex>>(mutex, std::defer_lock);
+    }
+
+    LOG_DEBUG << "UniqueLock(): " << *this;
+  }
+
+  ~UniqueLock() {
+    LOG_DEBUG << "~UniqueLock(): UNLOCK";
+  }
+
+  UniqueLock(const UniqueLock&) = delete;
+
+  UniqueLock(UniqueLock&& lk) {
+    lock_ptr_ = std::move(lk.lock_ptr_);
+  }
+  
+  bool try_lock() {
+    lock_ptr_->try_lock();
+    LOG_DEBUG << "UniqueLock::try_lock() " << *this;
+    return lock_ptr_->owns_lock();
+  }
+
+  bool is_locked() const {
+    return lock_ptr_->owns_lock();
+  }
+
+  friend std::ostream& operator<<(std::ostream& os, const UniqueLock& lk);  
+
+private:
+  std::unique_ptr<std::unique_lock<std::mutex>> lock_ptr_;
+};
+
+inline std::ostream& operator<<(std::ostream& os, const UniqueLock& lk)
+{  
+  if (lk.is_locked()) {
+    os << "  LOCK:";
+  } else {
+    os << "UNLOCK:";
+  }
+  return os;  
+}  
+  
 
 typedef std::pair<uint8_t, TransactionPtr> SharedTransaction;
 typedef std::map<Signature, SharedTransaction> TxMap;
@@ -280,7 +332,8 @@ class UnrecordedTransactionPool {
     for (auto iter = sigs.begin(); iter != sigs.end(); ++iter) {
       if (recent_txs_.find(*iter) != recent_txs_.end()) {
         return false;
-	  }
+      }
+      LOG_INFO << "VERIFIED_PROPOSED_TX: " << iter->getJSON();
     }
     return true;
   }
@@ -392,12 +445,9 @@ class UnrecordedTransactionPool {
    * Acquire a lock to ensure permission to propose
    * @return
    */
-  std::unique_lock<std::mutex> acquireProposalPermissionLock(bool lock_on_acquire = true) const {
-    if (lock_on_acquire){
-      return std::unique_lock<std::mutex>(proposal_permission_lock_);
-    } else {
-      return std::unique_lock<std::mutex>(proposal_permission_lock_, std::defer_lock);
-    }
+  UniqueLock acquireProposalPermissionLock(bool lock_on_acquire = true) const {
+    UniqueLock lk(proposal_permission_lock_, lock_on_acquire);
+    return lk;
   }
 
   bool isNewFinalBlockProcessing() const {
@@ -420,6 +470,8 @@ class UnrecordedTransactionPool {
 
   std::atomic<bool> is_new_final_block_processing_ = ATOMIC_VAR_INIT(false);
 
+  //UniqueLock proposal_lock_;
+  
   mutable std::mutex proposal_permission_lock_;
 
   ProposedBlock pending_proposal_;
@@ -485,7 +537,7 @@ class UnrecordedTransactionPool {
    */
   std::vector<TransactionPtr> collectValidTransactions(const ChainState& state
       , const KeyRing& keys, const Summary& pre_sum, const DevvContext& context) {
-    LOG_DEBUG << "CollectValidTransactions(): state.size(): " << state.size();
+    LOG_DEBUG << "collectValidTransactions(): state.size(): " << state.size();
     std::vector<TransactionPtr> valid;
     MTR_SCOPE_FUNC();
     if (txs_.size() < max_tx_per_block_) {
@@ -497,25 +549,33 @@ class UnrecordedTransactionPool {
     std::map<Address, SmartCoin> aggregate;
     ChainState post_state(ChainState::Copy(state));
     for (auto iter = txs_.begin(); iter != txs_.end(); ++iter) {
+      auto sig = iter->second.second->getSignature().getJSON();
       if (recent_txs_.find(iter->second.second->getSignature()) != recent_txs_.end()) {
-        LOG_INFO << "CollectValidTransactions: Duplicate transaction in pool.";
+        LOG_INFO << "collectValidTransactions(): Duplicate transaction in pool blk("<<state.size()<<"): " << sig;
         removeTransaction(iter->second.second->getSignature());
         //if valid transactions, propose them
-        if (num_txs > 0) break;
+        if (num_txs > 0) {
+	  LOG_INFO << "BREAKing out of collectValidTransactions: " << num_txs;
+	  break;
+	}
         //otherwise, don't need to clean prior to isValidInAggregate()
         //but start the collection procedure over
         return collectValidTransactions(state, keys, pre_sum, context);
       } else if (iter->second.second->isValidInAggregate(post_state, keys,
                                          post_sum, aggregate, state)) {
+	LOG_DEBUG << "VALIDTX blk("<<state.size()<<"): " << iter->second.second->getSignature().getJSON();
         valid.push_back(std::move(iter->second.second->clone()));
         iter->second.first++;
         num_txs++;
         if (num_txs >= max_tx_per_block_) { break; }
       } else {
-        LOG_INFO << "CollectValidTransactions: Invalid transaction in pool.";
+        LOG_INFO << "CollectValidTransactions: Invalid transaction in pool blk("<<state.size()<<"): " << sig;
         removeTransaction(iter->second.second->getSignature());
         //if valid transactions, propose them
-        if (num_txs > 0) break;
+        if (num_txs > 0) {
+	  LOG_INFO << "BREAKing out of collectValidTransactions: " << num_txs;
+	  break;
+	}
         //if no valid transactions, clean pool, collect again
         //clean
         Summary sum_clone(Summary::Copy(pre_sum));
@@ -545,6 +605,7 @@ class UnrecordedTransactionPool {
     Summary summary = Summary::Create();
     std::map<Address, SmartCoin> aggregate;
     ChainState state(prior);
+    std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
     for (auto const& tx : pending_proposal_.getTransactions()) {
       auto it = txs_.find(tx->getSignature());
       if (it == txs_.end()) {
@@ -559,6 +620,7 @@ class UnrecordedTransactionPool {
       if (!tx->isValidInAggregate(state, keys, summary, aggregate, prior)) {
         return false;
       }
+      LOG_DEBUG << "REVERIFIED: transaction blk("<<state.size()<<"): " << tx->getSignature().getJSON();
     }
     return true;
   }
@@ -574,7 +636,7 @@ class UnrecordedTransactionPool {
       LOG_WARNING << "removeTransaction(): ret = 0, transaction not found: "
                   << sig.getJSON();
     } else {
-      LOG_TRACE << "removeTransaction() removes: " << sig.getJSON();
+      LOG_DEBUG << "removeTransaction() removes: " << sig.getJSON();
     }
     LOG_DEBUG << "removeTransactions: (size pre/size post) ("
               << txs_size << "/"
@@ -593,11 +655,12 @@ class UnrecordedTransactionPool {
     ChainState state_clone(ChainState::Copy(state));
     Summary sum_clone(Summary::Copy(summary));
     for (auto iter = txs_.begin(); iter != txs_.end(); ++iter) {
-	  if (!iter->second.second->isValidInAggregate(state_clone, keys, sum_clone
-                                                 , aggregate, state)) {
+      if (!iter->second.second->isValidInAggregate(state_clone, keys, sum_clone
+						   , aggregate, state)) {
         removeTransaction(iter->second.second->getSignature());
         return false;
       }
+      LOG_DEBUG << "KEEP TX blk("<<state.size()<<"): " << iter->second.second->getSignature().getJSON();
     }
     return true;
   }
@@ -617,7 +680,7 @@ class UnrecordedTransactionPool {
         LOG_WARNING << "removeTransactions(): ret = 0, transaction not found: "
                     << item->getSignature().getJSON();
       } else {
-        LOG_TRACE << "removeTransactions(): erase returned 1: " << item->getSignature().getJSON();
+        LOG_DEBUG << "removeTransactions(): erase returned 1: " << item->getSignature().getJSON();
       }
       recent_txs_.insert(std::pair<Signature, uint64_t>(item->getSignature()
           , GetMillisecondsSinceEpoch()));
