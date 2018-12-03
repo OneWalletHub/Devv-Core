@@ -77,19 +77,10 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
   auto proposal_lock =  utx_pool.acquireProposalPermissionLock();
   LOG_DEBUG << proposal_lock << " HandleFinalBlock(): proposal_lock acquired and locked";
 
-  // Now that we have the lock, clear the FinalBlockProcessing flag
-  // This must be called before CreateAndSendNextProposal() or we will
-  // block ourselves
-  utx_pool.indicateNewFinalBlock(false);
-
   FinalPtr top_block = std::make_shared<FinalBlock>(utx_pool.finalizeRemoteBlock(
                                                buffer, prior, keys));
-  LOG_NOTICE << "final_chain.push_back(): Estimated rate: (ntxs/duration): rate -> "
-             << "(" << final_chain.getNumTransactions() << "/"
-             << utx_pool.getElapsedTime() << "): "
-             << final_chain.getNumTransactions() / (utx_pool.getElapsedTime()/1000) << " txs/sec";
 
-  /*if (utx_pool.hasActiveProposal()) {
+  if (utx_pool.hasActiveProposal()) {
     LOG_DEBUG << proposal_lock << " HandleFinalBlock(): utx_pool.hasActiveProposal()"
                  ""
                  "Proposal: " << utx_pool.hasActiveProposal();
@@ -98,8 +89,19 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
     utx_pool.reverifyProposal(prev_hash, current, keys, context);
   } else {
     LOG_DEBUG << proposal_lock << " HandleFinalBlock(): utx_pool.hasActiveProposal(): " << utx_pool.hasActiveProposal();
-  }*/
+  }
+
   final_chain.push_back(top_block);
+  LOG_NOTICE << "final_chain.push_back(): Estimated rate: (ntxs/duration): rate -> "
+             << "(" << final_chain.getNumTransactions() << "/"
+             << utx_pool.getElapsedTime() << "): "
+             << final_chain.getNumTransactions() / (utx_pool.getElapsedTime()/1000) << " txs/sec";
+
+  // Now that we have the lock, clear the FinalBlockProcessing flag
+  // This must be called before CreateAndSendNextProposal() or we will
+  // block ourselves
+  utx_pool.indicateNewFinalBlock(false);
+
   if (!utx_pool.hasPendingTransactions()) {
     LOG_INFO << proposal_lock << " All pending transactions processed.";
     return false;
