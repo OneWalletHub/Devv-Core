@@ -55,7 +55,11 @@ class UnrecordedTransactionPool {
     InputBuffer buffer(serial);
     while (buffer.getOffset() < buffer.size()) {
       auto tx = CreateTransaction(buffer, keys, mode_);
-      temp.push_back(std::move(tx));
+      if (recent_txs_.find(tx.getSignature()) == recent_txs_.end()) {
+        temp.push_back(std::move(tx));
+      } else {
+        LOG_DEBUG << "Avoided adding duplicate tx.";
+	  }
     }
     return addTransactions(temp, keys);
   }
@@ -77,6 +81,10 @@ class UnrecordedTransactionPool {
       int counter = 0;
       for (TransactionPtr& item : txs) {
         Signature sig = item->getSignature();
+        if (recent_txs_.find(sig) != recent_txs_.end()) {
+          LOG_DEBUG << "Avoided adding duplicate tx.";
+          continue;
+		}
         auto it = txs_.find(sig);
         if (it != txs_.end()) {
           it->second.first++;
@@ -604,10 +612,10 @@ class UnrecordedTransactionPool {
         LOG_WARNING << "removeTransactions(): ret = 0, transaction not found: "
                     << item->getSignature().getJSON();
       } else {
-        recent_txs_.insert(std::pair<Signature, uint64_t>(item->getSignature()
-          , GetMillisecondsSinceEpoch()));
         LOG_TRACE << "removeTransactions(): erase returned 1: " << item->getSignature().getJSON();
       }
+      recent_txs_.insert(std::pair<Signature, uint64_t>(item->getSignature()
+          , GetMillisecondsSinceEpoch()));
     }
     LOG_DEBUG << "removeTransactions: (to remove/size pre/size post) ("
               << proposed.getNumTransactions() << "/"
