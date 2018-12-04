@@ -268,7 +268,7 @@ Listens for FinalBlock messages and saves them to a file\n\
         ("key-pass", po::value<std::string>(), "Password for private keys")
         ("stop-file", po::value<std::string>(), "A file in working-dir indicating that this node should stop.")
         ("testnet", po::bool_switch()->default_value(false), "Set to true for the testnet.")
-        ("pad-amount", po::bool_switch()->default_value(false), "Zeros to leftpad block file names.")
+        ("pad-amount", po::value<unsigned int>(), "Zeros to leftpad block file names.")
         ;
 
     po::options_description all_options;
