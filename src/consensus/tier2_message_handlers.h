@@ -57,7 +57,7 @@ bool HandleProposalBlock(DevvMessageUniquePtr ptr,
                          const DevvContext& context,
                          const KeyRing& keys,
                          const Blockchain& final_chain,
-                         TransactionCreationManager& tcm,
+                         UnrecordedTransactionPool& utx_pool,
                          std::function<void(DevvMessageUniquePtr)> callback);
 
 /**
@@ -105,4 +105,19 @@ bool HandleBlocksSinceRequest(DevvMessageUniquePtr ptr,
                               const DevvContext& context,
                               const KeyRing& keys,
                               std::function<void(DevvMessageUniquePtr)> callback);
+
+/**
+ * Creates a proposal from the UnrecordedTransactionPool
+ * @param[in] keys
+ * @param[in, out] final_chain
+ * @param[in, out] utx_pool
+ * @param[in] context
+ * @return
+ */
+void CreateAndSendNextProposal(const KeyRing& keys,
+                               Blockchain& final_chain,
+                               UnrecordedTransactionPool& utx_pool,
+                               const DevvContext& context,
+                               DevvMessageCallback callback);
+
 }  // namespace Devv

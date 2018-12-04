@@ -16,6 +16,7 @@ namespace Devv {
 class Blockchain {
 public:
   typedef std::shared_ptr<FinalBlock> BlockSharedPtr;
+  typedef std::shared_ptr<const FinalBlock> ConstBlockSharedPtr;
 
   explicit Blockchain(const std::string& name)
     : name_(name), chain_size_(0), num_transactions_(0), genesis_time_(0)
@@ -99,6 +100,15 @@ public:
   }
 
   /**
+   *
+   * @param loc
+   * @return
+   */
+  BlockSharedPtr at(size_t loc) const {
+    return chain_.at(loc);
+  }
+
+  /**
    * @return the highest Merkle root in this chain.
    */
   Hash getHighestMerkleRoot() const {
@@ -164,5 +174,7 @@ private:
   std::atomic<int> num_transactions_;
   uint64_t genesis_time_;
 };
+
+typedef std::shared_ptr<Blockchain> BlockchainPtr;
 
 } // namespace Devv

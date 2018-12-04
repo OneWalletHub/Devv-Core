@@ -494,14 +494,15 @@ class Tier2Transaction : public Transaction {
             LOG_DEBUG << "eOpType(" << int(oper) << "): addr(" << addr.getHexString() << "): amount: " << amount
                      << " state.getAmount(): " << state.getAmount(coin, addr);
           }
-          auto it = aggregate.find(addr);
-          if (it != aggregate.end()) {
+          auto addr_it = aggregate.find(addr);
+          if (addr_it != aggregate.end()) {
             int64_t historic = prior.getAmount(coin, addr);
-            int64_t committed = it->second.getAmount();
+            int64_t committed = addr_it->second.getAmount();
             //if sum of negative transfers < 0 a bad ordering is possible
-            if ((historic+committed+amount) < 0) return false;
+            if (addr.isWalletAddress()
+                && ((historic+committed+amount) < 0)) return false;
             SmartCoin sc(addr, coin, amount+committed);
-            it->second = sc;
+            addr_it->second = sc;
           } else {
             SmartCoin sc(addr, coin, amount);
             auto result = aggregate.insert(std::make_pair(addr, sc));

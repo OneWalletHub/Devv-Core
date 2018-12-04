@@ -9,6 +9,8 @@
 #include <atomic>
 #include <map>
 #include <vector>
+#include <mutex>
+#include <ostream>
 
 #include "concurrency/TransactionCreationManager.h"
 #include "primitives/FinalBlock.h"
@@ -17,6 +19,57 @@
 
 namespace Devv
 {
+
+struct UniqueLock {
+public:
+  UniqueLock(std::mutex& mutex, bool lock_on_acquire = true)
+  : lock_ptr_(nullptr)
+  {
+    if (lock_on_acquire) {
+      lock_ptr_ = std::make_unique<std::unique_lock<std::mutex>>(mutex);
+    } else {
+      lock_ptr_ = std::make_unique<std::unique_lock<std::mutex>>(mutex, std::defer_lock);
+    }
+
+    LOG_DEBUG << "UniqueLock(): " << *this;
+  }
+
+  ~UniqueLock() {
+    LOG_DEBUG << "~UniqueLock(): UNLOCK";
+  }
+
+  UniqueLock(const UniqueLock&) = delete;
+
+  UniqueLock(UniqueLock&& lk) {
+    lock_ptr_ = std::move(lk.lock_ptr_);
+  }
+  
+  bool try_lock() {
+    lock_ptr_->try_lock();
+    LOG_DEBUG << "UniqueLock::try_lock() " << *this;
+    return lock_ptr_->owns_lock();
+  }
+
+  bool is_locked() const {
+    return lock_ptr_->owns_lock();
+  }
+
+  friend std::ostream& operator<<(std::ostream& os, const UniqueLock& lk);  
+
+private:
+  std::unique_ptr<std::unique_lock<std::mutex>> lock_ptr_;
+};
+
+inline std::ostream& operator<<(std::ostream& os, const UniqueLock& lk)
+{  
+  if (lk.is_locked()) {
+    os << "  LOCK:";
+  } else {
+    os << "UNLOCK:";
+  }
+  return os;  
+}  
+  
 
 typedef std::pair<uint8_t, TransactionPtr> SharedTransaction;
 typedef std::map<Signature, SharedTransaction> TxMap;
@@ -54,7 +107,11 @@ class UnrecordedTransactionPool {
     InputBuffer buffer(serial);
     while (buffer.getOffset() < buffer.size()) {
       auto tx = CreateTransaction(buffer, keys, mode_);
-      temp.push_back(std::move(tx));
+      if (recent_txs_.find(tx->getSignature()) == recent_txs_.end()) {
+        temp.push_back(std::move(tx));
+      } else {
+        LOG_DEBUG << "Avoided adding duplicate tx.";
+	  }
     }
     return addTransactions(temp, keys);
   }
@@ -76,6 +133,10 @@ class UnrecordedTransactionPool {
       int counter = 0;
       for (TransactionPtr& item : txs) {
         Signature sig = item->getSignature();
+        if (recent_txs_.find(sig) != recent_txs_.end()) {
+          LOG_DEBUG << "Avoided adding duplicate tx.";
+          continue;
+		}
         auto it = txs_.find(sig);
         if (it != txs_.end()) {
           it->second.first++;
@@ -197,12 +258,26 @@ class UnrecordedTransactionPool {
   }
 
   /**
-   *  Note: uses atomic<bool> indicator
-   *  @return true, iff this pool has a ProposedBlock
+   * Indicates whether or not this validator has a proposed block
+   * thas is awaiting validation.
+   * @note uses atomic<bool> indicator
+   * @return true, iff this pool has an active ProposedBlock
    */
-  bool HasProposal() {
-    LOG_DEBUG << "HasProposal()";
-    return(has_proposal_);
+  bool hasActiveProposal() {
+    if (proposal_time_ < GetMillisecondsSinceEpoch()-kPROPOSAL_EXPIRATION_MILLIS) {
+      has_active_proposal_ = false;
+      pending_proposal_.setNull();
+    }
+    return(has_active_proposal_);
+  }
+
+  /**
+   * Sets proposal state - true if this validator has proposed a block
+   * and is awaiting validation.
+   * @param is_active_proposal true iff a ProposedBlock is pending validation
+   */
+  void setHasActiveProposal(bool is_active_proposal) {
+    has_active_proposal_= is_active_proposal;
   }
 
   /**
@@ -225,21 +300,47 @@ class UnrecordedTransactionPool {
    *  @return true, iff this pool updated its ProposedBlock
    *  @return false, if anything went wrong
    */
-  bool ReverifyProposal(const Hash& prev_hash,
+  bool reverifyProposal(const Hash& prev_hash,
                         const ChainState& prior,
                         const KeyRing& keys,
                         const DevvContext& context) {
-    LOG_DEBUG << "ReverifyProposal()";
+    LOG_DEBUG << "reverifyProposal()";
     MTR_SCOPE_FUNC();
-    std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
-    if (pending_proposal_.isNull()) { return false; }
-    if (ReverifyTransactions(prior, keys)) {
+    {
+      std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
+      if (pending_proposal_.isNull()) { return false; }
+    }
+    if (reverifyTransactions(prior, keys)) {
+      std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
       pending_proposal_.setPrevHash(prev_hash);
       return true;
     } else {
       proposeBlock(prev_hash, prior, keys, context);
       return false;
     }
+  }
+
+  /**
+   *  Checks a remote proposal against this pool's recent transactions
+   *  @param proposed - the remote ProposedBlock
+   *  @return true, iff no transactions in the remote proposal match
+   *                transactions recently finalized in this pool
+   *  @return false, a duplicate transaction was detected
+   */
+  bool isRemoteProposalDuplicateFree(const ProposedBlock& proposed) {
+    const std::vector<Signature> sigs = proposed.copyTransactionSignatures();
+    for (auto iter = sigs.begin(); iter != sigs.end(); ++iter) {
+      if (recent_txs_.find(*iter) != recent_txs_.end()) {
+        return false;
+      }
+      LOG_INFO << "VERIFIED_PROPOSED_TX: " << iter->getJSON();
+    }
+    return true;
+  }
+
+  uint64_t setProposalTime() {
+    proposal_time_ = GetMillisecondsSinceEpoch();
+    return proposal_time_;
   }
 
   /**
@@ -251,14 +352,19 @@ class UnrecordedTransactionPool {
    *                 the Validation is for a different ProposedBlock,
    *                 or the Validation signature did not verify
    */
-  bool CheckValidation(InputBuffer& buffer, const DevvContext& context) {
-    LOG_DEBUG << "CheckValidation()";
+  bool checkValidation(InputBuffer& buffer, const DevvContext& context) {
+    LOG_DEBUG << "checkValidation()";
     std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
     if (pending_proposal_.isNull()) {
-      LOG_WARNING << "CheckValidation(): pending_proposal_.isNull()";
+      LOG_WARNING << "checkValidation(): pending_proposal_.isNull()";
       return false;
     }
-    return pending_proposal_.checkValidationData(buffer, context);
+    if (pending_proposal_.checkValidationData(buffer, context)) {
+      //provide more time for this proposal since it was just remotely validated
+      setProposalTime();
+      return true;
+	}
+	return false;
   }
 
   /**
@@ -267,13 +373,13 @@ class UnrecordedTransactionPool {
    *  @note nullifies this pool's ProposedBlock as a side-effect
    *  @return a FinalBlock based on this pool's ProposedBlock
    */
-  const FinalBlock FinalizeLocalBlock() {
-    LOG_DEBUG << "FinalizeLocalBlock()";
+  const FinalBlock finalizeLocalBlock() {
+    LOG_DEBUG << "finalizeLocalBlock()";
     MTR_SCOPE_FUNC();
     std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
-    const FinalBlock final_block(FinalizeBlock(pending_proposal_));
+    const FinalBlock final_block(finalizeBlock(pending_proposal_));
     pending_proposal_.setNull();
-    has_proposal_ = false;
+    setHasActiveProposal(false);
     return final_block;
   }
 
@@ -284,14 +390,13 @@ class UnrecordedTransactionPool {
    *  @param keys - the directory of Addresses and EC keys
    *  @return a FinalBlock based on the remote data provided
    */
-  const FinalBlock FinalizeRemoteBlock(InputBuffer& buffer,
+  const FinalBlock finalizeRemoteBlock(InputBuffer& buffer,
                                        const ChainState prior,
                                        const KeyRing& keys) {
-    LOG_DEBUG << "FinalizeRemoteBlock()";
-    LOG_DEBUG << "FinalizeRemoteBlock(): prior.size(): " << prior.size();
+    LOG_DEBUG << "finalizeRemoteBlock(): prior.size(): " << prior.size();
     MTR_SCOPE_FUNC();
     FinalBlock final(buffer, prior, keys, tcm_);
-    RemoveTransactions(final);
+    removeTransactions(final);
     return final;
   }
 
@@ -301,6 +406,17 @@ class UnrecordedTransactionPool {
   int GarbageCollect() {
     LOG_DEBUG << "GarbageCollect()";
     //TODO: delete old unrecorded Transactions periodically
+    std::vector<Signature> to_erase;
+    for (auto iter = recent_txs_.begin(); iter != recent_txs_.end(); ++iter) {
+      if (iter->second < GetMillisecondsSinceEpoch()-kDUPLICATE_HORIZON_MILLIS) {
+        to_erase.push_back(iter->first);
+      }
+    }
+    for (auto iter = to_erase.begin(); iter != to_erase.end(); ++iter) {
+      recent_txs_.erase(*iter);
+    }
+    //this only cleans the map of potential duplicates
+    //the main pool still needs to be garbage collected
     return 0;
   }
 
@@ -325,39 +441,47 @@ class UnrecordedTransactionPool {
     return mode_;
   }
 
-/**
- *  Indicate that no proposals are needed at this time.
- *  FinalBlock handler will or has proposed.
- */
-  void LockProposals() {
-    ready_to_propose_ = false;
+  /**
+   * Acquire a lock to ensure permission to propose
+   * @return
+   */
+  UniqueLock acquireProposalPermissionLock(bool lock_on_acquire = true) const {
+    UniqueLock lk(proposal_permission_lock_, lock_on_acquire);
+    return lk;
   }
 
-/**
- * Indicate that this shard needs to propose.
- */
-  void UnlockProposals() {
-    ready_to_propose_ = true;
+  bool isNewFinalBlockProcessing() const {
+    return is_new_final_block_processing_;
   }
 
+  void indicateNewFinalBlock(bool processing_now = true) {
+    is_new_final_block_processing_ = processing_now;
+  }
 
-/**
- *  Is the shard waiting on a transaction for this validator to propose?
- *  Note: uses atomic<bool> indicator
- *  @return true, if the most recent FinalBlock thread proposal failed or genesis proposal
- */
-  bool ReadyToPropose() {
-    return ready_to_propose_;
+  /**
+   * Get a mutex to coordinate shared access to local
+   * data
+   */
+  std::mutex& getBigMutex() {
+    return big_mutex_;
   }
 
  private:
   TxMap txs_;
+  std::map<Signature, uint64_t> recent_txs_;
+
   mutable std::mutex txs_mutex_;
-  std::atomic<bool> has_proposal_ = ATOMIC_VAR_INIT(false);
-  std::atomic<bool> ready_to_propose_ = ATOMIC_VAR_INIT(false);
+
+  /// True if this validator has an active proposal currently pending validation
+  std::atomic<bool> has_active_proposal_ = ATOMIC_VAR_INIT(false);
+
+  std::atomic<bool> is_new_final_block_processing_ = ATOMIC_VAR_INIT(false);
+
+  mutable std::mutex proposal_permission_lock_;
 
   ProposedBlock pending_proposal_;
   mutable std::mutex pending_proposal_mutex_;
+  uint64_t proposal_time_ = 0;
 
   // Total number of transactions that have been
   // added to the transaction map
@@ -371,6 +495,10 @@ class UnrecordedTransactionPool {
 #endif
   TransactionCreationManager tcm_;
   eAppMode mode_;
+
+  /// Temporary/test mutex to lock all callbacks and force serial
+  /// execution
+  mutable std::mutex big_mutex_;
 
   /**
    *  Create a new ProposedBlock based on pending Transaction in this pool
@@ -391,7 +519,7 @@ class UnrecordedTransactionPool {
     Summary summary = Summary::Create();
     Validation validation = Validation::Create();
 
-    auto validated = CollectValidTransactions(prior_state, keys, summary, context);
+    auto validated = collectValidTransactions(prior_state, keys, summary, context);
     if (!validated.empty()) {
       LOG_DEBUG << "Creating new proposal with " << validated.size() << " transactions";
       ProposedBlock new_proposal(prev_hash, validated, summary, validation, new_state, keys);
@@ -400,10 +528,11 @@ class UnrecordedTransactionPool {
       std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
       LOG_WARNING << "proposeBlock(): canon size: " << new_proposal.getCanonical().size();
       pending_proposal_.shallowCopy(new_proposal);
-      has_proposal_ = true;
+      setHasActiveProposal(true);
       return true;
     } else {
-      LOG_INFO << "CollectValidTransactions returned 0 transactions - not proposing";
+      LOG_INFO << "collectValidTransactions returned 0 transactions - not proposing";
+      pending_proposal_.setNull();
       return false;
     }
   }
@@ -415,9 +544,9 @@ class UnrecordedTransactionPool {
    *  @params summary the Summary to update
    *  @return a vector of unrecorded valid transactions
    */
-  std::vector<TransactionPtr> CollectValidTransactions(const ChainState& state
+  std::vector<TransactionPtr> collectValidTransactions(const ChainState& state
       , const KeyRing& keys, const Summary& pre_sum, const DevvContext& context) {
-    LOG_DEBUG << "CollectValidTransactions(): state.size(): " << state.size();
+    LOG_DEBUG << "collectValidTransactions(): state.size(): " << state.size();
     std::vector<TransactionPtr> valid;
     MTR_SCOPE_FUNC();
     if (txs_.size() < max_tx_per_block_) {
@@ -429,26 +558,42 @@ class UnrecordedTransactionPool {
     std::map<Address, SmartCoin> aggregate;
     ChainState post_state(ChainState::Copy(state));
     for (auto iter = txs_.begin(); iter != txs_.end(); ++iter) {
-      if (iter->second.second->isValidInAggregate(post_state, keys,
+      auto sig = iter->second.second->getSignature().getJSON();
+      if (recent_txs_.find(iter->second.second->getSignature()) != recent_txs_.end()) {
+        LOG_INFO << "collectValidTransactions(): Duplicate transaction in pool blk("<<state.size()<<"): " << sig;
+        removeTransaction(iter->second.second->getSignature());
+        //if valid transactions, propose them
+        if (num_txs > 0) {
+	  LOG_INFO << "BREAKing out of collectValidTransactions: " << num_txs;
+	  break;
+	}
+        //otherwise, don't need to clean prior to isValidInAggregate()
+        //but start the collection procedure over
+        return collectValidTransactions(state, keys, pre_sum, context);
+      } else if (iter->second.second->isValidInAggregate(post_state, keys,
                                          post_sum, aggregate, state)) {
+	LOG_DEBUG << "VALIDTX blk("<<state.size()<<"): " << iter->second.second->getSignature().getJSON();
         valid.push_back(std::move(iter->second.second->clone()));
         iter->second.first++;
         num_txs++;
         if (num_txs >= max_tx_per_block_) { break; }
       } else {
-        LOG_INFO << "CollectValidTransactions: Invalid transaction in pool.";
-        RemoveTransaction(iter->second.second->getSignature());
+        LOG_INFO << "CollectValidTransactions: Invalid transaction in pool blk("<<state.size()<<"): " << sig;
+        removeTransaction(iter->second.second->getSignature());
         //if valid transactions, propose them
-        if (num_txs > 0) break;
+        if (num_txs > 0) {
+	  LOG_INFO << "BREAKing out of collectValidTransactions: " << num_txs;
+	  break;
+	}
         //if no valid transactions, clean pool, collect again
         //clean
         Summary sum_clone(Summary::Copy(pre_sum));
         ChainState pre_state(ChainState::Copy(state));
-        while (!RemoveInvalidTransactions(pre_state, keys, sum_clone)) {
+        while (!removeInvalidTransactions(pre_state, keys, sum_clone)) {
           //do nothing
         }
         //collect again
-        return CollectValidTransactions(state, keys, pre_sum, context);
+        return collectValidTransactions(state, keys, pre_sum, context);
       }
     }
     return valid;
@@ -462,17 +607,29 @@ class UnrecordedTransactionPool {
    *  @return true iff, all transactions are valid wrt provided chainstate
    *  @return false otherwise, a new proposal must be created
    */
-  bool ReverifyTransactions(const ChainState& prior, const KeyRing& keys) {
-    LOG_DEBUG << "ReverifyTransactions()";
+  bool reverifyTransactions(const ChainState& prior, const KeyRing& keys) {
+    LOG_DEBUG << "reverifyTransactions()";
     MTR_SCOPE_FUNC();
     std::lock_guard<std::mutex> guard(txs_mutex_);
     Summary summary = Summary::Create();
     std::map<Address, SmartCoin> aggregate;
     ChainState state(prior);
+    std::lock_guard<std::mutex> proposal_guard(pending_proposal_mutex_);
     for (auto const& tx : pending_proposal_.getTransactions()) {
+      auto it = txs_.find(tx->getSignature());
+      if (it == txs_.end()) {
+        //transaction removed from the pool, so pending_proposal is invalid
+        return false;
+      }
+      if (recent_txs_.find(tx->getSignature()) != recent_txs_.end()) {
+        LOG_DEBUG << "Duplicate transaction detected, remove and re-propose.";
+        removeTransaction(tx->getSignature());
+        return false;
+      }
       if (!tx->isValidInAggregate(state, keys, summary, aggregate, prior)) {
         return false;
       }
+      LOG_DEBUG << "REVERIFIED: transaction blk("<<state.size()<<"): " << tx->getSignature().getJSON();
     }
     return true;
   }
@@ -482,15 +639,15 @@ class UnrecordedTransactionPool {
    *  @return true if Transaction was removed
    *  @return false otherwise
    */
-  bool RemoveTransaction(const Signature& sig) {
+  bool removeTransaction(const Signature& sig) {
     size_t txs_size = txs_.size();
     if (txs_.erase(sig) == 0) {
-      LOG_WARNING << "RemoveTransaction(): ret = 0, transaction not found: "
+      LOG_WARNING << "removeTransaction(): ret = 0, transaction not found: "
                   << sig.getJSON();
     } else {
-      LOG_TRACE << "RemoveTransaction() removes: " << sig.getJSON();
+      LOG_DEBUG << "removeTransaction() removes: " << sig.getJSON();
     }
-    LOG_DEBUG << "RemoveTransactions: (size pre/size post) ("
+    LOG_DEBUG << "removeTransactions: (size pre/size post) ("
               << txs_size << "/"
               << txs_.size() << ")";
     return true;
@@ -501,38 +658,43 @@ class UnrecordedTransactionPool {
    *  @return true if all invalid transactions in the block were removed
    *  @return false if possible that not all invalid transactions removed
    */
-  bool RemoveInvalidTransactions(const ChainState& state
+  bool removeInvalidTransactions(const ChainState& state
       , const KeyRing& keys, const Summary& summary) {
     std::map<Address, SmartCoin> aggregate;
     ChainState state_clone(ChainState::Copy(state));
     Summary sum_clone(Summary::Copy(summary));
     for (auto iter = txs_.begin(); iter != txs_.end(); ++iter) {
-	  if (!iter->second.second->isValidInAggregate(state_clone, keys, sum_clone
-                                                 , aggregate, state)) {
-        RemoveTransaction(iter->second.second->getSignature());
+      if (!iter->second.second->isValidInAggregate(state_clone, keys, sum_clone
+						   , aggregate, state)) {
+        removeTransaction(iter->second.second->getSignature());
         return false;
       }
+      LOG_DEBUG << "KEEP TX blk("<<state.size()<<"): " << iter->second.second->getSignature().getJSON();
     }
     return true;
   }
 
   /** Removes Transactions in a ProposedBlock from this pool
    *  @param proposed - the ProposedBlock containing Transactions to remove
+   *  @pre this should only be called for a ProposedBlock that is finalizing
+   *  @pre do not call if there is any chance a PropsedBlock will not finalize
    *  @return true iff, all transactions in the block were removed
    *  @return false otherwise
    */
-  bool RemoveTransactions(const ProposedBlock& proposed) {
+  bool removeTransactions(const ProposedBlock& proposed) {
     std::lock_guard<std::mutex> guard(txs_mutex_);
     size_t txs_size = txs_.size();
     for (auto const& item : proposed.getTransactions()) {
       if (txs_.erase(item->getSignature()) == 0) {
-        LOG_WARNING << "RemoveTransactions(): ret = 0, transaction not found: "
+        LOG_WARNING << "removeTransactions(): ret = 0, transaction not found: "
                     << item->getSignature().getJSON();
       } else {
-        LOG_TRACE << "RemoveTransactions(): erase returned 1: " << item->getSignature().getJSON();
+        LOG_DEBUG << "removeTransactions(): erase returned 1: " << item->getSignature().getJSON();
       }
+      recent_txs_.insert(std::pair<Signature, uint64_t>(item->getSignature()
+          , GetMillisecondsSinceEpoch()));
     }
-    LOG_DEBUG << "RemoveTransactions: (to remove/size pre/size post) ("
+    LOG_DEBUG << "removeTransactions: (to remove/size pre/size post) ("
               << proposed.getNumTransactions() << "/"
               << txs_size << "/"
               << txs_.size() << ")";
@@ -542,13 +704,15 @@ class UnrecordedTransactionPool {
   /** Removes Transactions in a FinalBlock from this pool
    *  @param final_block - the FinalBlock containing Transactions to remove
    */
-  void RemoveTransactions(const FinalBlock& final_block) {
+  void removeTransactions(const FinalBlock& final_block) {
     std::lock_guard<std::mutex> guard(txs_mutex_);
     size_t txs_size = txs_.size();
     for (auto const& item : final_block.getTransactions()) {
       txs_.erase(item->getSignature());
+      recent_txs_.insert(std::pair<Signature, uint64_t>(item->getSignature()
+          , GetMillisecondsSinceEpoch()));
     }
-    LOG_DEBUG << "RemoveTransactions: (size pre/size post) ("
+    LOG_DEBUG << "removeTransactions: (size pre/size post) ("
               << txs_size << "/"
               << txs_.size() << ")";
   }
@@ -557,10 +721,10 @@ class UnrecordedTransactionPool {
    *  @param proposed - the ProposedBlock to finalize
    *  @return the FinalBlock based on the provided ProposedBlock
    */
-  const FinalBlock FinalizeBlock(const ProposedBlock& proposal) {
-    LOG_DEBUG << "FinalizeBlock()";
+  const FinalBlock finalizeBlock(const ProposedBlock& proposal) {
+    LOG_DEBUG << "finalizeBlock()";
     MTR_SCOPE_FUNC();
-    RemoveTransactions(proposal);
+    removeTransactions(proposal);
     FinalBlock final(proposal);
     return final;
   }

@@ -130,6 +130,7 @@ int main(int argc, char* argv[]) {
       unsigned int processed = 0;
       std::vector<DevvMessageUniquePtr> messages;
       for (auto const& t2tx : ptrs) {
+        LOG_DEBUG << "Announce signature: "+t2tx->getSignature().getJSON();
         auto announce_msg = std::make_unique<DevvMessage>(
             this_context.get_shard_uri(),
             TRANSACTION_ANNOUNCEMENT,

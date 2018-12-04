@@ -14,7 +14,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://devv.io",
     packages=setuptools.find_packages(),
-    scripts=[pjoin('bin','devv')],
+    scripts=[pjoin('bin','devv-cli')],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

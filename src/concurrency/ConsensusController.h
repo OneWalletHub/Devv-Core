@@ -25,7 +25,7 @@ typedef std::function<bool(DevvMessageUniquePtr ptr,
                            const DevvContext &context,
                            const KeyRing &keys,
                            Blockchain &final_chain,
-                           TransactionCreationManager &tcm,
+                           UnrecordedTransactionPool &utx_pool,
                            std::function<void(DevvMessageUniquePtr)> callback)> ProposalBlockCallback;
 
 typedef std::function<bool(DevvMessageUniquePtr ptr,

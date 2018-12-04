@@ -22,11 +22,6 @@ def create_devvsign_command(env_file, private_keyfile, key_pass):
     return cmd
 
 class DevvTransfer(object):
-    _address = bytes()
-    _coin = 0
-    _amount = 0
-    _delay = 0
-
     def __init__(self, address=None, coin=None, amount=None, delay=None):
         print("Transfer: {}:{}:{}:{}".format(address, coin, amount, delay))
 
@@ -50,14 +45,11 @@ class DevvTransfer(object):
 
 
 class DevvTransaction(object):
-    _operation = dpb.UNKNOWN
-    _nonce = bytes()
-    _sig = bytes()
-    _transfers = []
-
-    def __init__(self, operation, nonce):
+    def __init__(self, operation="EXCHANGE", nonce=str(time.time())):
         self.set_operation(operation)
         self.set_nonce(nonce)
+        self._transfers = []
+        self._sig = bytes()
 
     def set_nonce(self, nonce):
         try:
@@ -78,7 +70,15 @@ class DevvTransaction(object):
         elif(op.find("DELETE") >= 0):
             self._operation = dpb.OP_DELETE
         else:
-            raise("Unknown operation")
+            raise ValueError("Unknown operation")
+
+    def set_signature(self, sig):
+        try:
+            self._sig = bytes.fromhex(sig)
+            print("Created sig from hex number")
+        except ValueError:
+            self._sig = sig.encode("utf-8")
+            print("Created nonce from string value")
 
     def add_transfer(self, address=None, coin=None, amount=None, delay=0, transfer_string=None):
         if (transfer_string):
@@ -111,6 +111,28 @@ class DevvTransaction(object):
         return pb_tx
 
 
+def get_sig(env, pkeyfile, key_pass, filename=None):
+    print('size txs', str(len(env.txs)))
+
+    env_file = None
+    if not filename:
+        env_file = devv.EnvFile(env, tmp_dir='/tmp')
+        filename = env_file.filename()
+
+    print("env filename: ", filename)
+
+    cmd = devv.create_devvsign_command(filename, pkeyfile, key_pass)
+    out = subprocess.check_output(cmd)
+    print("out: "+str(out))
+    sig = out.decode("utf-8").rstrip()
+
+    print("sleeping 1 again")
+    time.sleep(1)
+
+    print("sig: "+sig)
+
+    return sig
+
 def get_envelope(tx):
     pbtx = tx.get_pbuf()
 
@@ -119,6 +141,48 @@ def get_envelope(tx):
 
     env = dpb.Envelope()
     env.txs.extend([pbtx])
+    return env
+
+def wrap_tx(tx):
+    pbtx = tx.get_pbuf()
+
+    print("pbuf")
+    print(pbtx)
+
+    env = dpb.Envelope()
+    env.txs.extend([pbtx])
+    return env
+
+
+class DevvProposal(object):
+    def __init__(self, oracle=None, data=None):
+        print("Proposal: {}:{}".format(oracle, data))
+
+        if not oracle:
+            raise ValueError("Oracle instance must be set")
+        if not data:
+            raise ValueError("All oracles require some data")
+
+        self._oracle = oracle
+        self._data = bytes.fromhex(data)
+        self._data_size = len(self._data)
+
+    def get_pbuf(self):
+        pb_prop = dpb.Proposal()
+        pb_prop.oraclename = self._oracle
+        pb_prop.data = self._data
+        pb_prop.data_size = self._data_size
+        return pb_prop
+
+
+def wrap_prop(prop):
+    pbprop = prop.get_pbuf()
+
+    print("pbprop")
+    print(pbprop)
+
+    env = dpb.Envelope()
+    env.proposals.extend([pbprop])
     return env
 
 

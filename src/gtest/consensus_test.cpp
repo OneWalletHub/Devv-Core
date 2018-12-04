@@ -314,7 +314,7 @@ class TestProposalHandler : public TestHandler {
                         context_,
                         *keys_,
                         final_chain_,
-                        utx_pool_ptr_->get_transaction_creation_manager(),
+                        *utx_pool_ptr_,
                         completion_cb0_);
   }
 
@@ -358,7 +358,7 @@ typedef std::unique_ptr<TestProposalHandler> TestProposalHandlerPtr;
                         context_,
                         *keys_,
                         final_chain_,
-                        utx_pool_ptr_->get_transaction_creation_manager(), halt_cb);
+                        utx_pool_ptr_, halt_cb);
   }
 
   void handleValidationBlock(DevvMessageUniquePtr message) {
@@ -706,7 +706,7 @@ TEST_F(UnrecordedTransactionPoolTest, finalize_0) {
 
   InputBuffer validation(to_validate.getValidationData());
 
-  EXPECT_TRUE(utx_pool_ptr_->CheckValidation(validation, t2_context_));
+  EXPECT_TRUE(utx_pool_ptr_->checkValidation(validation, t2_context_));
 /*
     //block can be finalized, so finalize
     LOG_DEBUG << "Ready to finalize block.";
@@ -763,7 +763,7 @@ TEST_F(UnrecordedTransactionPoolTest, finalize_inn_tx) {
                       sign_context,
                       keys_,
                       proposal_chain_,
-                      utx_pool_ptr_->get_transaction_creation_manager(), cb);
+                      *utx_pool_ptr_, cb);
 }
 
 TEST_F(UnrecordedTransactionPoolTest, finalize_tx_1) {
@@ -804,7 +804,7 @@ auto propose_msg =
 
 DevvMessageCallback cb = [this](DevvMessageUniquePtr p) { this->handleValidationBlock(std::move(p)); };
 DevvContext sign_context(2, 1, Devv::eAppMode::T2, "", "", "");
-HandleProposalBlock(std::move(propose_msg), sign_context, keys_, proposal_chain_, utx_pool_ptr_->get_transaction_creation_manager(), cb);
+HandleProposalBlock(std::move(propose_msg), sign_context, keys_, proposal_chain_, *utx_pool_ptr_, cb);
 }
 
 TEST_F(UnrecordedTransactionPoolTest, DISABLED_proposal_stream_0) {

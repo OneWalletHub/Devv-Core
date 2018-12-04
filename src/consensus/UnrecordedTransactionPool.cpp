@@ -17,6 +17,10 @@ bool UnrecordedTransactionPool::addAndVerifyTransactions(std::vector<Transaction
   std::lock_guard<std::mutex> guard(txs_mutex_);
   for (TransactionPtr& item : txs) {
     Signature sig = item->getSignature();
+    if (recent_txs_.find(sig) != recent_txs_.end()) {
+      LOG_DEBUG << "Avoided adding duplicate tx.";
+      continue;
+    }
     auto it = txs_.find(sig);
     bool valid = it->second.second->isValid(state, keys, summary);
     if (!valid) { return false; } //tx is invalid
