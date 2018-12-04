@@ -61,6 +61,8 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
     throw std::runtime_error("HandleFinalBlock: message != eMessageType::FINAL_BLOCK");
   }
 
+  std::unique_lock<std::mutex> lock(utx_pool.getBigMutex());
+
   // Profiling
   MTR_SCOPE_FUNC();
 
@@ -128,6 +130,7 @@ bool HandleProposalBlock(DevvMessageUniquePtr ptr,
     throw std::runtime_error("HandleProposalBlock: message != eMessageType::PROPOSAL_BLOCK");
   }
 
+  std::unique_lock<std::mutex> lock(utx_pool.getBigMutex());
   MTR_SCOPE_FUNC();
 
   LogDevvMessageSummary(*ptr, "HandleProposalBlock() -> Incoming");
@@ -175,6 +178,7 @@ bool HandleValidationBlock(DevvMessageUniquePtr ptr,
                            UnrecordedTransactionPool& utx_pool,
                            std::function<void(DevvMessageUniquePtr)> callback) {
 
+  std::unique_lock<std::mutex> lock(utx_pool.getBigMutex());
   if (ptr->message_type != eMessageType::VALID) {
     throw std::runtime_error("HandleValidationBlock: message != eMessageType::VALID");
   }

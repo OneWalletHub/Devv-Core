@@ -458,6 +458,14 @@ class UnrecordedTransactionPool {
     is_new_final_block_processing_ = processing_now;
   }
 
+  /**
+   * Get a mutex to coordinate shared access to local
+   * data
+   */
+  std::mutex& getBigMutex() {
+    return big_mutex_;
+  }
+
  private:
   TxMap txs_;
   std::map<Signature, uint64_t> recent_txs_;
@@ -467,11 +475,8 @@ class UnrecordedTransactionPool {
   /// True if this validator has an active proposal currently pending validation
   std::atomic<bool> has_active_proposal_ = ATOMIC_VAR_INIT(false);
 
-
   std::atomic<bool> is_new_final_block_processing_ = ATOMIC_VAR_INIT(false);
 
-  //UniqueLock proposal_lock_;
-  
   mutable std::mutex proposal_permission_lock_;
 
   ProposedBlock pending_proposal_;
@@ -490,6 +495,10 @@ class UnrecordedTransactionPool {
 #endif
   TransactionCreationManager tcm_;
   eAppMode mode_;
+
+  /// Temporary/test mutex to lock all callbacks and force serial
+  /// execution
+  mutable std::mutex big_mutex_;
 
   /**
    *  Create a new ProposedBlock based on pending Transaction in this pool

@@ -53,6 +53,8 @@ ValidatorController::~ValidatorController() {
 
 void ValidatorController::validatorCallback(DevvMessageUniquePtr ptr) {
   LOG_DEBUG << "ValidatorController::validatorCallback()";
+  std::unique_lock<std::mutex> lock(utx_pool_.getBigMutex());
+
   //Do not remove lock_guard, function may use atomic<bool> as concurrency signal
   std::lock_guard<std::mutex> guard(mutex_);
   if (ptr == nullptr) {
