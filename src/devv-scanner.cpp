@@ -181,7 +181,7 @@ int main(int argc, char* argv[])
             uint64_t duration = blocktime-previous_time;
             priori = one_block.getChainState();
             Hash p_hash = one_block.getPreviousHash();
-            if (!std::equal(std::begin(prev_hash), std::end(prev_hash), std::begin(p_hash)) {
+            if (!std::equal(std::begin(prev_hash), std::end(prev_hash), std::begin(p_hash))) {
               LOG_WARNING << "CHAINBREAK: The previous hash referenced in this block does not match the previous block hash.";
             }
             prev_hash = DevvHash(one_block.getCanonical());
