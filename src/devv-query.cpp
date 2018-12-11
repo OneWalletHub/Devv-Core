@@ -131,7 +131,9 @@ int main(int argc, char* argv[]) {
           LOG_WARNING << "Error: " + err << std::endl;
         }
         //write final chain to file
-        std::string shard_dir(options->working_dir+"/"+this_context.get_shard_uri()+"/"+chain.seg_size());
+        std::string shard_dir(options->working_dir+"/"
+           +this_context.get_shard_uri()+"/"
+           +std::to_string(chain.seg_size()));
         fs::path dir_path(shard_dir);
         if (!is_directory(dir_path)) fs::create_directory(dir_path);
         std::string block_height(std::to_string(chain.get_segment_height()));
@@ -461,7 +463,7 @@ std::vector<byte> ReadBlock(const std::string& shard, size_t block, const std::s
 
 std::map<std::string, std::string> TraceTransactions(const std::string& shard
     , uint32_t start_block, uint32_t end_block
-    , const std::vector<byte>& target, const std::string& working_dir,
+    , const std::vector<byte>& target, const std::string& working_dir
     , const Blockchain& chain) {
   std::map<std::string, std::string> txs;
   size_t highest = chain.size();

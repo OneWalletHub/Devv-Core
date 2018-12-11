@@ -37,11 +37,11 @@ public:
     bool new_seg = false;
     if (chain_size_ % kBLOCKS_PER_SEGMENT == 0) {
       new_seg = true;
-      std::vector<BlockSharedPtr> seg();
+      std::vector<BlockSharedPtr> seg;
       seg.push_back(block);
-      chain.push_back(seg);
+      chain_.push_back(seg);
     } else {
-      chain[seg_num].push_back(block);
+      chain_[seg_num].push_back(block);
     }
     if (chain_size_ == 0) {
       genesis_time_ = block->getBlockTime();
@@ -66,7 +66,7 @@ public:
 
   uint64_t getAvgBlocktime() const {
     if (chain_size_ > 1) {
-      return ((chain_.back()->getBlockTime() - genesis_time_)/chain_size_);
+      return ((back()->getBlockTime() - genesis_time_)/chain_size_);
     } else {
       return 0;
 	}
@@ -138,10 +138,10 @@ public:
    */
   BlockSharedPtr at(size_t loc) const {
     LOG_TRACE << name_ << ": at(); size(" << chain_size_ << ")";
-    size_t seg_num = std::floor(height/kBLOCKS_PER_SEGMENT);
-    size_t block_num = height % kBLOCKS_PER_SEGMENT;
-    lOG_TRACE << "segment = " << seg_num;
-    lOG_TRACE << "relative block = " << block_num;
+    size_t seg_num = std::floor(loc/kBLOCKS_PER_SEGMENT);
+    size_t block_num = loc % kBLOCKS_PER_SEGMENT;
+    LOG_TRACE << "segment = " << seg_num;
+    LOG_TRACE << "relative block = " << block_num;
     return chain_.at(seg_num).at(block_num);
   }
 
