@@ -193,7 +193,7 @@ bool HandleValidationBlock(DevvMessageUniquePtr ptr,
     //block can be finalized, so finalize
     LOG_DEBUG << "Ready to finalize block.";
     FinalPtr top_block = std::make_shared<FinalBlock>(utx_pool.finalizeLocalBlock());
-    final_chain.push_back(top_block);
+    if (final_chain.push_back(top_block)) final_chain.prune();
     LOG_NOTICE << "final_chain.push_back(): Estimated rate: (ntxs/duration): rate -> "
                << "(" << final_chain.getNumTransactions() << "/"
                << utx_pool.getElapsedTime() << "): "
