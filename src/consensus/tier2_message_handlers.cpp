@@ -93,7 +93,8 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
     LOG_DEBUG << proposal_lock << " HandleFinalBlock(): utx_pool.hasActiveProposal(): " << utx_pool.hasActiveProposal();
   }
 
-  final_chain.push_back(top_block);
+  //prune if a new segment was created
+  if (final_chain.push_back(top_block)) final_chain.prune();
   LOG_NOTICE << "final_chain.push_back(): Estimated rate: (ntxs/duration): rate -> "
              << "(" << final_chain.getNumTransactions() << "/"
              << utx_pool.getElapsedTime() << "): "

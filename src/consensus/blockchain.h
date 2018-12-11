@@ -20,6 +20,7 @@ public:
 
   explicit Blockchain(const std::string& name)
     : name_(name), chain_size_(0), num_transactions_(0), genesis_time_(0)
+    , prune_cursor_(0)
   {
   }
 
@@ -28,9 +29,20 @@ public:
   /**
    * Add a block to this chain.
    * @param block - a shared pointer to the block to add
+   * @return true if a new segment was created
+   * @return false if a new segment was not created
    */
-  void push_back(BlockSharedPtr block) {
-    chain_.push_back(block);
+  bool push_back(BlockSharedPtr block) {
+    size_t seg_num = std::min(chain_size_/kBLOCKS_PER_SEGMENT);
+    bool new_seg = false;
+    if (chain_size_ % kBLOCKS_PER_SEGMENT == 0) {
+      new_seg = true;
+      std::vector<BlockSharedPtr> seg();
+      seg.push_back(block);
+      chain.push_back(seg);
+    } else {
+      chain[seg_num].push_back(block);
+    }
     if (chain_size_ == 0) {
       genesis_time_ = block->getBlockTime();
     }
@@ -41,6 +53,7 @@ public:
                " (" << chain_size_ << "/" << num_transactions_ << ")" <<
           " this (" << ToHex(DevvHash(block->getCanonical()), 8) << ")" <<
           " prev (" << ToHex(block->getPreviousHash(), 8) << ")";
+    return new_seg;
   }
 
   /**
@@ -64,7 +77,7 @@ public:
    */
   BlockSharedPtr back() {
     LOG_TRACE << name_ << ": back(); size(" << chain_size_ << ")";
-    return chain_.back();
+    return chain_.back().back();
   }
 
   /**
@@ -72,7 +85,7 @@ public:
    */
   const BlockSharedPtr back() const {
     LOG_TRACE << name_ << ": back() const; size(" << chain_size_ << ")";
-    return chain_.back();
+    return chain_.back().back();
   }
 
   /**
@@ -80,15 +93,23 @@ public:
    */
   std::vector<byte> raw_at(size_t height) {
     LOG_TRACE << name_ << ": at(); size(" << chain_size_ << ")";
-    return chain_.at(height)->getCanonical();
+    size_t seg_num = std::min(height/kBLOCKS_PER_SEGMENT);
+    size_t block_num = height % kBLOCKS_PER_SEGMENT;
+    lOG_TRACE << "segment = " << seg_num;
+    lOG_TRACE << "relative block = " << block_num;
+    return chain_.at(seg_num).at(block_num)->getCanonical();
   }
 
   /**
    * @return a pointer to a given block in this chain.
    */
   const std::vector<byte> raw_at(size_t height) const {
-    LOG_TRACE << name_ << ": at() const; size(" << chain_size_ << ")";
-    return chain_.at(height)->getCanonical();
+    LOG_TRACE << name_ << ": at(); size(" << chain_size_ << ")";
+    size_t seg_num = std::min(height/kBLOCKS_PER_SEGMENT);
+    size_t block_num = height % kBLOCKS_PER_SEGMENT;
+    lOG_TRACE << "segment = " << seg_num;
+    lOG_TRACE << "relative block = " << block_num;
+    return chain_.at(seg_num).at(block_num)->getCanonical();
   }
 
   /**
@@ -100,12 +121,28 @@ public:
   }
 
   /**
+   * @return the number of segments in this chain
+   */
+  size_t seg_size() const {
+    return std::max(size()/kBLOCKS_PER_SEGMENT);
+  }
+
+  size_t get_segment_height() const {
+    return (size() % kBLOCKS_PER_SEGMENT);
+  }
+
+  /**
    *
    * @param loc
    * @return
    */
   BlockSharedPtr at(size_t loc) const {
-    return chain_.at(loc);
+    LOG_TRACE << name_ << ": at(); size(" << chain_size_ << ")";
+    size_t seg_num = std::min(height/kBLOCKS_PER_SEGMENT);
+    size_t block_num = height % kBLOCKS_PER_SEGMENT;
+    lOG_TRACE << "segment = " << seg_num;
+    lOG_TRACE << "relative block = " << block_num;
+    return chain_.at(seg_num).at(block_num);
   }
 
   /**
@@ -137,28 +174,53 @@ public:
    */
   std::vector<byte> BinaryDump() const {
     std::vector<byte> out;
-    for (auto const& item : chain_) {
-      std::vector<byte> canonical = item->getCanonical();
-      out.insert(out.end(), canonical.begin(), canonical.end());
+    for (size_t i=prune_cursor_; i < seg_size(); i++) {
+      for (auto const& item : chain_.at(i)) {
+        std::vector<byte> canonical = item->getCanonical();
+        out.insert(out.end(), canonical.begin(), canonical.end());
+      }
     }
     return out;
   }
 
   /**
    * A binary representation of this chain from a given height to the penultimate block.
+   * @note this interface skips old blocks that have pruned from memory
    * @param start - the block height to start with
    * @return a binary representation of this chain from start to the penultimate block.
    */
   std::vector<byte> PartialBinaryDump(size_t start) const {
     std::vector<byte> out;
-    if (size() > 0) {
+    size_t start_seg = std::min(start/kBLOCKS_PER_SEGMENT);
+    //skips any blocks that have been pruned from memory
+    if (size() > 0 && start_seg >= prune_cursor_) {
+      size_t start_block = start % kBLOCKS_PER_SEGMENT;
       //this interface should not return the top/back block
-      for (size_t i=start; i < size()-1; i++) {
-        std::vector<byte> canonical = chain_.at(i)->getCanonical();
-        out.insert(out.end(), canonical.begin(), canonical.end());
+      for (size_t i=start_seg; i < seg_size(); i++) {
+        for (size_t j=start_block; j < i.size()-1; j++) {
+          std::vector<byte> canonical = chain_.at(i).at(j)->getCanonical();
+          out.insert(out.end(), canonical.begin(), canonical.end());
+        }
+        start_block = 0;
       }
     }
     return out;
+  }
+
+  /**
+   * Clears segments if more than 2 kBLOCKS_PER_SEGMENT blocks are loaded.
+   * @return true iff blocks were pruned
+   * @return false if no blocks were pruned
+   */
+  bool prune() {
+    if (prune_cursor_ < seg_size()-2) {
+      for (size_t i=prune_cursor_; i < seg_size()-2; i++) {
+        chain_.at(i).clear();
+      }
+      prune_cursor_ = seg_size()-2;
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -168,11 +230,12 @@ public:
   const std::vector<BlockSharedPtr>& getBlockVector() const { return chain_; }
 
 private:
-  std::vector<BlockSharedPtr> chain_;
+  std::vector<std::vector<BlockSharedPtr>> chain_;
   const std::string name_;
   std::atomic<int> chain_size_;
   std::atomic<int> num_transactions_;
   uint64_t genesis_time_;
+  std::atomic<int> prune_cursor_;
 };
 
 typedef std::shared_ptr<Blockchain> BlockchainPtr;

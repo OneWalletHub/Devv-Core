@@ -120,37 +120,34 @@ int main(int argc, char* argv[]) {
     auto peer_listener = io::CreateTransactionClient(options->host_vector, zmq_context);
     peer_listener->attachCallback([&](DevvMessageUniquePtr p) {
       if (p->message_type == eMessageType::FINAL_BLOCK) {
-        //write final chain to file
-        std::string shard_dir(options->working_dir+"/"+this_context.get_shard_uri());
-        fs::path dir_path(shard_dir);
-        if (is_directory(dir_path)) {
-          std::string block_height(std::to_string(chain.size()));
-          std::string padded_height = block_height;
-          if (block_height.length() < options->pad_amount) {
-            padded_height = std::string(options->pad_amount - block_height.length(), '0')+block_height;
-          }
-          std::string out_file(shard_dir + "/" + padded_height + ".blk");
-          std::ofstream block_file(out_file
-            , std::ios::out | std::ios::binary);
-          if (block_file.is_open()) {
-            block_file.write((const char*) &p->data[0], p->data.size());
-            block_file.close();
-            LOG_DEBUG << "Wrote to " << out_file << "'.";
-          } else {
-            LOG_ERROR << "Failed to open output file '" << out_file << "'.";
-          }
-        } else {
-          LOG_ERROR << "Error opening dir: " << shard_dir << " is not a directory";
-        }
         try {
           InputBuffer buffer(p->data);
           FinalPtr top_block = std::make_shared<FinalBlock>(FinalBlock::Create(buffer, state));
-          chain.push_back(top_block);
+          if (chain.push_back(top_block)) chain.prune();
 	    } catch (const std::exception& e) {
           std::exception_ptr p = std::current_exception();
           std::string err("");
           err += (p ? p.__cxa_exception_type()->name() : "null");
           LOG_WARNING << "Error: " + err << std::endl;
+        }
+        //write final chain to file
+        std::string shard_dir(options->working_dir+"/"+this_context.get_shard_uri()+"/"+chain.seg_size());
+        fs::path dir_path(shard_dir);
+        if (!is_directory(dir_path)) fs::create_directory(dir_path);
+        std::string block_height(std::to_string(chain.get_segment_height()));
+        std::string padded_height = block_height;
+        if (block_height.length() < options->pad_amount) {
+          padded_height = std::string(options->pad_amount - block_height.length(), '0')+block_height;
+        }
+        std::string out_file(shard_dir + "/" + padded_height + ".blk");
+        std::ofstream block_file(out_file
+          , std::ios::out | std::ios::binary);
+        if (block_file.is_open()) {
+          block_file.write((const char*) &p->data[0], p->data.size());
+          block_file.close();
+          LOG_DEBUG << "Wrote to " << out_file << "'.";
+        } else {
+          LOG_ERROR << "Failed to open output file '" << out_file << "'.";
         }
       }
     });
@@ -415,7 +412,7 @@ Listens for FinalBlock messages and saves them to a file\n\
       options->pad_amount = vm["pad-amount"].as<unsigned int>();
       LOG_INFO << "Pad Amount: " << options->pad_amount;
     } else {
-      options->pad_amount = 8;
+      options->pad_amount = 5;
       LOG_INFO << "Pad Amount was not set, default to 8.";
     }
   }
@@ -434,26 +431,19 @@ bool hasShard(std::string shard, const std::string& working_dir) {
   return false;
 }
 
-bool hasBlock(std::string shard, uint32_t block, const std::string& working_dir) {
-  std::string block_path(working_dir+"/"+shard+"/"+std::to_string(block)+".blk");
+bool hasBlock(std::string shard, size_t block, const std::string& working_dir) {
+  size_t seg = std::min(block/kBLOCKS_PER_SEGMENT);
+  size_t seg_height = block % kBLOCKS_PER_SEGMENT;
+  std::string block_path(working_dir+"/"+shard+"/"+std::to_string(seg)+"/"+std::to_string(seg_height)+".blk");
   if (boost::filesystem::exists(block_path)) return true;
   return false;
 }
 
-uint32_t getHighestBlock(std::string shard, const std::string& working_dir) {
-  std::string shard_dir(working_dir+"/"+shard);
-  uint32_t highest = 0;
-  for (auto i = boost::filesystem::directory_iterator(shard_dir);
-      i != boost::filesystem::directory_iterator(); i++) {
-    uint32_t some_block = std::stoul(i->path().stem().string(), nullptr, 10);
-    if (some_block > highest) highest = some_block;
-  }
-  return highest;
-}
-
-std::vector<byte> ReadBlock(const std::string& shard, uint32_t block, const std::string& working_dir) {
+std::vector<byte> ReadBlock(const std::string& shard, size_t block, const std::string& working_dir) {
   std::vector<byte> out;
-  std::string block_path(working_dir+"/"+shard+"/"+std::to_string(block)+".blk");
+  size_t seg = std::min(block/kBLOCKS_PER_SEGMENT);
+  size_t seg_height = block % kBLOCKS_PER_SEGMENT;
+  std::string block_path(working_dir+"/"+shard+"/"+std::to_string(seg)+"/"+std::to_string(seg_height)+".blk");
   std::ifstream block_file(block_path, std::ios::in | std::ios::binary);
   block_file.unsetf(std::ios::skipws);
 
@@ -471,9 +461,10 @@ std::vector<byte> ReadBlock(const std::string& shard, uint32_t block, const std:
 
 std::map<std::string, std::string> TraceTransactions(const std::string& shard
     , uint32_t start_block, uint32_t end_block
-    , const std::vector<byte>& target, const std::string& working_dir) {
+    , const std::vector<byte>& target, const std::string& working_dir,
+    , const Blockchain& chain) {
   std::map<std::string, std::string> txs;
-  uint32_t highest = std::min(end_block, getHighestBlock(shard, working_dir));
+  size_t highest = chain.size();
   if (highest < start_block) return txs;
 
   for (uint32_t i=start_block; i<=highest; ++i) {
@@ -598,14 +589,14 @@ ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const 
         response.args.insert(std::make_pair("signature", sig));
         std::vector<byte> target = Hex2Bin(sig);
         std::map<std::string, std::string> txs = TraceTransactions(shard_id
-          , start_block, end_block, target, working_dir);
+          , start_block, end_block, target, working_dir, chain);
         response.args.insert(txs.begin(), txs.end());
       }
       if (!addr.empty()) {
         response.args.insert(std::make_pair("address", addr));
         std::vector<byte> target = Hex2Bin(addr);
         std::map<std::string, std::string> txs = TraceTransactions(shard_id
-          , start_block, end_block, target, working_dir);
+          , start_block, end_block, target, working_dir, chain);
         response.args.insert(txs.begin(), txs.end());
 	  }
     } else if (SearchString(request->endpoint, "/tx-info", true)) {

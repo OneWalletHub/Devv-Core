@@ -630,9 +630,9 @@
 					"raw": ""
 				},
 				"url": {
-					"raw": "\\login?user=username&pass=password",
+					"raw": "\login?user=username&pass=password",
 					"host": [
-						"\\login"
+						"\login"
 					],
 					"query": [
 						{
@@ -666,9 +666,9 @@
 							"raw": "{\n\t\"user\":\"username\",\n\t\"pass\":\"salted hash of password\"\n}"
 						},
 						"url": {
-							"raw": "\\login?user=username&pass=password",
+							"raw": "\login?user=username&pass=password",
 							"host": [
-								"\\login"
+								"\login"
 							],
 							"query": [
 								{
