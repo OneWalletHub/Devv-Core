@@ -432,7 +432,7 @@ bool hasShard(std::string shard, const std::string& working_dir) {
 }
 
 bool hasBlock(std::string shard, size_t block, const std::string& working_dir) {
-  size_t seg = std::min(block/kBLOCKS_PER_SEGMENT);
+  size_t seg = std::floor(block/kBLOCKS_PER_SEGMENT);
   size_t seg_height = block % kBLOCKS_PER_SEGMENT;
   std::string block_path(working_dir+"/"+shard+"/"+std::to_string(seg)+"/"+std::to_string(seg_height)+".blk");
   if (boost::filesystem::exists(block_path)) return true;
@@ -441,7 +441,7 @@ bool hasBlock(std::string shard, size_t block, const std::string& working_dir) {
 
 std::vector<byte> ReadBlock(const std::string& shard, size_t block, const std::string& working_dir) {
   std::vector<byte> out;
-  size_t seg = std::min(block/kBLOCKS_PER_SEGMENT);
+  size_t seg = std::floor(block/kBLOCKS_PER_SEGMENT);
   size_t seg_height = block % kBLOCKS_PER_SEGMENT;
   std::string block_path(working_dir+"/"+shard+"/"+std::to_string(seg)+"/"+std::to_string(seg_height)+".blk");
   std::ifstream block_file(block_path, std::ios::in | std::ios::binary);

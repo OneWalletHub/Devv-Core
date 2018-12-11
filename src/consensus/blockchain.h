@@ -33,7 +33,7 @@ public:
    * @return false if a new segment was not created
    */
   bool push_back(BlockSharedPtr block) {
-    size_t seg_num = std::min(chain_size_/kBLOCKS_PER_SEGMENT);
+    size_t seg_num = std::floor(chain_size_/kBLOCKS_PER_SEGMENT);
     bool new_seg = false;
     if (chain_size_ % kBLOCKS_PER_SEGMENT == 0) {
       new_seg = true;
@@ -93,10 +93,10 @@ public:
    */
   std::vector<byte> raw_at(size_t height) {
     LOG_TRACE << name_ << ": at(); size(" << chain_size_ << ")";
-    size_t seg_num = std::min(height/kBLOCKS_PER_SEGMENT);
+    size_t seg_num = std::floor(height/kBLOCKS_PER_SEGMENT);
     size_t block_num = height % kBLOCKS_PER_SEGMENT;
-    lOG_TRACE << "segment = " << seg_num;
-    lOG_TRACE << "relative block = " << block_num;
+    LOG_TRACE << "segment = " << seg_num;
+    LOG_TRACE << "relative block = " << block_num;
     return chain_.at(seg_num).at(block_num)->getCanonical();
   }
 
@@ -105,10 +105,10 @@ public:
    */
   const std::vector<byte> raw_at(size_t height) const {
     LOG_TRACE << name_ << ": at(); size(" << chain_size_ << ")";
-    size_t seg_num = std::min(height/kBLOCKS_PER_SEGMENT);
+    size_t seg_num = std::floor(height/kBLOCKS_PER_SEGMENT);
     size_t block_num = height % kBLOCKS_PER_SEGMENT;
-    lOG_TRACE << "segment = " << seg_num;
-    lOG_TRACE << "relative block = " << block_num;
+    LOG_TRACE << "segment = " << seg_num;
+    LOG_TRACE << "relative block = " << block_num;
     return chain_.at(seg_num).at(block_num)->getCanonical();
   }
 
@@ -124,7 +124,7 @@ public:
    * @return the number of segments in this chain
    */
   size_t seg_size() const {
-    return std::max(size()/kBLOCKS_PER_SEGMENT);
+    return std::ceil(size()/kBLOCKS_PER_SEGMENT);
   }
 
   size_t get_segment_height() const {
@@ -138,7 +138,7 @@ public:
    */
   BlockSharedPtr at(size_t loc) const {
     LOG_TRACE << name_ << ": at(); size(" << chain_size_ << ")";
-    size_t seg_num = std::min(height/kBLOCKS_PER_SEGMENT);
+    size_t seg_num = std::floor(height/kBLOCKS_PER_SEGMENT);
     size_t block_num = height % kBLOCKS_PER_SEGMENT;
     lOG_TRACE << "segment = " << seg_num;
     lOG_TRACE << "relative block = " << block_num;
@@ -191,13 +191,13 @@ public:
    */
   std::vector<byte> PartialBinaryDump(size_t start) const {
     std::vector<byte> out;
-    size_t start_seg = std::min(start/kBLOCKS_PER_SEGMENT);
+    size_t start_seg = std::floor(start/kBLOCKS_PER_SEGMENT);
     //skips any blocks that have been pruned from memory
     if (size() > 0 && start_seg >= prune_cursor_) {
       size_t start_block = start % kBLOCKS_PER_SEGMENT;
       //this interface should not return the top/back block
       for (size_t i=start_seg; i < seg_size(); i++) {
-        for (size_t j=start_block; j < i.size()-1; j++) {
+        for (size_t j=start_block; j < chain_.at(i).size()-1; j++) {
           std::vector<byte> canonical = chain_.at(i).at(j)->getCanonical();
           out.insert(out.end(), canonical.begin(), canonical.end());
         }
@@ -227,15 +227,17 @@ public:
    * Return a const ref to the underlying vector of BlockSharedPtrs
    * @return const ref to std::vector<BlockSharedPtr>
    */
-  const std::vector<BlockSharedPtr>& getBlockVector() const { return chain_; }
+  const std::vector<std::vector<BlockSharedPtr>>& getBlockVector() const {
+    return chain_;
+  }
 
 private:
   std::vector<std::vector<BlockSharedPtr>> chain_;
   const std::string name_;
-  std::atomic<int> chain_size_;
-  std::atomic<int> num_transactions_;
+  std::atomic<uint32_t> chain_size_;
+  std::atomic<uint64_t> num_transactions_;
   uint64_t genesis_time_;
-  std::atomic<int> prune_cursor_;
+  std::atomic<uint32_t> prune_cursor_;
 };
 
 typedef std::shared_ptr<Blockchain> BlockchainPtr;
