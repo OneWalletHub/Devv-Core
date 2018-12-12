@@ -93,8 +93,7 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
     LOG_DEBUG << proposal_lock << " HandleFinalBlock(): utx_pool.hasActiveProposal(): " << utx_pool.hasActiveProposal();
   }
 
-  //prune if a new segment was created
-  if (final_chain.push_back(top_block)) final_chain.prune();
+  final_chain.push_back(top_block);
   LOG_NOTICE << "final_chain.push_back(): Estimated rate: (ntxs/duration): rate -> "
              << "(" << final_chain.getNumTransactions() << "/"
              << utx_pool.getElapsedTime() << "): "
@@ -193,7 +192,7 @@ bool HandleValidationBlock(DevvMessageUniquePtr ptr,
     //block can be finalized, so finalize
     LOG_DEBUG << "Ready to finalize block.";
     FinalPtr top_block = std::make_shared<FinalBlock>(utx_pool.finalizeLocalBlock());
-    if (final_chain.push_back(top_block)) final_chain.prune();
+    final_chain.push_back(top_block);
     LOG_NOTICE << "final_chain.push_back(): Estimated rate: (ntxs/duration): rate -> "
                << "(" << final_chain.getNumTransactions() << "/"
                << utx_pool.getElapsedTime() << "): "
@@ -223,7 +222,10 @@ bool HandleBlocksSinceRequest(DevvMessageUniquePtr ptr,
 
   uint64_t height = BinToUint32(ptr->data, 0);
   uint64_t node = BinToUint32(ptr->data, 8);
-  std::vector<byte> raw = final_chain.PartialBinaryDump(height);
+  if (height > 0) {
+    //do not include the highest block, only the penultimate one
+    std::vector<byte> raw = final_chain.dumpPartialChainInBinary(height-1);
+  }
   LOG_INFO << "HandleBlocksSinceRequest(): height(" << height << "), node(" << node << ")";
   /*
   if (final_chain.size() < 2) {

@@ -123,7 +123,7 @@ int main(int argc, char* argv[]) {
         try {
           InputBuffer buffer(p->data);
           FinalPtr top_block = std::make_shared<FinalBlock>(FinalBlock::Create(buffer, state));
-          if (chain.push_back(top_block)) chain.prune();
+          chain.push_back(top_block);
 	    } catch (const std::exception& e) {
           std::exception_ptr p = std::current_exception();
           std::string err("");
@@ -131,19 +131,14 @@ int main(int argc, char* argv[]) {
           LOG_WARNING << "Error: " + err << std::endl;
         }
         //write final chain to file
-        std::string shard_dir(options->working_dir+"/"
-           +this_context.get_shard_uri()+"/"
-           +std::to_string(chain.seg_size()));
-        fs::path dir_path(shard_dir);
+        std::string seg_dir(options->working_dir+fs::path::preferred_separator
+           +this_context.get_shard_uri()+fs::path::preferred_separator
+           +std::to_string(chain.getSegmentNumber()));
+        fs::path dir_path(seg_dir);
         if (!is_directory(dir_path)) fs::create_directory(dir_path);
-        std::string block_height(std::to_string(chain.get_segment_height()));
-        std::string padded_height = block_height;
-        if (block_height.length() < options->pad_amount) {
-          padded_height = std::string(options->pad_amount - block_height.length(), '0')+block_height;
-        }
-        std::string out_file(shard_dir + "/" + padded_height + ".blk");
-        std::ofstream block_file(out_file
-          , std::ios::out | std::ios::binary);
+        std::string out_file = Blockchain::getStandardBlockPath(shard, chain.size()
+          , working_dir, fs::path::preferred_separator);
+        std::ofstream block_file(out_file, std::ios::out | std::ios::binary);
         if (block_file.is_open()) {
           block_file.write((const char*) &p->data[0], p->data.size());
           block_file.close();
@@ -427,25 +422,23 @@ Listens for FinalBlock messages and saves them to a file\n\
 }
 
 bool hasShard(std::string shard, const std::string& working_dir) {
-  std::string shard_dir(working_dir+"/"+shard);
+  std::string shard_dir(working_dir+fs::path::preferred_separator+shard);
   fs::path dir_path(shard_dir);
   if (is_directory(dir_path)) return true;
   return false;
 }
 
 bool hasBlock(std::string shard, size_t block, const std::string& working_dir) {
-  size_t seg = std::floor(block/kBLOCKS_PER_SEGMENT);
-  size_t seg_height = block % kBLOCKS_PER_SEGMENT;
-  std::string block_path(working_dir+"/"+shard+"/"+std::to_string(seg)+"/"+std::to_string(seg_height)+".blk");
+  std::string block_path = Blockchain::getStandardBlockPath(shard, block
+      , working_dir, fs::path::preferred_separator);
   if (boost::filesystem::exists(block_path)) return true;
   return false;
 }
 
 std::vector<byte> ReadBlock(const std::string& shard, size_t block, const std::string& working_dir) {
   std::vector<byte> out;
-  size_t seg = std::floor(block/kBLOCKS_PER_SEGMENT);
-  size_t seg_height = block % kBLOCKS_PER_SEGMENT;
-  std::string block_path(working_dir+"/"+shard+"/"+std::to_string(seg)+"/"+std::to_string(seg_height)+".blk");
+  std::string block_path = Blockchain::getStandardBlockPath(shard, block
+      , working_dir, fs::path::preferred_separator);
   std::ifstream block_file(block_path, std::ios::in | std::ios::binary);
   block_file.unsetf(std::ios::skipws);
 

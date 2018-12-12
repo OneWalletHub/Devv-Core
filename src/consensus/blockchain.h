@@ -53,6 +53,8 @@ public:
                " (" << chain_size_ << "/" << num_transactions_ << ")" <<
           " this (" << ToHex(DevvHash(block->getCanonical()), 8) << ")" <<
           " prev (" << ToHex(block->getPreviousHash(), 8) << ")";
+
+    if (new_seg) prune();
     return new_seg;
   }
 
@@ -64,6 +66,9 @@ public:
     return num_transactions_;
   }
 
+  /**
+   * @return the average time between blocks in this chain.
+   */
   uint64_t getAvgBlocktime() const {
     if (chain_size_ > 1) {
       return ((back()->getBlockTime() - genesis_time_)/chain_size_);
@@ -123,18 +128,43 @@ public:
   /**
    * @return the number of segments in this chain
    */
-  size_t seg_size() const {
+  size_t getSegmentNumber() const {
     return std::ceil(size()/kBLOCKS_PER_SEGMENT);
   }
 
-  size_t get_segment_height() const {
+  /**
+   * @return the height of this chain within the active segment.
+   */
+  size_t getHeightInSegment() const {
     return (size() % kBLOCKS_PER_SEGMENT);
   }
 
   /**
+   * @param shard - the name of the directory for this shard
+   * @param block - the height of the block to generate a path for
+   * @param working_dir - the working directory to create a path from
+   * @param separator - the preferred path separator for this file system
+   * @return a standard path where a particular block would be stored relative to the working directory.
+   */
+  static std::string getStandardBlockPath(const std::string& shard, size_t block
+      , const std::string& working_dir, const std::string separator) {
+    size_t seg = std::floor(block/kBLOCKS_PER_SEGMENT);
+    size_t seg_height = block % kBLOCKS_PER_SEGMENT;
+    std::string block_height(std::to_string(seg_height));
+    std::string padded_height = block_height;
+    if (block_height.length() < kMAX_LEFTPADDED_ZEORS) {
+      padded_height = std::string(kMAX_LEFTPADDED_ZEORS - block_height.length(), '0')+block_height;
+    }
+    std::string block_path(working_dir+separator+shard
+      +separator+std::to_string(seg)
+      +separator+padded_height+kBLOCK_SUFFIX);
+    return block_path;
+  }
+
+  /**
    *
-   * @param loc
-   * @return
+   * @param loc - the height of the block pointer to get
+   * @return a shared pointer for the block at the specified height
    */
   BlockSharedPtr at(size_t loc) const {
     LOG_TRACE << name_ << ": at(); size(" << chain_size_ << ")";
@@ -172,9 +202,9 @@ public:
   /**
    * @return a binary representation of this entire chain.
    */
-  std::vector<byte> BinaryDump() const {
+  std::vector<byte> dumpChainInBinary() const {
     std::vector<byte> out;
-    for (size_t i=prune_cursor_; i < seg_size(); i++) {
+    for (auto i=prune_cursor_; i < getSegmentNumber(); i++) {
       for (auto const& item : chain_.at(i)) {
         std::vector<byte> canonical = item->getCanonical();
         out.insert(out.end(), canonical.begin(), canonical.end());
@@ -184,20 +214,19 @@ public:
   }
 
   /**
-   * A binary representation of this chain from a given height to the penultimate block.
+   * A binary representation of this chain from a given height to the highest block.
    * @note this interface skips old blocks that have pruned from memory
    * @param start - the block height to start with
-   * @return a binary representation of this chain from start to the penultimate block.
+   * @return a binary representation of this chain from start to the highest block.
    */
-  std::vector<byte> PartialBinaryDump(size_t start) const {
+  std::vector<byte> dumpPartialChainInBinary(size_t start) const {
     std::vector<byte> out;
     size_t start_seg = std::floor(start/kBLOCKS_PER_SEGMENT);
     //skips any blocks that have been pruned from memory
     if (size() > 0 && start_seg >= prune_cursor_) {
       size_t start_block = start % kBLOCKS_PER_SEGMENT;
-      //this interface should not return the top/back block
-      for (size_t i=start_seg; i < seg_size(); i++) {
-        for (size_t j=start_block; j < chain_.at(i).size()-1; j++) {
+      for (auto i=start_seg; i < getSegmentNumber(); i++) {
+        for (auto j=start_block; j < chain_.at(i).size(); j++) {
           std::vector<byte> canonical = chain_.at(i).at(j)->getCanonical();
           out.insert(out.end(), canonical.begin(), canonical.end());
         }
@@ -205,22 +234,6 @@ public:
       }
     }
     return out;
-  }
-
-  /**
-   * Clears segments if more than 2 kBLOCKS_PER_SEGMENT blocks are loaded.
-   * @return true iff blocks were pruned
-   * @return false if no blocks were pruned
-   */
-  bool prune() {
-    if (prune_cursor_ < seg_size()-2) {
-      for (size_t i=prune_cursor_; i < seg_size()-2; i++) {
-        chain_.at(i).clear();
-      }
-      prune_cursor_ = seg_size()-2;
-      return true;
-    }
-    return false;
   }
 
   /**
@@ -238,6 +251,23 @@ private:
   std::atomic<uint64_t> num_transactions_;
   uint64_t genesis_time_;
   std::atomic<uint32_t> prune_cursor_;
+
+  /**
+   * Clears segments if more than 2 kBLOCKS_PER_SEGMENT blocks are loaded.
+   * @return true iff blocks were pruned
+   * @return false if no blocks were pruned
+   */
+  bool prune() {
+    if (prune_cursor_ < getSegmentNumber()-2) {
+      for (size_t i=prune_cursor_; i < getSegmentNumber()-2; i++) {
+        chain_.at(i).clear();
+      }
+      prune_cursor_ = getSegmentNumber()-2;
+      return true;
+    }
+    return false;
+  }
+
 };
 
 typedef std::shared_ptr<Blockchain> BlockchainPtr;

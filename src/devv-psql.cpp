@@ -112,7 +112,7 @@ int main(int argc, char* argv[]) {
         InputBuffer buffer(p->data);
         auto top_block = std::make_shared<FinalBlock>(buffer, prior, keys, options->mode);
         db_server.push_queue(top_block);
-        if (chain->push_back(top_block)) chain->prune();
+        chain->push_back(top_block);
       } catch (const std::exception& e) {
         std::exception_ptr p = std::current_exception();
         std::string err("");
