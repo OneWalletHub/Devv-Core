@@ -4,6 +4,7 @@
  * @copywrite  2018 Devvio Inc
  */
 
+#include <condition_variable>
 #include "gtest/gtest.h"
 
 #include "primitives/Summary.h"
@@ -166,6 +167,8 @@ class TestHandler {
       keys_->addNodeKeyPair(kNODE_ADDRs.at(i), kNODE_KEYs.at(i), "password");
     }
     utx_pool_ptr_ = std::make_unique<UnrecordedTransactionPool>(chain_state_, eAppMode::T2, 100);
+    auto no_lock = std::make_unique<NoOpLock>();
+    utx_pool_ptr_->setFullLock(std::move(no_lock));
   }
 
   bool setCompletionCallback0(DevvMessageCallback callback) {
@@ -541,6 +544,8 @@ class UnrecordedTransactionPoolTest : public ::testing::Test {
       keys_.addNodeKeyPair(kNODE_ADDRs.at(i), kNODE_KEYs.at(i), "password");
     }
     utx_pool_ptr_ = std::make_unique<UnrecordedTransactionPool>(chain_state_, eAppMode::T2, 100);
+    //auto no_lock = std::make_unique<NoOpLock>();
+    //utx_pool_ptr_->setFullLock(std::move(no_lock));
   }
 
   ~UnrecordedTransactionPoolTest() override = default;
@@ -823,6 +828,75 @@ TEST_F(UnrecordedTransactionPoolTest, DISABLED_proposal_stream_0) {
   auto proposal2 = ProposedBlock::Create(buffer, chain_state_, keys_, utx_pool_ptr_->get_transaction_creation_manager());
 
   EXPECT_EQ(proposal, proposal2.getCanonical());
+}
+
+TEST(UniqueLockTest, test_constructor_0) {
+  UniqueLock lock;
+  EXPECT_EQ(lock.is_locked(), false);
+}
+
+TEST(UniqueLockTest, test_constructor_1) {
+  std::shared_ptr<std::mutex> test_mutex;
+  UniqueLock lock(test_mutex);
+  EXPECT_EQ(lock.is_locked(), false);
+}
+
+TEST(UniqueLockTest, test_try_lock_0) {
+  UniqueLock lock;
+  lock.try_lock();
+  EXPECT_THROW(lock.try_lock(), std::system_error);
+}
+
+TEST(UniqueLockTest, test_try_lock_1) {
+  UniqueLock lock;
+  EXPECT_EQ(lock.try_lock(), true);
+}
+
+void function1(std::shared_ptr<std::mutex> mtx, std::condition_variable& cv) {
+       // wait for main to unlock
+      UniqueLock lock(mtx);
+      lock.lock();
+      //++count;
+      // send notification
+      cv.notify_one();
+}
+
+TEST(UniqueLockTest, test_thread_lock_0) {
+  std::atomic<int> count = ATOMIC_VAR_INIT(0);
+  std::mutex cv_mutex;
+  std::condition_variable sem;
+
+  //std::function<void(std::mutex&, std::condition_variable&)> f;
+
+  auto f = [&](const UniqueLock& lck, std::condition_variable& cv, std::atomic<int>& count) {
+    {
+      // wait for main to unlock
+      auto lock = lck.clone();
+      lock->lock();
+      ++count;
+      // send notification
+      cv.notify_one();
+    }
+  };
+
+  // lock it
+  UniqueLock lock;
+  lock.lock();
+
+  // launch the thread
+  std::thread thr(f, std::ref(lock), std::ref(sem), std::ref(count));
+
+  EXPECT_TRUE(count == 0);
+
+  lock.unlock();
+
+  // the lock is released, wait for notification
+  std::unique_lock<std::mutex> lk(cv_mutex);
+  sem.wait(lk);
+
+  thr.join();
+
+  EXPECT_TRUE(count == 1);
 }
 
 } // namespace
