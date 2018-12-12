@@ -159,13 +159,15 @@ static std::string GetJSON(const FinalBlock& block) {
 static std::string GetJSON(const Blockchain& blockchain) {
   std::string out("[");
   bool first = true;
-  for (auto const &item : blockchain.getBlockVector()) {
-    if (first) {
-      first = false;
-    } else {
-      out += ",";
+  for (auto const &segment : blockchain.getBlockVector()) {
+    for (auto const &item : segment) {
+      if (first) {
+        first = false;
+      } else {
+        out += ",";
+      }
+      out += GetJSON(*item);
     }
-    out += GetJSON(*item);
   }
   out += "]";
   return out;

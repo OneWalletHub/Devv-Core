@@ -236,7 +236,9 @@ bool HandleBlocksSinceRequest(DevvMessageUniquePtr ptr,
 
   uint64_t height = BinToUint32(ptr->data, 0);
   uint64_t node = BinToUint32(ptr->data, 8);
-  std::vector<byte> raw = final_chain.PartialBinaryDump(height);
+  //do not include the highest block, only the penultimate one
+  if (height <= 0) return false;
+  std::vector<byte> raw = final_chain.dumpPartialChainInBinary(height-1);
   LOG_INFO << "HandleBlocksSinceRequest(): height(" << height << "), node(" << node << ")";
   /*
   if (final_chain.size() < 2) {
