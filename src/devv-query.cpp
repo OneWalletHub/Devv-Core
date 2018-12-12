@@ -136,8 +136,9 @@ int main(int argc, char* argv[]) {
            +std::to_string(chain.getSegmentNumber()));
         fs::path dir_path(seg_dir);
         if (!is_directory(dir_path)) fs::create_directory(dir_path);
-        std::string out_file = Blockchain::getStandardBlockPath(shard, chain.size()
-          , working_dir, fs::path::preferred_separator);
+        std::string out_file = Blockchain::getStandardBlockPath(shard_name
+          , chain.size(), options->working_dir
+          , ""+fs::path::preferred_separator);
         std::ofstream block_file(out_file, std::ios::out | std::ios::binary);
         if (block_file.is_open()) {
           block_file.write((const char*) &p->data[0], p->data.size());
@@ -430,7 +431,7 @@ bool hasShard(std::string shard, const std::string& working_dir) {
 
 bool hasBlock(std::string shard, size_t block, const std::string& working_dir) {
   std::string block_path = Blockchain::getStandardBlockPath(shard, block
-      , working_dir, fs::path::preferred_separator);
+      , working_dir, ""+fs::path::preferred_separator);
   if (boost::filesystem::exists(block_path)) return true;
   return false;
 }
@@ -438,7 +439,7 @@ bool hasBlock(std::string shard, size_t block, const std::string& working_dir) {
 std::vector<byte> ReadBlock(const std::string& shard, size_t block, const std::string& working_dir) {
   std::vector<byte> out;
   std::string block_path = Blockchain::getStandardBlockPath(shard, block
-      , working_dir, fs::path::preferred_separator);
+      , working_dir, ""+fs::path::preferred_separator);
   std::ifstream block_file(block_path, std::ios::in | std::ios::binary);
   block_file.unsetf(std::ios::skipws);
 
