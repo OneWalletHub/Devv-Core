@@ -16,34 +16,85 @@
 
 namespace Devv {
 
+/**
+ * Abstract base class and interface for locking classes.
+ * Different locking class implementations contain different behaviors.
+ * In most cases, the UniqueLock implementation will be used for threaded
+ * applications and the NoOpLock will be used for single-threaded apps.
+ */
 class ILock {
  public:
-  ILock() {};
+  /**
+   * Default constructor
+   */
+  ILock() {}
 
+  /**
+   * Default virtual destructor
+   */
   virtual ~ILock() {};
 
+  /**
+   * Deleted copy constructor
+   */
   ILock(const ILock&) = delete;
 
-  ILock(ILock&& lk) {}
+  /**
+   * Move constructor
+   * @param lk object to move from
+   */
+  ILock(ILock&& lk) = default;
 
+  /**
+   * Lock this object
+   */
   virtual void lock() = 0;
 
+  /**
+   * Attempt to lock the object, but do not block.
+   * @return true iff the lock was acquired
+   */
   virtual bool try_lock() = 0;
 
+  /**
+   * Check if the current thread owns the lock
+   * @return true iff this thread owns the lock
+   */
   virtual bool is_locked() const = 0;
 
+  /**
+   * Unlock/release
+   */
   virtual void unlock() = 0;
 
+  /**
+   * Create a clone of this lock. Cloning creates a duplicate object
+   * that internally references the same locking mechanism. A cloned Lock will
+   * share the same locking resource as the original
+   * @return a unique_ptr to a cloned lock
+   */
   virtual std::unique_ptr<ILock> clone() const = 0;
 
+  /**
+   * Serialize this lock into the ostream. This is a helper function
+   * for quickly printing the state of the lock
+   * @param os the stream to write to
+   */
   virtual void serialize(std::ostream& os) const = 0;
 };
 
+/// Stream operator
 inline std::ostream& operator<<(std::ostream& os, const ILock& lk) {
   lk.serialize(os);
   return os;
 }
 
+/**
+ * A NoOpLock is primarily used to run in a single-threaded environment,
+ * in particular for testing. The NoOpLock does not perform any locking; it
+ * simply maintains a counter that tracks the number of locks and unlocks
+ * that have occurred.
+ */
 class NoOpLock : public ILock {
  public:
   NoOpLock() {}
@@ -82,11 +133,11 @@ class NoOpLock : public ILock {
   }
 
   void serialize(std::ostream& os) const override {
-    os << "  NoOp::getLockCount(" << getLockCount() << ")";
+    os << "NoOp::getLockCount(" << getLockCount() << ")";
   }
 
  private:
-  std::atomic<size_t> lock_count_ = ATOMIC_VAR_INIT(0);
+  std::atomic<int32_t> lock_count_ = ATOMIC_VAR_INIT(0);
 };
 
 inline std::ostream& operator<<(std::ostream& os, const NoOpLock& lk) {
@@ -96,7 +147,7 @@ inline std::ostream& operator<<(std::ostream& os, const NoOpLock& lk) {
 
 /**
  * The UniqueLock provides a mechanism to acquire a lock and hold it until it
- * the object goes out of scope or the mutex is explicitly locked. When multiple
+ * the object goes out of scope or the mutex is explicitly unlocked. When multiple
  * threads share access to data or resources, each thread should instantiate
  * a UniqueLock which shares a mutex to safely access the shared resource.
  */
@@ -122,6 +173,7 @@ class UniqueLock : public ILock {
 
   UniqueLock(UniqueLock&& lk) : ILock(std::move(lk)) {
     lock_ptr_ = std::move(lk.lock_ptr_);
+    mutex_shared_ptr_ = lk.mutex_shared_ptr_;
   }
 
   void lock() {
