@@ -35,7 +35,14 @@ class ILock {
   virtual void unlock() = 0;
 
   virtual std::unique_ptr<ILock> clone() const = 0;
+
+  virtual void serialize(std::ostream& os) const = 0;
 };
+
+inline std::ostream& operator<<(std::ostream& os, const ILock& lk) {
+  lk.serialize(os);
+  return os;
+}
 
 class NoOpLock : public ILock {
  public:
@@ -74,16 +81,16 @@ class NoOpLock : public ILock {
     return lock_count_;
   }
 
+  void serialize(std::ostream& os) const override {
+    os << "  NoOp::getLockCount(" << getLockCount() << ")";
+  }
+
  private:
   std::atomic<size_t> lock_count_ = ATOMIC_VAR_INIT(0);
 };
 
 inline std::ostream& operator<<(std::ostream& os, const NoOpLock& lk) {
-  if (lk.is_locked()) {
-    os << "  NoOp LOCK: " << lk.getLockCount() << " ";
-  } else {
-    os << "NoOp UNLOCK: " << lk.getLockCount() << " ";
-  }
+  lk.serialize(os);
   return os;
 }
 
@@ -141,17 +148,21 @@ class UniqueLock : public ILock {
     return std::make_unique<UniqueLock>(mutex_shared_ptr_);
   }
 
+  void serialize(std::ostream& os) const override {
+    if (is_locked()) {
+      os << "  LOCK:";
+    } else {
+      os << "UNLOCK:";
+    }
+  }
+
  private:
   std::shared_ptr<std::mutex> mutex_shared_ptr_;
   std::unique_ptr<std::unique_lock<std::mutex>> lock_ptr_;
 };
 
 inline std::ostream& operator<<(std::ostream& os, const UniqueLock& lk) {
-  if (lk.is_locked()) {
-    os << "  LOCK:";
-  } else {
-    os << "UNLOCK:";
-  }
+  lk.serialize(os);
   return os;
 }
 

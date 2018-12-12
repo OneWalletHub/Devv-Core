@@ -44,7 +44,6 @@ class UnrecordedTransactionPool {
     , max_tx_per_block_(max_tx_per_block)
     , tcm_(mode)
     , mode_(mode)
-    , full_lock_(std::make_unique<UniqueLock>())
   {
     LOG_DEBUG << "UnrecordedTransactionPool(const ChainState& prior)";
   }
@@ -395,26 +394,48 @@ class UnrecordedTransactionPool {
   }
 
  /**
-  *  @return the validator mode, which determines the type of Transactions handled.
+  * Return the mode (T1 or T2) of this object
+  * @return the validator mode, which determines the type of Transactions handled.
   */
   eAppMode getMode() const {
     return mode_;
   }
 
   /**
-   * Acquire a lock to ensure permission to propose
-   * @return
+   * Acquire a lock to ensure permission to propose. Once the lock
+   * is acquired it must be locked to ensure the calling thread has
+   * the go ahead to propose.
+   *
+   * @return a unique_ptr to a ILock
    */
-   /*
-  UniqueLock acquireProposalPermissionLock(bool lock_on_acquire = true) const {
-    UniqueLock lk(proposal_permission_lock_, lock_on_acquire);
-    return lk;
+  std::unique_ptr<ILock> acquireProposalPermissionLock() const {
+    return proposal_permission_lock_->clone();
   }
-*/
+
+  /**
+   * Mostly used by test cases to swap the UniqueLock with a test lock
+   * @param lock A new lock with which to swap the permission lock
+   */
+  void setProposalPermissionLock(std::unique_ptr<ILock> lock) {
+    proposal_permission_lock_.swap(lock);
+  }
+
+  /**
+   * Checks whether the final_block_processing_ flag has been set. Used
+   * to preempt a proposal if a new FinalBlock arrives.
+   * @return true iff a FinalBlock is being processed
+   */
   bool isNewFinalBlockProcessing() const {
     return is_new_final_block_processing_;
   }
 
+  /**
+   * Set the final_block_processing_ flag to true. This will preempt
+   * a thread that is in the process of proposing when a FinalBlock
+   * arrives and is being handled.
+   *
+   * @param processing_now
+   */
   void indicateNewFinalBlock(bool processing_now = true) {
     is_new_final_block_processing_ = processing_now;
   }
@@ -432,7 +453,6 @@ class UnrecordedTransactionPool {
    * @return
    */
   std::unique_ptr<ILock> acquireFullLock(bool lock_on_acquire = true) const {
-    //UniqueLock lk(full_mutex_, lock_on_acquire);
     return full_lock_->clone();
   }
 
@@ -451,7 +471,8 @@ class UnrecordedTransactionPool {
 
   std::atomic<bool> is_new_final_block_processing_ = ATOMIC_VAR_INIT(false);
 
-  mutable std::mutex proposal_permission_lock_;
+  /// Determines which thread has permission to propose
+  mutable std::unique_ptr<ILock> proposal_permission_lock_ = std::make_unique<UniqueLock>();
 
   ProposedBlock pending_proposal_;
   mutable std::mutex pending_proposal_mutex_;
@@ -474,7 +495,7 @@ class UnrecordedTransactionPool {
   /// execution
   //mutable std::mutex full_mutex_;
 
-  mutable std::unique_ptr<ILock> full_lock_;
+  mutable std::unique_ptr<ILock> full_lock_ = std::make_unique<UniqueLock>();
 
   /**
    *  Create a new ProposedBlock based on pending Transaction in this pool

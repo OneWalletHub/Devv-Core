@@ -866,8 +866,6 @@ TEST(UniqueLockTest, test_thread_lock_0) {
   std::mutex cv_mutex;
   std::condition_variable sem;
 
-  //std::function<void(std::mutex&, std::condition_variable&)> f;
-
   auto f = [&](const UniqueLock& lck, std::condition_variable& cv, std::atomic<int>& count) {
     {
       // wait for main to unlock
