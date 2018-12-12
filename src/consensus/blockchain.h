@@ -204,7 +204,7 @@ public:
    */
   std::vector<byte> dumpChainInBinary() const {
     std::vector<byte> out;
-    for (auto i=prune_cursor_; i < getSegmentNumber(); i++) {
+    for (size_t i=prune_cursor_; i < getSegmentNumber(); i++) {
       for (auto const& item : chain_.at(i)) {
         std::vector<byte> canonical = item->getCanonical();
         out.insert(out.end(), canonical.begin(), canonical.end());
