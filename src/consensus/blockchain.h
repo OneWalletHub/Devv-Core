@@ -258,6 +258,8 @@ private:
    * @return false if no blocks were pruned
    */
   bool prune() {
+    // prevent unsigned rollover error
+    if (getSegmentNumber() < 2) return false;
     if (prune_cursor_ < getSegmentNumber()-2) {
       for (size_t i=prune_cursor_; i < getSegmentNumber()-2; i++) {
         chain_.at(i).clear();
