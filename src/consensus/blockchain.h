@@ -8,19 +8,43 @@
 
 #include <atomic>
 #include <vector>
+#include <boost/filesystem/path.hpp>
+
+#include "common/devv_constants.h"
 
 #include "primitives/FinalBlock.h"
 
 namespace Devv {
 
+/**
+ * The block_index struct contains the index of the segment
+ * within the chain and then location of the block within the segment.
+ * It is used to index the block location within the underlying
+ * blockchain representation.
+ */
+struct block_index {
+  /// The segment index for this block
+  size_t segment;
+  /// The block index within the segment
+  size_t block;
+};
+
+/**
+ * Holds the blockchain
+ */
 class Blockchain {
 public:
-  typedef std::shared_ptr<FinalBlock> BlockSharedPtr;
-  typedef std::shared_ptr<const FinalBlock> ConstBlockSharedPtr;
-
+  /**
+   * Constructor
+   * @param name
+   */
   explicit Blockchain(const std::string& name)
-    : name_(name), chain_size_(0), num_transactions_(0), genesis_time_(0)
-    , prune_cursor_(0)
+      : name_(name)
+      , chain_size_(0)
+      , num_transactions_(0)
+      , genesis_time_(0)
+      , prune_cursor_(0)
+      , segment_capacity_(kDEFAULT_BLOCKS_PER_SEGMENT)
   {
   }
 
@@ -32,12 +56,12 @@ public:
    * @return true if a new segment was created
    * @return false if a new segment was not created
    */
-  bool push_back(BlockSharedPtr block) {
-    size_t seg_num = std::floor(chain_size_/kBLOCKS_PER_SEGMENT);
+  bool push_back(FinalBlockSharedPtr block) {
+    size_t seg_num = std::floor(chain_size_/segment_capacity_);
     bool new_seg = false;
-    if (chain_size_ % kBLOCKS_PER_SEGMENT == 0) {
+    if (chain_size_ % segment_capacity_ == 0) {
       new_seg = true;
-      std::vector<BlockSharedPtr> seg;
+      std::vector<FinalBlockSharedPtr> seg;
       seg.push_back(block);
       chain_.push_back(seg);
     } else {
@@ -80,7 +104,7 @@ public:
   /**
    * @return a pointer to the highest block in this chain.
    */
-  BlockSharedPtr back() {
+  FinalBlockSharedPtr back() {
     LOG_TRACE << name_ << ": back(); size(" << chain_size_ << ")";
     return chain_.back().back();
   }
@@ -88,7 +112,7 @@ public:
   /**
    * @return a pointer to the highest block in this chain.
    */
-  const BlockSharedPtr back() const {
+  const FinalBlockSharedPtr back() const {
     LOG_TRACE << name_ << ": back() const; size(" << chain_size_ << ")";
     return chain_.back().back();
   }
@@ -98,8 +122,8 @@ public:
    */
   std::vector<byte> raw_at(size_t height) {
     LOG_TRACE << name_ << ": at(); size(" << chain_size_ << ")";
-    size_t seg_num = std::floor(height/kBLOCKS_PER_SEGMENT);
-    size_t block_num = height % kBLOCKS_PER_SEGMENT;
+    size_t seg_num = std::floor(height/segment_capacity_);
+    size_t block_num = height % segment_capacity_;
     LOG_TRACE << "segment = " << seg_num;
     LOG_TRACE << "relative block = " << block_num;
     return chain_.at(seg_num).at(block_num)->getCanonical();
@@ -110,8 +134,8 @@ public:
    */
   const std::vector<byte> raw_at(size_t height) const {
     LOG_TRACE << name_ << ": at(); size(" << chain_size_ << ")";
-    size_t seg_num = std::floor(height/kBLOCKS_PER_SEGMENT);
-    size_t block_num = height % kBLOCKS_PER_SEGMENT;
+    size_t seg_num = std::floor(height/segment_capacity_);
+    size_t block_num = height % segment_capacity_;
     LOG_TRACE << "segment = " << seg_num;
     LOG_TRACE << "relative block = " << block_num;
     return chain_.at(seg_num).at(block_num)->getCanonical();
@@ -128,37 +152,29 @@ public:
   /**
    * @return the number of segments in this chain
    */
-  size_t getSegmentNumber() const {
-    return std::ceil(size()/kBLOCKS_PER_SEGMENT);
+  size_t getCurrentSegmentIndex() const {
+    return getSegmentIndexAt(size());
+  }
+
+  /**
+   * @return the number of segments in this chain
+   */
+  size_t getSegmentIndexAt(size_t segment) const {
+    return std::floor(segment/segment_capacity_);
   }
 
   /**
    * @return the height of this chain within the active segment.
    */
-  size_t getHeightInSegment() const {
-    return (size() % kBLOCKS_PER_SEGMENT);
+  size_t getCurrentSegmentHeight() const {
+    return getSegmentHeightAt(size());
   }
 
   /**
-   * @param shard - the name of the directory for this shard
-   * @param block - the height of the block to generate a path for
-   * @param working_dir - the working directory to create a path from
-   * @param separator - the preferred path separator for this file system
-   * @return a standard path where a particular block would be stored relative to the working directory.
+   * @return the height of this chain within the active segment.
    */
-  static std::string getStandardBlockPath(const std::string& shard, size_t block
-      , const std::string& working_dir, const std::string separator) {
-    size_t seg = std::floor(block/kBLOCKS_PER_SEGMENT);
-    size_t seg_height = block % kBLOCKS_PER_SEGMENT;
-    std::string block_height(std::to_string(seg_height));
-    std::string padded_height = block_height;
-    if (block_height.length() < kMAX_LEFTPADDED_ZEORS) {
-      padded_height = std::string(kMAX_LEFTPADDED_ZEORS - block_height.length(), '0')+block_height;
-    }
-    std::string block_path(working_dir+separator+shard
-      +separator+std::to_string(seg)
-      +separator+padded_height+kBLOCK_SUFFIX);
-    return block_path;
+  size_t getSegmentHeightAt(size_t block_number) const {
+    return (block_number % segment_capacity_);
   }
 
   /**
@@ -166,10 +182,10 @@ public:
    * @param loc - the height of the block pointer to get
    * @return a shared pointer for the block at the specified height
    */
-  BlockSharedPtr at(size_t loc) const {
+  FinalBlockSharedPtr at(size_t loc) const {
     LOG_TRACE << name_ << ": at(); size(" << chain_size_ << ")";
-    size_t seg_num = std::floor(loc/kBLOCKS_PER_SEGMENT);
-    size_t block_num = loc % kBLOCKS_PER_SEGMENT;
+    size_t seg_num = std::floor(loc/segment_capacity_);
+    size_t block_num = loc % segment_capacity_;
     LOG_TRACE << "segment = " << seg_num;
     LOG_TRACE << "relative block = " << block_num;
     return chain_.at(seg_num).at(block_num);
@@ -204,7 +220,7 @@ public:
    */
   std::vector<byte> dumpChainInBinary() const {
     std::vector<byte> out;
-    for (size_t i=prune_cursor_; i < getSegmentNumber(); i++) {
+    for (size_t i = prune_cursor_; i < getCurrentSegmentIndex(); i++) {
       for (auto const& item : chain_.at(i)) {
         std::vector<byte> canonical = item->getCanonical();
         out.insert(out.end(), canonical.begin(), canonical.end());
@@ -221,12 +237,12 @@ public:
    */
   std::vector<byte> dumpPartialChainInBinary(size_t start) const {
     std::vector<byte> out;
-    size_t start_seg = std::floor(start/kBLOCKS_PER_SEGMENT);
+    size_t start_seg = std::floor(start/segment_capacity_);
     //skips any blocks that have been pruned from memory
     if (size() > 0 && start_seg >= prune_cursor_) {
-      size_t start_block = start % kBLOCKS_PER_SEGMENT;
-      for (auto i=start_seg; i < getSegmentNumber(); i++) {
-        for (auto j=start_block; j < chain_.at(i).size(); j++) {
+      size_t start_block = start % segment_capacity_;
+      for (auto i = start_seg; i < getCurrentSegmentIndex(); i++) {
+        for (auto j = start_block; j < chain_.at(i).size(); j++) {
           std::vector<byte> canonical = chain_.at(i).at(j)->getCanonical();
           out.insert(out.end(), canonical.begin(), canonical.end());
         }
@@ -240,31 +256,45 @@ public:
    * Return a const ref to the underlying vector of BlockSharedPtrs
    * @return const ref to std::vector<BlockSharedPtr>
    */
-  const std::vector<std::vector<BlockSharedPtr>>& getBlockVector() const {
+  const std::vector<std::vector<FinalBlockSharedPtr>>& getBlockVector() const {
     return chain_;
   }
 
-private:
-  std::vector<std::vector<BlockSharedPtr>> chain_;
+  const std::string& getName() const {
+    return name_;
+  }
+
+ private:
+  /// The blockchain. The chain is comprised of a vector of segments
+  /// Each segment contains a vector of FinalBlocks
+  std::vector<std::vector<FinalBlockSharedPtr>> chain_;
+  /// The name of this chain
   const std::string name_;
+  /// The size of this chain
   std::atomic<uint32_t> chain_size_;
+  /// The number of transactions
   std::atomic<uint64_t> num_transactions_;
+  /// The genesis time of this chain
   uint64_t genesis_time_;
+  /// The index of the blockchain position that this chain has been
+  /// pruned to
   std::atomic<uint32_t> prune_cursor_;
+  /// How many blocks are in each segment
+  const size_t segment_capacity_;
 
   /**
-   * Clears segments if more than 2 kBLOCKS_PER_SEGMENT blocks are loaded.
+   * Clears segments if more than 2 blocks_per_segment_ blocks are loaded.
    * @return true iff blocks were pruned
    * @return false if no blocks were pruned
    */
   bool prune() {
     // prevent unsigned rollover error
-    if (getSegmentNumber() < 2) return false;
-    if (prune_cursor_ < getSegmentNumber()-2) {
-      for (size_t i=prune_cursor_; i < getSegmentNumber()-2; i++) {
+    if (getCurrentSegmentIndex() < 2) return false;
+    if (prune_cursor_ < getCurrentSegmentIndex() - 2) {
+      for (size_t i = prune_cursor_; i < (getCurrentSegmentIndex() - 2); i++) {
         chain_.at(i).clear();
       }
-      prune_cursor_ = getSegmentNumber()-2;
+      prune_cursor_ = getCurrentSegmentIndex() - 2;
       return true;
     }
     return false;
