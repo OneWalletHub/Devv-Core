@@ -38,16 +38,16 @@ public:
    * Constructor
    * @param name
    */
-  explicit Blockchain(const std::string& name)
+  explicit Blockchain(const std::string& name,
+                      size_t segment_capacity = kDEFAULT_BLOCKS_PER_SEGMENT)
       : name_(name)
-      , chain_size_(0)
-      , num_transactions_(0)
-      , genesis_time_(0)
-      , prune_cursor_(0)
-      , segment_capacity_(kDEFAULT_BLOCKS_PER_SEGMENT)
+      , segment_capacity_(segment_capacity)
   {
   }
 
+  /**
+   * Default destructor
+   */
   ~Blockchain() = default;
 
   /**
@@ -271,16 +271,16 @@ public:
   /// The name of this chain
   const std::string name_;
   /// The size of this chain
-  std::atomic<uint32_t> chain_size_;
+  std::atomic<uint32_t> chain_size_ = ATOMIC_VAR_INIT(0);
   /// The number of transactions
-  std::atomic<uint64_t> num_transactions_;
+  std::atomic<uint64_t> num_transactions_ = ATOMIC_VAR_INIT(0);
   /// The genesis time of this chain
-  uint64_t genesis_time_;
+  uint64_t genesis_time_ = 0;
   /// The index of the blockchain position that this chain has been
   /// pruned to
-  std::atomic<uint32_t> prune_cursor_;
+  std::atomic<uint32_t> prune_cursor_ = ATOMIC_VAR_INIT(0);
   /// How many blocks are in each segment
-  const size_t segment_capacity_;
+  const size_t segment_capacity_ = kDEFAULT_BLOCKS_PER_SEGMENT;
 
   /**
    * Clears segments if more than 2 blocks_per_segment_ blocks are loaded.
