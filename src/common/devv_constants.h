@@ -25,7 +25,7 @@ static const size_t kNODE_ADDR_BUF_SIZE = kNODE_ADDR_SIZE + 1;
 static const size_t kFILE_KEY_SIZE = 379;
 static const size_t kFILE_NODEKEY_SIZE = 448;
 
-static const size_t kBLOCKS_PER_SEGMENT = 100000;
+static const size_t kDEFAULT_BLOCKS_PER_SEGMENT = 100000;
 static const size_t kMAX_LEFTPADDED_ZEORS = 5;
 static const std::string kBLOCK_SUFFIX = ".blk";
 
