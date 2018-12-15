@@ -1,8 +1,10 @@
 node {
-  stage('Checkout code') {
-    steps {
-      checkout scm
-    }
+  stage('Checkout') {
+    git(
+      url: 'https://github.com/DevvioInc/Devv-Core.git',
+      credentialsId: 'xpc',
+      branch: "${branch}"
+    )
   }
   stage('Build') {
     echo 'Hello from Jenkins!'
