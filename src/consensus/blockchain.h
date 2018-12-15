@@ -228,9 +228,10 @@ class Blockchain {
   std::atomic<uint32_t> prune_cursor_ = ATOMIC_VAR_INIT(0);
   /// How many blocks are in each segment
   const size_t segment_capacity_ = kDEFAULT_BLOCKS_PER_SEGMENT;
-
-  Hash genesis_merkle_root_;
-  ChainState empty_chainstate_;
+  /// Empty hash to return if the chain is empty
+  const Hash genesis_merkle_root_ = {};
+  /// Empty chainstate to return if the chain is empty
+  const ChainState empty_chainstate_;
 
   /**
    * Calculates the segment number and segment height from block height.
