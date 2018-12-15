@@ -150,7 +150,7 @@ int main(int argc, char* argv[]) {
       if (p->message_type == eMessageType::FINAL_BLOCK) {
         try {
           InputBuffer buffer(p->data);
-          FinalPtr top_block = std::make_shared<FinalBlock>(FinalBlock::Create(buffer, state));
+          auto top_block = std::make_shared<FinalBlock>(FinalBlock::Create(buffer, state));
           chain.push_back(top_block);
 	    } catch (const std::exception& e) {
           std::exception_ptr p = std::current_exception();
