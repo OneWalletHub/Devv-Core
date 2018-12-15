@@ -1,14 +1,18 @@
 node {
+  agent {
+    dockerfile {
+      dir 'docker'
+      filename 'Dockerfile-x86_64-ubuntu16.04-dev'
+      label 'my-test-build'
+    }
+  }
   stage('Checkout') {
     checkout scm
   }
   stage('Build') {
     echo 'Hello from Jenkins!'
-    docker.build(env.JOB_NAME).inside {
-      sh 'script/ci'
-    }
-    def pwd = sh('echo $PWD')
-    sh 'ls -l'
+    sh 'cat /etc/lsb-release'
+    sh 'gcc --version'
   }
   stage('Test') {
       //
