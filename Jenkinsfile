@@ -1,7 +1,7 @@
 node {
   stage('Build') {
     echo 'Hello from Jenkins!'
-    def pwd = sh('echo $PWD').stdout
+    def pwd = sh('echo $PWD')
     sh 'ls -l'
     echo $pwd
   }
