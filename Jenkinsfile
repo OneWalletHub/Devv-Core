@@ -1,11 +1,11 @@
-node {  
-    stage('Build') { 
-        // 
-    }
-    stage('Test') { 
-        // 
-    }
-    stage('Deploy') { 
-        // 
-    }
+node {
+  stage('Build') {
+    echo 'Hello from Jenkins!'
+  }
+  stage('Test') {
+      //
+  }
+  stage('Deploy') {
+      //
+  }
 }
