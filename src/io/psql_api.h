@@ -32,7 +32,7 @@ class BlockchainWrapper {
 
   ~BlockchainWrapper() = default;
 
-  void push_back(Blockchain::BlockSharedPtr block) {
+  void push_back(FinalBlockSharedPtr block) {
     std::lock_guard<std::mutex> guard(mutex_);
     chain_.push_back(block);
   }
