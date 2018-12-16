@@ -1,4 +1,4 @@
-node {
+node('thor-build') {
   //agent {
   //  dockerfile {
   //    dir 'docker'
