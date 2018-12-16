@@ -8,7 +8,7 @@ node {
   //}
   stage('Checkout') {
     checkout scm
-    //stash 
+    stash name:'scm', includes:'*' 
   }
   //stage('Build') {
   //  echo 'Hello from Jenkins!'
@@ -21,16 +21,25 @@ node {
   //    }
   //  }
   //}
+  //stage('Build') {
+  //  echo 'Hello from stage Build'
+  //  docker.withRegistry('https://682078287735.dkr.ecr.us-east-2.amazonaws.com', '90e14b55-62be-4bb8-946f-91a3d9aedf49') {
+  //    docker.image('682078287735.dkr.ecr.us-east-2.amazonaws.com/devvio-x86_64-ubuntu18.04-ci:20181215').inside {
+  //      sh 'whoami'
+  //      sh 'gcc --version'
+  //      sh 'pwd'
+  //      sh 'cat /etc/lsb-release'
+  //    }
+  //  }
+  //}
   stage('Build') {
+    unstash 'scm'
     echo 'Hello from stage Build'
-    docker.withRegistry('https://682078287735.dkr.ecr.us-east-2.amazonaws.com', '90e14b55-62be-4bb8-946f-91a3d9aedf49') {
-      docker.image('682078287735.dkr.ecr.us-east-2.amazonaws.com/devvio-x86_64-ubuntu18.04-ci:20181215').inside {
-        sh 'whoami'
-        sh 'gcc --version'
-        sh 'pwd'
-        sh 'cat /etc/lsb-release'
-      }
-    }
+    sh whoami
+    sh 'gcc --version'
+    sh 'pwd'
+    sh 'ls'
+    sh 'cat /etc/lsb-release'
   }
   stage('Test') {
       //
