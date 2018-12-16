@@ -1,5 +1,7 @@
 node('thor-build') {
-  ws("${env.JOB_NAME}-${env.BUILD_ID}") {
+  def job_name = ${env.JOB_NAME}
+  def clean_job_name = job_name.replace("%2","-")
+  ws("${clean_job_name}-${env.BUILD_ID}") {
     stage('Checkout') {
       checkout scm
       stash name:'scm', includes:'*'
