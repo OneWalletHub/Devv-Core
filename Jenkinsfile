@@ -35,7 +35,7 @@ node('thor-build') {
   stage('Build') {
     unstash 'scm'
     echo 'Hello from stage Build'
-    sh whoami
+    sh 'whoami'
     sh 'gcc --version'
     sh 'pwd'
     sh 'ls'
