@@ -17,7 +17,7 @@ node('thor-build') {
 	    sh 'cat /etc/lsb-release'
 	    sh 'mkdir build'
 	    dir('build') {
-		sh "cmake -DCMAKE_BUILD_TYPE=Debug ../src/ -DCMAKE_INSTALL_PREFIX=${install_dir}"
+		sh "cmake -DCMAKE_BUILD_TYPE=Debug ../src/ -DCMAKE_INSTALL_PREFIX='${install_dir}'"
 		sh 'make -j4'
 	    }
 	}
