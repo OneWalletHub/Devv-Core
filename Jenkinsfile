@@ -33,23 +33,27 @@ node('thor-build') {
   //  }
   //}
   stage('Build') {
-    unstash 'scm'
-    echo 'Hello from stage Build'
-    sh 'whoami'
-    sh 'gcc --version'
-    sh 'pwd'
-    sh 'ls'
-    sh 'cat /etc/lsb-release'
-    sh 'mkdir build'
-    dir('build') {
-      sh 'cmake -DCMAKE_BUILD_TYPE=Debug ../src/ -DCMAKE_INSTALL_PREFIX=/mnt/efs/scratch/devv-core/b-$(date +%s)'
-      sh 'make -j4'
+    ws('${env.JOB_NAME}') {
+      unstash 'scm'
+      echo 'Hello from stage Build'
+      sh 'whoami'
+      sh 'gcc --version'
+      sh 'pwd'
+      sh 'ls'
+      sh 'cat /etc/lsb-release'
+      sh 'mkdir build'
+      dir('build') {
+        sh 'cmake -DCMAKE_BUILD_TYPE=Debug ../src/ -DCMAKE_INSTALL_PREFIX=/mnt/efs/scratch/devv-core/b-$(date +%s)'
+        sh 'make -j4'
+      }
     }
   }
   stage('Test') {
-    unstash 'scm'
-    dir('build') {
-      sh 'make test'
+    ws('${env.JOB_NAME}') {
+      unstash 'scm'
+      dir('build') {
+        sh 'make test'
+      }
     }
   }
   stage('Deploy') {
