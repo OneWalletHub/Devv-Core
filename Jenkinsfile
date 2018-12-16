@@ -1,3 +1,8 @@
+//
+// Jenkinsfile - defines CI pipeline
+//
+// @copywrite  2018 Devvio Inc
+//
 def install_prefix = "/mnt/efs/jenkins/install"
 def source_prefix = "/mnt/efs/jenkins/source"
 node('thor-build') {
@@ -7,6 +12,7 @@ node('thor-build') {
     def install_dir = "${install_prefix}/${workspace_name}"
     def source_dir = "${source_prefix}/${workspace_name}"
     ws(workspace_name) {
+	// Change source dir
 	dir(source_dir) {
 	    stage('Checkout') {
 		checkout scm
@@ -14,9 +20,6 @@ node('thor-build') {
 	    }
 	    stage('Build') {
 		unstash 'scm'
-		echo 'Hello from stage Build'
-		sh 'pwd'
-		sh 'ls'
 		sh 'cat /etc/lsb-release'
 		sh 'mkdir build'
 		dir('build') {
