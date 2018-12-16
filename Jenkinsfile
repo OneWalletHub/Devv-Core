@@ -1,5 +1,5 @@
 node('thor-build') {
-  ws("${env.JOB_NAME}-${env.BUILD_ID") {
+  ws("${env.JOB_NAME}-${env.BUILD_ID}") {
     stage('Checkout') {
       checkout scm
       stash name:'scm', includes:'*'
