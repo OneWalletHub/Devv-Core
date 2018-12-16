@@ -40,9 +40,17 @@ node('thor-build') {
     sh 'pwd'
     sh 'ls'
     sh 'cat /etc/lsb-release'
+    sh 'mkdir build'
+    dir('build') {
+      sh 'cmake -DCMAKE_BUILD_TYPE=Debug ../src/ -DCMAKE_INSTALL_PREFIX=/mnt/efs/scratch/devv-core/b-$(date +%s)'
+      sh 'make -j4'
+    }
   }
   stage('Test') {
-      //
+    unstash 'scm'
+    dir('build') {
+      sh 'make test'
+    }
   }
   stage('Deploy') {
       //
