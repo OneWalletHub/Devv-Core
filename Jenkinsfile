@@ -33,7 +33,7 @@ node('thor-build') {
   //  }
   //}
   stage('Build') {
-    ws('${env.JOB_NAME}') {
+    ws("${env.JOB_NAME}") {
       unstash 'scm'
       echo 'Hello from stage Build'
       sh 'whoami'
@@ -49,7 +49,7 @@ node('thor-build') {
     }
   }
   stage('Test') {
-    ws('${env.JOB_NAME}') {
+    ws("${env.JOB_NAME}") {
       unstash 'scm'
       dir('build') {
         sh 'make test'
