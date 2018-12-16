@@ -1,5 +1,5 @@
 node('thor-build') {
-  def job_name = ${env.JOB_NAME}
+  def job_name = "${env.JOB_NAME}"
   def clean_job_name = job_name.replace("%2","-")
   ws("${clean_job_name}-${env.BUILD_ID}") {
     stage('Checkout') {
