@@ -10,7 +10,7 @@ node('thor-build') {
     def clean_job_name = job_name.replace("%2F",".")
     def workspace_name = "${clean_job_name}-${env.BUILD_ID}"
     def install_dir = "${install_prefix}/${workspace_name}"
-    def source_dir = "${source_prefix}/${workspace_name}"
+    def source_dir = "${source_prefix}/${workspace_name}/Devv-Core"
     ws(workspace_name) {
 	// Change source dir
 	dir(source_dir) {
