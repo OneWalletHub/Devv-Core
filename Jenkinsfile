@@ -34,7 +34,10 @@ node('thor-build') {
 		}
 	    }
 	    stage('Deploy') {
-		//
+		unstash 'scm'
+		dir ('build') {
+		    sh 'make install'
+		}
 	    }
 	}
     }
