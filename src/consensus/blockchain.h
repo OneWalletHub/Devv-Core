@@ -17,23 +17,27 @@
 namespace Devv {
 
 /**
- * The block_index struct contains the index of the segment
- * within the chain and then location of the block within the segment.
- * It is used to index the block location within the underlying
- * blockchain representation.
- */
-struct block_index {
-  /// The segment index for this block
-  size_t segment;
-  /// The block index within the segment
-  size_t block;
-};
-
-/**
  * Holds the blockchain
  */
 class Blockchain {
-public:
+  /**
+   * The block_index struct contains the index of the segment
+   * within the chain and then location of the block within the segment.
+   * It is used to index the block location within the underlying
+   * blockchain representation.
+   */
+  struct block_index {
+    block_index(size_t seg_index, size_t seg_height)
+        : segment_index(seg_index)
+        , segment_height(seg_height) {
+    }
+    /// The segment index for this block
+    size_t segment_index;
+    /// The block index within the segment
+    size_t segment_height;
+  };
+
+ public:
   /**
    * Constructor
    * @param name
@@ -56,31 +60,7 @@ public:
    * @return true if a new segment was created
    * @return false if a new segment was not created
    */
-  bool push_back(FinalBlockSharedPtr block) {
-    size_t seg_num = std::floor(chain_size_/segment_capacity_);
-    bool new_seg = false;
-    if (chain_size_ % segment_capacity_ == 0) {
-      new_seg = true;
-      std::vector<FinalBlockSharedPtr> seg;
-      seg.push_back(block);
-      chain_.push_back(seg);
-    } else {
-      chain_[seg_num].push_back(block);
-    }
-    if (chain_size_ == 0) {
-      genesis_time_ = block->getBlockTime();
-    }
-    chain_size_++;
-    num_transactions_ += block->getNumTransactions();
-
-    LOG_NOTICE << name_ << "- Updating Final Blockchain - (size/ntxs)" <<
-               " (" << chain_size_ << "/" << num_transactions_ << ")" <<
-          " this (" << ToHex(DevvHash(block->getCanonical()), 8) << ")" <<
-          " prev (" << ToHex(block->getPreviousHash(), 8) << ")";
-
-    if (new_seg) prune();
-    return new_seg;
-  }
+  bool push_back(FinalBlockSharedPtr block);
 
   /**
    * Get the number of transactions in this chain.
@@ -122,11 +102,8 @@ public:
    */
   std::vector<byte> raw_at(size_t height) {
     LOG_TRACE << name_ << ": at(); size(" << chain_size_ << ")";
-    size_t seg_num = std::floor(height/segment_capacity_);
-    size_t block_num = height % segment_capacity_;
-    LOG_TRACE << "segment = " << seg_num;
-    LOG_TRACE << "relative block = " << block_num;
-    return chain_.at(seg_num).at(block_num)->getCanonical();
+    auto bindex = getBlockIndexFromBlockHeight(height);
+    return chain_.at(bindex.segment_index).at(bindex.segment_height)->getCanonical();
   }
 
   /**
@@ -134,11 +111,8 @@ public:
    */
   const std::vector<byte> raw_at(size_t height) const {
     LOG_TRACE << name_ << ": at(); size(" << chain_size_ << ")";
-    size_t seg_num = std::floor(height/segment_capacity_);
-    size_t block_num = height % segment_capacity_;
-    LOG_TRACE << "segment = " << seg_num;
-    LOG_TRACE << "relative block = " << block_num;
-    return chain_.at(seg_num).at(block_num)->getCanonical();
+    auto bindex = getBlockIndexFromBlockHeight(height);
+    return chain_.at(bindex.segment_index).at(bindex.segment_height)->getCanonical();
   }
 
   /**
@@ -160,7 +134,7 @@ public:
    * @return the number of segments in this chain
    */
   size_t getSegmentIndexAt(size_t segment) const {
-    return std::floor(segment/segment_capacity_);
+    return int(std::floor(segment/segment_capacity_));
   }
 
   /**
@@ -184,50 +158,38 @@ public:
    */
   FinalBlockSharedPtr at(size_t loc) const {
     LOG_TRACE << name_ << ": at(); size(" << chain_size_ << ")";
-    size_t seg_num = std::floor(loc/segment_capacity_);
-    size_t block_num = loc % segment_capacity_;
-    LOG_TRACE << "segment = " << seg_num;
-    LOG_TRACE << "relative block = " << block_num;
-    return chain_.at(seg_num).at(block_num);
+    auto bindex = getBlockIndexFromBlockHeight(loc);
+    return chain_.at(bindex.segment_index).at(bindex.segment_height);
   }
 
   /**
    * @return the highest Merkle root in this chain.
    */
-  Hash getHighestMerkleRoot() const {
+  const Hash& getHighestMerkleRoot() const {
     if (chain_size_ < 1) {
-      Hash genesis;
-      return genesis;
+      return genesis_merkle_root_;
+    } else {
+      return back()->getMerkleRoot();
     }
-    return back()->getMerkleRoot();
   }
 
   /**
    * @return the highest chain state of this chain
    */
-  ChainState getHighestChainState() const {
-    LOG_DEBUG << " chain_size: " << chain_size_;
+  const ChainState& getHighestChainState() const {
     if (chain_size_ < 1) {
-      ChainState state;
-      return state;
+      LOG_DEBUG << "chain_size: " << chain_size_ << " empty_chainstate_.size(): " << empty_chainstate_.size();
+      return empty_chainstate_;
+    } else {
+      LOG_DEBUG << "chain_size: " << chain_size_ << " chainstate.size(): " << back()->getChainState().size();
+      return back()->getChainState();
     }
-    LOG_DEBUG << "back()->getChainState().size(): " << back()->getChainState().size();
-    return back()->getChainState();
   }
 
   /**
    * @return a binary representation of this entire chain.
    */
-  std::vector<byte> dumpChainInBinary() const {
-    std::vector<byte> out;
-    for (size_t i = prune_cursor_; i < getCurrentSegmentIndex(); i++) {
-      for (auto const& item : chain_.at(i)) {
-        std::vector<byte> canonical = item->getCanonical();
-        out.insert(out.end(), canonical.begin(), canonical.end());
-      }
-    }
-    return out;
-  }
+  std::vector<byte> dumpChainInBinary() const;
 
   /**
    * A binary representation of this chain from a given height to the highest block.
@@ -235,22 +197,7 @@ public:
    * @param start - the block height to start with
    * @return a binary representation of this chain from start to the highest block.
    */
-  std::vector<byte> dumpPartialChainInBinary(size_t start) const {
-    std::vector<byte> out;
-    size_t start_seg = std::floor(start/segment_capacity_);
-    //skips any blocks that have been pruned from memory
-    if (size() > 0 && start_seg >= prune_cursor_) {
-      size_t start_block = start % segment_capacity_;
-      for (auto i = start_seg; i < getCurrentSegmentIndex(); i++) {
-        for (auto j = start_block; j < chain_.at(i).size(); j++) {
-          std::vector<byte> canonical = chain_.at(i).at(j)->getCanonical();
-          out.insert(out.end(), canonical.begin(), canonical.end());
-        }
-        start_block = 0;
-      }
-    }
-    return out;
-  }
+  std::vector<byte> dumpPartialChainInBinary(size_t start) const;
 
   /**
    * Return a const ref to the underlying vector of BlockSharedPtrs
@@ -281,24 +228,28 @@ public:
   std::atomic<uint32_t> prune_cursor_ = ATOMIC_VAR_INIT(0);
   /// How many blocks are in each segment
   const size_t segment_capacity_ = kDEFAULT_BLOCKS_PER_SEGMENT;
+  /// Empty hash to return if the chain is empty
+  const Hash genesis_merkle_root_ = {};
+  /// Empty chainstate to return if the chain is empty
+  const ChainState empty_chainstate_;
+
+  /**
+   * Calculates the segment number and segment height from block height.
+   * The block height represents the overall number of blocks in this chain. The segment
+   * number is the number of segments in this chain and the segment height represents
+   * the number of blocks in this segment. The block_index struct it a helper
+   * to hold the segment number and segment height.
+   * @param height The number of blocks in this chain
+   * @return the block_index representing the segment number and segment height
+   */
+  block_index getBlockIndexFromBlockHeight(size_t height) const;
 
   /**
    * Clears segments if more than 2 blocks_per_segment_ blocks are loaded.
    * @return true iff blocks were pruned
    * @return false if no blocks were pruned
    */
-  bool prune() {
-    // prevent unsigned rollover error
-    if (getCurrentSegmentIndex() < 2) return false;
-    if (prune_cursor_ < getCurrentSegmentIndex() - 2) {
-      for (size_t i = prune_cursor_; i < (getCurrentSegmentIndex() - 2); i++) {
-        chain_.at(i).clear();
-      }
-      prune_cursor_ = getCurrentSegmentIndex() - 2;
-      return true;
-    }
-    return false;
-  }
+  bool prune();
 
 };
 

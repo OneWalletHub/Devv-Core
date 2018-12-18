@@ -79,7 +79,7 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
   auto proposal_lock =  utx_pool.acquireProposalPermissionLock();
   LOG_DEBUG << *proposal_lock << " HandleFinalBlock(): proposal_lock acquired and locked";
 
-  FinalPtr top_block = std::make_shared<FinalBlock>(utx_pool.finalizeRemoteBlock(
+  auto top_block = std::make_shared<FinalBlock>(utx_pool.finalizeRemoteBlock(
                                                buffer, prior, keys));
 
   if (utx_pool.hasActiveProposal()) {
@@ -194,7 +194,7 @@ bool HandleValidationBlock(DevvMessageUniquePtr ptr,
   if (utx_pool.checkValidation(buffer, context)) {
     //block can be finalized, so finalize
     LOG_DEBUG << "Ready to finalize block.";
-    FinalPtr top_block = std::make_shared<FinalBlock>(utx_pool.finalizeLocalBlock());
+    auto top_block = std::make_shared<FinalBlock>(utx_pool.finalizeLocalBlock());
     final_chain.push_back(top_block);
     LOG_NOTICE << "final_chain.push_back(): Estimated rate: (ntxs/duration): rate -> "
                << "(" << final_chain.getNumTransactions() << "/"
