@@ -395,20 +395,31 @@ class UnrecordedTransactionPool {
       , const KeyRing& keys, const Summary& summary);
 
   /**
-   * Removes Transactions in a ProposedBlock from this pool
-   *  @param proposed - the ProposedBlock containing Transactions to remove
-   *  @pre this should only be called for a ProposedBlock that is finalizing
-   *  @pre do not call if there is any chance a PropsedBlock will not finalize
+   * Removes Transactions in a Proposed/FinalBlock from this pool
+   *  @param block - the Block containing Transactions to remove
+   *  @pre this should only be called for a Block that is finalizing
+   *  @pre do not call if there is any chance a Block will not finalize
    *  @return true iff, all transactions in the block were removed
    *  @return false otherwise
    */
-  bool removeTransactions(const ProposedBlock& proposed);
-
-  /**
-   * Removes Transactions in a FinalBlock from this pool
-   *  @param final_block - the FinalBlock containing Transactions to remove
-   */
-  void removeTransactions(const FinalBlock& final_block);
+  template <typename Block>
+  bool removeTransactions(const Block& block) {
+    std::lock_guard<std::mutex> guard(txs_mutex_);
+    auto txs_size = txs_.size();
+    for (auto const& item : block.getTransactions()) {
+      if (txs_.erase(item->getSignature()) == 0) {
+        LOG_WARNING << "removeTransactions(): ret = 0, transaction not found: " << item->getSignature().getJSON();
+      } else {
+        LOG_DEBUG << "removeTransactions(): erase returned 1: " << item->getSignature().getJSON();
+      }
+      recent_txs_.insert(std::pair<Signature, uint64_t>(item->getSignature(), GetMillisecondsSinceEpoch()));
+    }
+    LOG_DEBUG << "removeTransactions: (to_remove/size_pre/size_post) ("
+              << block.getNumTransactions() << "/"
+              << txs_size << "/"
+              << txs_.size() << ")";
+    return (block.getNumTransactions() == txs_size - txs_.size());
+  }
 
   /**
    * Finalizes a ProposedBlock

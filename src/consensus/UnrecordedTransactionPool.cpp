@@ -244,7 +244,7 @@ const FinalBlock UnrecordedTransactionPool::finalizeRemoteBlock(InputBuffer& buf
   LOG_DEBUG << "finalizeRemoteBlock(): prior.size(): " << prior.size();
   MTR_SCOPE_FUNC();
   FinalBlock final(buffer, prior, keys, tcm_);
-  removeTransactions(final);
+  removeTransactions<FinalBlock>(final);
   return final;
 }
 
@@ -406,39 +406,6 @@ bool UnrecordedTransactionPool::removeInvalidTransactions(const ChainState& stat
     LOG_DEBUG << "KEEP TX blk("<<state.size()<<"): " << iter->second.second->getSignature().getJSON();
   }
   return true;
-}
-
-bool UnrecordedTransactionPool::removeTransactions(const ProposedBlock& proposed) {
-  std::lock_guard<std::mutex> guard(txs_mutex_);
-  size_t txs_size = txs_.size();
-  for (auto const& item : proposed.getTransactions()) {
-    if (txs_.erase(item->getSignature()) == 0) {
-      LOG_WARNING << "removeTransactions(): ret = 0, transaction not found: "
-                  << item->getSignature().getJSON();
-    } else {
-      LOG_DEBUG << "removeTransactions(): erase returned 1: " << item->getSignature().getJSON();
-    }
-    recent_txs_.insert(std::pair<Signature, uint64_t>(item->getSignature()
-        , GetMillisecondsSinceEpoch()));
-  }
-  LOG_DEBUG << "removeTransactions: (to remove/size pre/size post) ("
-            << proposed.getNumTransactions() << "/"
-            << txs_size << "/"
-            << txs_.size() << ")";
-  return true;
-}
-
-void UnrecordedTransactionPool::removeTransactions(const FinalBlock& final_block) {
-  std::lock_guard<std::mutex> guard(txs_mutex_);
-  size_t txs_size = txs_.size();
-  for (auto const& item : final_block.getTransactions()) {
-    txs_.erase(item->getSignature());
-    recent_txs_.insert(std::pair<Signature, uint64_t>(item->getSignature()
-        , GetMillisecondsSinceEpoch()));
-  }
-  LOG_DEBUG << "removeTransactions: (size pre/size post) ("
-            << txs_size << "/"
-            << txs_.size() << ")";
 }
 
 const FinalBlock UnrecordedTransactionPool::finalizeBlock(const ProposedBlock& proposal) {
