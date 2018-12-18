@@ -86,9 +86,7 @@ class FinalBlock {
 
   /**
    * Constructor
-   * @param serial
    * @param prior
-   * @param offset
    * @param keys
    * @param mode
    */
@@ -403,8 +401,7 @@ class FinalBlock {
   ChainState block_state_;
 };
 
-typedef std::shared_ptr<FinalBlock> FinalPtr;
-typedef std::shared_ptr<const FinalBlock> FinalBlockSharedPtr;
+typedef std::shared_ptr<FinalBlock> FinalBlockSharedPtr;
 typedef std::shared_ptr<const FinalBlock> ConstFinalBlockSharedPtr;
 
 }  // end namespace Devv
