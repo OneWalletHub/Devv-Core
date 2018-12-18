@@ -232,7 +232,7 @@ class UnrecordedTransactionPool {
  /**
   *  @return the tool to create Transactions in parallel
   */
-  TransactionCreationManager& get_transaction_creation_manager() {
+  TransactionCreationManager& getTransactionCreationManager() {
     return(tcm_);
   }
 

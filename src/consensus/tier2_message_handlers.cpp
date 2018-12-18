@@ -139,7 +139,7 @@ bool HandleProposalBlock(DevvMessageUniquePtr ptr,
   ChainState prior = final_chain.getHighestChainState();
   InputBuffer buffer(ptr->data);
   ProposedBlock to_validate(ProposedBlock::Create(buffer, prior, keys
-      , utx_pool.get_transaction_creation_manager()));
+      , utx_pool.getTransactionCreationManager()));
 
   // Block if a new FinalBlock is still processing
   if (utx_pool.isNewFinalBlockProcessing()) {
