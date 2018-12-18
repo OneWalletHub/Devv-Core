@@ -62,6 +62,7 @@ public:
     if (chain_size_ % segment_capacity_ == 0) {
       new_seg = true;
       std::vector<FinalBlockSharedPtr> seg;
+      seg.reserve(segment_capacity_);
       seg.push_back(block);
       chain_.push_back(seg);
     } else {
