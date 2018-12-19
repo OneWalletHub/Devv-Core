@@ -85,6 +85,7 @@ void ValidatorController::validatorCallback(DevvMessageUniquePtr ptr) {
   // Acquire the proposal lock, but don't lock it yet (we don't want to block
   // on a lock here)
   auto proposal_lock = utx_pool_.acquireProposalPermissionLock();
+  proposal_lock->lock();
 
   // Try to acquire the lock, break out if the lock is in use
   if (!proposal_lock->try_lock()) {

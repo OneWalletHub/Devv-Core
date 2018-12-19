@@ -78,6 +78,8 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
 
   LOG_DEBUG << "HandleFinalBlock(): acquiring proposal_lock";
   auto proposal_lock =  utx_pool.acquireProposalPermissionLock();
+  proposal_lock->lock();
+
   LOG_DEBUG << *proposal_lock << " HandleFinalBlock(): proposal_lock acquired and locked";
 
   auto top_block = std::make_shared<FinalBlock>(utx_pool.finalizeRemoteBlock(
