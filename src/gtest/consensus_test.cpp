@@ -545,8 +545,8 @@ class UnrecordedTransactionPoolTest : public ::testing::Test {
       keys_.addNodeKeyPair(kNODE_ADDRs.at(i), kNODE_KEYs.at(i), "password");
     }
     utx_pool_ptr_ = std::make_unique<UnrecordedTransactionPool>(chain_state_, eAppMode::T2, 100);
-    //auto no_lock = std::make_unique<NoOpLock>();
-    //utx_pool_ptr_->setFullLock(std::move(no_lock));
+    auto no_lock = std::make_unique<NoOpLock>();
+    utx_pool_ptr_->setFullLock(std::move(no_lock));
   }
 
   ~UnrecordedTransactionPoolTest() override = default;

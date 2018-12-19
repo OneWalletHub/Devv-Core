@@ -284,10 +284,6 @@ class UnrecordedTransactionPool {
   }
 
   /**
-   * Get a mutex to coordinate shared access to local
-   * data
-   */
-  /**
    * Acquire full lock to coordinate shared access to local
    * data.
    * @note This is viewed as a temporary fix. It hurts performance
@@ -299,6 +295,11 @@ class UnrecordedTransactionPool {
     return full_lock_->clone();
   }
 
+  /**
+   * Change the FullLock lock type. Primarily used for testing and execution
+   * in a single-threaded environment
+   * @param lock
+   */
   void setFullLock(std::unique_ptr<ILock> lock) {
     full_lock_.swap(lock);
   }
@@ -337,8 +338,6 @@ class UnrecordedTransactionPool {
 
   /// Temporary/test mutex to lock all callbacks and force serial
   /// execution
-  //mutable std::mutex full_mutex_;
-
   mutable std::unique_ptr<ILock> full_lock_ = std::make_unique<UniqueLock>();
 
   /**
