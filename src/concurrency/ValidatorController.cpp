@@ -54,6 +54,7 @@ ValidatorController::~ValidatorController() {
 void ValidatorController::validatorCallback(DevvMessageUniquePtr ptr) {
   LOG_DEBUG << "ValidatorController::validatorCallback()";
   auto full_lock = utx_pool_.acquireFullLock();
+  full_lock->lock();
 
   //Do not remove lock_guard, function may use atomic<bool> as concurrency signal
   std::lock_guard<std::mutex> guard(mutex_);

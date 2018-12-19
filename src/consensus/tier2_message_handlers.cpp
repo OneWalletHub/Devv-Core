@@ -62,6 +62,7 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
   }
 
   auto full_lock = utx_pool.acquireFullLock();
+  full_lock->lock();
 
   // Profiling
   MTR_SCOPE_FUNC();
@@ -131,6 +132,7 @@ bool HandleProposalBlock(DevvMessageUniquePtr ptr,
   }
 
   auto full_lock = utx_pool.acquireFullLock();
+  full_lock->lock();
 
   MTR_SCOPE_FUNC();
 
@@ -181,6 +183,7 @@ bool HandleValidationBlock(DevvMessageUniquePtr ptr,
                            UnrecordedTransactionPool& utx_pool,
                            std::function<void(DevvMessageUniquePtr)> callback) {
   auto full_lock = utx_pool.acquireFullLock();
+  full_lock->lock();
 
   if (ptr->message_type != eMessageType::VALID) {
     throw std::runtime_error("HandleValidationBlock: message != eMessageType::VALID");
