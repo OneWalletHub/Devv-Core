@@ -55,41 +55,46 @@ std::string ReadTextFile(const fs::path& file_path)
 }
 
 struct key_tuple ReadKeyFile(const fs::path& path) {
-  std::string key_string = ReadTextFile(path);
+  std::string keyfile_string = ReadTextFile(path);
   std::string key_header = "-----BEGIN ENCRYPTED PRIVATE KEY-----";
 
-  auto pos = key_string.find(key_header);
+  auto pos = keyfile_string.find(key_header);
 
   struct key_tuple tuple = {"", ""};
 
   auto node_addr_bytes = kNODE_ADDR_SIZE * 2;
   auto wallet_addr_bytes = kWALLET_ADDR_SIZE * 2;
 
-  unsigned int file_key_size = kFILE_KEY_SIZE;
-  size_t ossl10size = wallet_addr_bytes + file_key_size + 1;
-  size_t ossl11size = ossl10size + 20;
+  unsigned int sizeof_walletkey_in_file = kFILE_KEY_SIZE;
+  size_t ossl10_wallet_keyfile_size = wallet_addr_bytes + sizeof_walletkey_in_file + 1;
+  size_t ossl11_wallet_keyfile_size = ossl10_wallet_keyfile_size + 20;
 
-  if (key_string.size() == ossl10size) {
-  } else if (key_string.size() == ossl11size) {
-    file_key_size = file_key_size + 20;
+  unsigned int expected_sizeof_node_keyfile = kFILE_NODEKEY_SIZE+(kNODE_ADDR_SIZE*2);
+
+  if (keyfile_string.size() == ossl10_wallet_keyfile_size) {
+    // expected size of wallet keyfile
+  } else if (keyfile_string.size() == ossl11_wallet_keyfile_size) {
+    sizeof_walletkey_in_file = sizeof_walletkey_in_file + 20;
+  } else if (keyfile_string.size() == expected_sizeof_node_keyfile) {
+    // expected size of node keyfile
   } else {
-    std::string err = "The key file size is not supported: "+std::to_string(key_string.size());
+    std::string err = "The key file size is not supported: "+std::to_string(keyfile_string.size());
     throw std::runtime_error(err);
   }
 
   // Make the position tolerant to newline at end of address line
   if (pos == node_addr_bytes) {
-    tuple.address = key_string.substr(0, node_addr_bytes);
-    tuple.key = key_string.substr(node_addr_bytes, kFILE_NODEKEY_SIZE);
+    tuple.address = keyfile_string.substr(0, node_addr_bytes);
+    tuple.key = keyfile_string.substr(node_addr_bytes, kFILE_NODEKEY_SIZE);
   } else if (pos == wallet_addr_bytes) {
-    tuple.address = key_string.substr(0, wallet_addr_bytes);
-    tuple.key = key_string.substr(wallet_addr_bytes, kFILE_KEY_SIZE);
+    tuple.address = keyfile_string.substr(0, wallet_addr_bytes);
+    tuple.key = keyfile_string.substr(wallet_addr_bytes, kFILE_KEY_SIZE);
   } else if (pos == (node_addr_bytes+1)) {
-    tuple.address = key_string.substr(0, node_addr_bytes);
-    tuple.key = key_string.substr(node_addr_bytes+1, kFILE_NODEKEY_SIZE);
+    tuple.address = keyfile_string.substr(0, node_addr_bytes);
+    tuple.key = keyfile_string.substr(node_addr_bytes+1, kFILE_NODEKEY_SIZE);
   } else if (pos == (wallet_addr_bytes+1)) {
-    tuple.address = key_string.substr(0, wallet_addr_bytes);
-    tuple.key = key_string.substr(wallet_addr_bytes+1, file_key_size);
+    tuple.address = keyfile_string.substr(0, wallet_addr_bytes);
+    tuple.key = keyfile_string.substr(wallet_addr_bytes+1, sizeof_walletkey_in_file);
   } else {
     std::string err("Malformed key file: ");
     throw std::runtime_error(err + std::to_string(pos) +
