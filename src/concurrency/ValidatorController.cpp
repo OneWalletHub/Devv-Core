@@ -53,7 +53,8 @@ ValidatorController::~ValidatorController() {
 
 void ValidatorController::validatorCallback(DevvMessageUniquePtr ptr) {
   LOG_DEBUG << "ValidatorController::validatorCallback()";
-  std::unique_lock<std::mutex> lock(utx_pool_.getBigMutex());
+  auto full_lock = utx_pool_.acquireFullLock();
+  full_lock->lock();
 
   //Do not remove lock_guard, function may use atomic<bool> as concurrency signal
   std::lock_guard<std::mutex> guard(mutex_);
@@ -83,18 +84,18 @@ void ValidatorController::validatorCallback(DevvMessageUniquePtr ptr) {
 
   // Acquire the proposal lock, but don't lock it yet (we don't want to block
   // on a lock here)
-  auto proposal_lock = utx_pool_.acquireProposalPermissionLock(false);
+  auto proposal_lock = utx_pool_.acquireProposalPermissionLock();
 
   // Try to acquire the lock, break out if the lock is in use
-  if (!proposal_lock.try_lock()) {
-    LOG_INFO << proposal_lock << " validatorCallback(): proposal_lock.try_lock() == false, not proposing";
+  if (!proposal_lock->try_lock()) {
+    LOG_INFO << *proposal_lock << " validatorCallback(): proposal_lock.try_lock() == false, not proposing";
     return;
   }
-  LOG_DEBUG << proposal_lock << " validatorCallback(): proposal_lock acquired";
+  LOG_DEBUG << *proposal_lock << " validatorCallback(): proposal_lock acquired";
 
   // Do not propose if proposal is forestalled by HandleFinalBlock
   if (utx_pool_.isNewFinalBlockProcessing()) {
-    LOG_INFO << proposal_lock << " utx_pool_.isProposalForestalled() == true, not proposing";
+    LOG_INFO << *proposal_lock << " utx_pool_.isProposalForestalled() == true, not proposing";
     return;
   }
 
@@ -104,7 +105,7 @@ void ValidatorController::validatorCallback(DevvMessageUniquePtr ptr) {
                             context_,
                             outgoing_callback_
   );
-  LOG_DEBUG << proposal_lock << " ValidatorController::validatorCallback(): proposal message sent";
+  LOG_DEBUG << *proposal_lock << " ValidatorController::validatorCallback(): proposal message sent";
 }
 
 } //end namespace Devv

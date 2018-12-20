@@ -61,7 +61,8 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
     throw std::runtime_error("HandleFinalBlock: message != eMessageType::FINAL_BLOCK");
   }
 
-  std::unique_lock<std::mutex> lock(utx_pool.getBigMutex());
+  auto full_lock = utx_pool.acquireFullLock();
+  full_lock->lock();
 
   // Profiling
   MTR_SCOPE_FUNC();
@@ -77,20 +78,22 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
 
   LOG_DEBUG << "HandleFinalBlock(): acquiring proposal_lock";
   auto proposal_lock =  utx_pool.acquireProposalPermissionLock();
-  LOG_DEBUG << proposal_lock << " HandleFinalBlock(): proposal_lock acquired and locked";
+  proposal_lock->lock();
 
-  FinalPtr top_block = std::make_shared<FinalBlock>(utx_pool.finalizeRemoteBlock(
+  LOG_DEBUG << *proposal_lock << " HandleFinalBlock(): proposal_lock acquired and locked";
+
+  auto top_block = std::make_shared<FinalBlock>(utx_pool.finalizeRemoteBlock(
                                                buffer, prior, keys));
 
   if (utx_pool.hasActiveProposal()) {
-    LOG_DEBUG << proposal_lock << " HandleFinalBlock(): utx_pool.hasActiveProposal()"
+    LOG_DEBUG << *proposal_lock << " HandleFinalBlock(): utx_pool.hasActiveProposal()"
                  ""
                  "Proposal: " << utx_pool.hasActiveProposal();
     ChainState current = top_block->getChainState();
     Hash prev_hash = DevvHash(top_block->getCanonical());
     utx_pool.reverifyProposal(prev_hash, current, keys, context);
   } else {
-    LOG_DEBUG << proposal_lock << " HandleFinalBlock(): utx_pool.hasActiveProposal(): " << utx_pool.hasActiveProposal();
+    LOG_DEBUG << *proposal_lock << " HandleFinalBlock(): utx_pool.hasActiveProposal(): " << utx_pool.hasActiveProposal();
   }
 
   final_chain.push_back(top_block);
@@ -105,7 +108,7 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
   utx_pool.indicateNewFinalBlock(false);
 
   if (!utx_pool.hasPendingTransactions()) {
-    LOG_INFO << proposal_lock << " All pending transactions processed.";
+    LOG_INFO << *proposal_lock << " All pending transactions processed.";
     return false;
   }
 
@@ -115,7 +118,7 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
                             context,
                             callback);
 
-  LOG_INFO << proposal_lock << " HandleFinalBlock:(): Done sending transaction";
+  LOG_INFO << *proposal_lock << " HandleFinalBlock:(): Done sending transaction";
   return true;
 }
 
@@ -130,7 +133,9 @@ bool HandleProposalBlock(DevvMessageUniquePtr ptr,
     throw std::runtime_error("HandleProposalBlock: message != eMessageType::PROPOSAL_BLOCK");
   }
 
-  std::unique_lock<std::mutex> lock(utx_pool.getBigMutex());
+  auto full_lock = utx_pool.acquireFullLock();
+  full_lock->lock();
+
   MTR_SCOPE_FUNC();
 
   LogDevvMessageSummary(*ptr, "HandleProposalBlock() -> Incoming");
@@ -138,11 +143,12 @@ bool HandleProposalBlock(DevvMessageUniquePtr ptr,
   ChainState prior = final_chain.getHighestChainState();
   InputBuffer buffer(ptr->data);
   ProposedBlock to_validate(ProposedBlock::Create(buffer, prior, keys
-      , utx_pool.get_transaction_creation_manager()));
+      , utx_pool.getTransactionCreationManager()));
 
   // Block if a new FinalBlock is still processing
   if (utx_pool.isNewFinalBlockProcessing()) {
-    utx_pool.acquireProposalPermissionLock(true);
+    auto lock = utx_pool.acquireProposalPermissionLock();
+    lock->lock();
     //should go out of scope/release immediately
   }
   if (!utx_pool.isRemoteProposalDuplicateFree(to_validate)) {
@@ -168,6 +174,7 @@ bool HandleProposalBlock(DevvMessageUniquePtr ptr,
                                                 validation,
                                                 ptr->index);
   LogDevvMessageSummary(*valid, "HandleProposalBlock() -> Validation");
+  LOG_DEBUG << "SPM: valid: " << valid.get();
   callback(std::move(valid));
   return true;
 }
@@ -177,8 +184,9 @@ bool HandleValidationBlock(DevvMessageUniquePtr ptr,
                            Blockchain& final_chain,
                            UnrecordedTransactionPool& utx_pool,
                            std::function<void(DevvMessageUniquePtr)> callback) {
+  auto full_lock = utx_pool.acquireFullLock();
+  full_lock->lock();
 
-  std::unique_lock<std::mutex> lock(utx_pool.getBigMutex());
   if (ptr->message_type != eMessageType::VALID) {
     throw std::runtime_error("HandleValidationBlock: message != eMessageType::VALID");
   }
@@ -191,7 +199,7 @@ bool HandleValidationBlock(DevvMessageUniquePtr ptr,
   if (utx_pool.checkValidation(buffer, context)) {
     //block can be finalized, so finalize
     LOG_DEBUG << "Ready to finalize block.";
-    FinalPtr top_block = std::make_shared<FinalBlock>(utx_pool.finalizeLocalBlock());
+    auto top_block = std::make_shared<FinalBlock>(utx_pool.finalizeLocalBlock());
     final_chain.push_back(top_block);
     LOG_NOTICE << "final_chain.push_back(): Estimated rate: (ntxs/duration): rate -> "
                << "(" << final_chain.getNumTransactions() << "/"
@@ -204,6 +212,17 @@ bool HandleValidationBlock(DevvMessageUniquePtr ptr,
     LogDevvMessageSummary(*final_block, "HandleValidationBlock() -> Final block");
     callback(std::move(final_block));
     sent_message = true;
+
+    std::string file_name(std::to_string(context.get_current_shard())
+                              + "_" + std::to_string(context.get_current_node())
+                              + "_" + std::to_string(final_chain.size()) + ".blk");
+    std::ofstream outFile(file_name, std::ios::out | std::ios::binary);
+    if (outFile.is_open()) {
+      outFile.write((const char*) final_msg.data(), final_msg.size());
+      outFile.close();
+    } else {
+      LOG_WARNING << "Failed to open output file '" << file_name << "'.";
+    }
   }
 
   return sent_message;
@@ -222,7 +241,9 @@ bool HandleBlocksSinceRequest(DevvMessageUniquePtr ptr,
 
   uint64_t height = BinToUint32(ptr->data, 0);
   uint64_t node = BinToUint32(ptr->data, 8);
-  std::vector<byte> raw = final_chain.PartialBinaryDump(height);
+  //do not include the highest block, only the penultimate one
+  if (height <= 0) return false;
+  std::vector<byte> raw = final_chain.dumpPartialChainInBinary(height-1);
   LOG_INFO << "HandleBlocksSinceRequest(): height(" << height << "), node(" << node << ")";
   /*
   if (final_chain.size() < 2) {

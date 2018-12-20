@@ -126,9 +126,6 @@ def get_sig(env, pkeyfile, key_pass, filename=None):
     print("out: "+str(out))
     sig = out.decode("utf-8").rstrip()
 
-    print("sleeping 1 again")
-    time.sleep(1)
-
     print("sig: "+sig)
 
     return sig
@@ -191,10 +188,7 @@ def send_envelope(env, uri):
     socket = context.socket(zmq.REQ)
     socket.connect(uri)
 
-    print("Sending message in 1")
-    time.sleep(1)
     socket.send(env.SerializeToString())
-    time.sleep(1)
     x = socket.recv()
     print("Sent message")
 

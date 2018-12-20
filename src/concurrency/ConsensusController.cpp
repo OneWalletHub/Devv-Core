@@ -42,7 +42,7 @@ void ConsensusController::consensusCallback(DevvMessageUniquePtr ptr) {
         break;
 
       case eMessageType::PROPOSAL_BLOCK:LOG_DEBUG << "ConsensusController()::consensusCallback(): PROPOSAL_BLOCK";
-        utx_pool_.get_transaction_creation_manager().set_keys(&keys_);
+        utx_pool_.getTransactionCreationManager().set_keys(&keys_);
         proposal_block_cb_(std::move(ptr),
                                              context_,
                                              keys_,
