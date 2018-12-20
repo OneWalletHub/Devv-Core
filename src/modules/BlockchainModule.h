@@ -8,6 +8,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 
 #include "concurrency/ConsensusController.h"
 #include "concurrency/InternetworkController.h"
@@ -28,15 +29,18 @@ class BlockchainModule : public ModuleInterface {
   typedef std::unique_ptr<ParallelExecutor<InternetworkController>> ThreadedInternetworkPtr;
   typedef std::unique_ptr<ParallelExecutor<ValidatorController>> ThreadedValidatorPtr;
 
+  struct _constructor_tag { explicit _constructor_tag() = default; };
+
  public:
-  BlockchainModule(io::TransactionServer &server,
-                  io::TransactionClient &client,
-                  io::TransactionClient &loopback_client,
-                  const KeyRing &keys,
-                  const ChainState &prior,
-                  eAppMode mode,
-                  DevvContext &context,
-                  size_t max_tx_per_block);
+  BlockchainModule(_constructor_tag,
+                   io::TransactionServer &server,
+                   io::TransactionClient &client,
+                   io::TransactionClient &loopback_client,
+                   const KeyRing &keys,
+                   const ChainState &prior,
+                   eAppMode mode,
+                   DevvContext &context,
+                   size_t max_tx_per_block);
 
   /**
    * Move constructor
