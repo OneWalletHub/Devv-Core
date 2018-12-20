@@ -62,6 +62,7 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
   }
 
   auto full_lock = utx_pool.acquireFullLock();
+  full_lock->lock();
 
   // Profiling
   MTR_SCOPE_FUNC();
@@ -77,6 +78,8 @@ bool HandleFinalBlock(DevvMessageUniquePtr ptr,
 
   LOG_DEBUG << "HandleFinalBlock(): acquiring proposal_lock";
   auto proposal_lock =  utx_pool.acquireProposalPermissionLock();
+  proposal_lock->lock();
+
   LOG_DEBUG << *proposal_lock << " HandleFinalBlock(): proposal_lock acquired and locked";
 
   auto top_block = std::make_shared<FinalBlock>(utx_pool.finalizeRemoteBlock(
@@ -131,6 +134,7 @@ bool HandleProposalBlock(DevvMessageUniquePtr ptr,
   }
 
   auto full_lock = utx_pool.acquireFullLock();
+  full_lock->lock();
 
   MTR_SCOPE_FUNC();
 
@@ -139,7 +143,7 @@ bool HandleProposalBlock(DevvMessageUniquePtr ptr,
   ChainState prior = final_chain.getHighestChainState();
   InputBuffer buffer(ptr->data);
   ProposedBlock to_validate(ProposedBlock::Create(buffer, prior, keys
-      , utx_pool.get_transaction_creation_manager()));
+      , utx_pool.getTransactionCreationManager()));
 
   // Block if a new FinalBlock is still processing
   if (utx_pool.isNewFinalBlockProcessing()) {
@@ -181,6 +185,7 @@ bool HandleValidationBlock(DevvMessageUniquePtr ptr,
                            UnrecordedTransactionPool& utx_pool,
                            std::function<void(DevvMessageUniquePtr)> callback) {
   auto full_lock = utx_pool.acquireFullLock();
+  full_lock->lock();
 
   if (ptr->message_type != eMessageType::VALID) {
     throw std::runtime_error("HandleValidationBlock: message != eMessageType::VALID");

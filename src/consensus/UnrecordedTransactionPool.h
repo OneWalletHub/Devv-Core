@@ -232,7 +232,7 @@ class UnrecordedTransactionPool {
  /**
   *  @return the tool to create Transactions in parallel
   */
-  TransactionCreationManager& get_transaction_creation_manager() {
+  TransactionCreationManager& getTransactionCreationManager() {
     return(tcm_);
   }
 
@@ -284,10 +284,6 @@ class UnrecordedTransactionPool {
   }
 
   /**
-   * Get a mutex to coordinate shared access to local
-   * data
-   */
-  /**
    * Acquire full lock to coordinate shared access to local
    * data.
    * @note This is viewed as a temporary fix. It hurts performance
@@ -299,6 +295,11 @@ class UnrecordedTransactionPool {
     return full_lock_->clone();
   }
 
+  /**
+   * Change the FullLock lock type. Primarily used for testing and execution
+   * in a single-threaded environment
+   * @param lock
+   */
   void setFullLock(std::unique_ptr<ILock> lock) {
     full_lock_.swap(lock);
   }
@@ -337,8 +338,6 @@ class UnrecordedTransactionPool {
 
   /// Temporary/test mutex to lock all callbacks and force serial
   /// execution
-  //mutable std::mutex full_mutex_;
-
   mutable std::unique_ptr<ILock> full_lock_ = std::make_unique<UniqueLock>();
 
   /**
@@ -395,20 +394,31 @@ class UnrecordedTransactionPool {
       , const KeyRing& keys, const Summary& summary);
 
   /**
-   * Removes Transactions in a ProposedBlock from this pool
-   *  @param proposed - the ProposedBlock containing Transactions to remove
-   *  @pre this should only be called for a ProposedBlock that is finalizing
-   *  @pre do not call if there is any chance a PropsedBlock will not finalize
+   * Removes Transactions in a Proposed/FinalBlock from this pool
+   *  @param block - the Block containing Transactions to remove
+   *  @pre this should only be called for a Block that is finalizing
+   *  @pre do not call if there is any chance a Block will not finalize
    *  @return true iff, all transactions in the block were removed
    *  @return false otherwise
    */
-  bool removeTransactions(const ProposedBlock& proposed);
-
-  /**
-   * Removes Transactions in a FinalBlock from this pool
-   *  @param final_block - the FinalBlock containing Transactions to remove
-   */
-  void removeTransactions(const FinalBlock& final_block);
+  template <typename Block>
+  bool removeTransactions(const Block& block) {
+    std::lock_guard<std::mutex> guard(txs_mutex_);
+    auto txs_size = txs_.size();
+    for (auto const& item : block.getTransactions()) {
+      if (txs_.erase(item->getSignature()) == 0) {
+        LOG_WARNING << "removeTransactions(): ret = 0, transaction not found: " << item->getSignature().getJSON();
+      } else {
+        LOG_DEBUG << "removeTransactions(): erase returned 1: " << item->getSignature().getJSON();
+      }
+      recent_txs_.insert(std::pair<Signature, uint64_t>(item->getSignature(), GetMillisecondsSinceEpoch()));
+    }
+    LOG_DEBUG << "removeTransactions: (to_remove/size_pre/size_post) ("
+              << block.getNumTransactions() << "/"
+              << txs_size << "/"
+              << txs_.size() << ")";
+    return (block.getNumTransactions() == txs_size - txs_.size());
+  }
 
   /**
    * Finalizes a ProposedBlock

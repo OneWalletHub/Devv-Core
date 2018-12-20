@@ -245,7 +245,8 @@ class TestTransactionHandler : public TestHandler {
     EXPECT_EQ(ProposedBlock::isNullProposal(proposal), false);
 
     InputBuffer buffer(proposal);
-    ProposedBlock to_validate(ProposedBlock::Create(buffer, chain_state_, *keys_, utx_pool_ptr_->get_transaction_creation_manager()));
+    ProposedBlock to_validate(ProposedBlock::Create(buffer, chain_state_, *keys_,
+                                                    utx_pool_ptr_->getTransactionCreationManager()));
 
     EXPECT_EQ(to_validate.getVersion(), 0);
 
@@ -544,8 +545,8 @@ class UnrecordedTransactionPoolTest : public ::testing::Test {
       keys_.addNodeKeyPair(kNODE_ADDRs.at(i), kNODE_KEYs.at(i), "password");
     }
     utx_pool_ptr_ = std::make_unique<UnrecordedTransactionPool>(chain_state_, eAppMode::T2, 100);
-    //auto no_lock = std::make_unique<NoOpLock>();
-    //utx_pool_ptr_->setFullLock(std::move(no_lock));
+    auto no_lock = std::make_unique<NoOpLock>();
+    utx_pool_ptr_->setFullLock(std::move(no_lock));
   }
 
   ~UnrecordedTransactionPoolTest() override = default;
@@ -650,7 +651,7 @@ TEST_F(UnrecordedTransactionPoolTest, validate_0) {
   ProposedBlock to_validate(ProposedBlock::Create(buffer,
                                                   chain_state_,
                                                   keys_,
-                                                  utx_pool_ptr_->get_transaction_creation_manager()));
+                                                  utx_pool_ptr_->getTransactionCreationManager()));
   EXPECT_EQ(to_validate.getVersion(), 0);
 
   auto valid = to_validate.validate(keys_);
@@ -674,7 +675,8 @@ TEST_F(UnrecordedTransactionPoolTest, validate_1) {
   EXPECT_EQ(ProposedBlock::isNullProposal(proposal), false);
 
   InputBuffer buffer(proposal);
-  ProposedBlock to_validate(ProposedBlock::Create(buffer, chain_state_, keys_, utx_pool_ptr_->get_transaction_creation_manager()));
+  ProposedBlock to_validate(ProposedBlock::Create(buffer, chain_state_, keys_,
+                                                  utx_pool_ptr_->getTransactionCreationManager()));
   auto valid = to_validate.validate(keys_);
   size_t node_num = 2;
   auto sign = to_validate.signBlock(keys_, node_num);
@@ -701,7 +703,8 @@ TEST_F(UnrecordedTransactionPoolTest, finalize_0) {
   EXPECT_EQ(ProposedBlock::isNullProposal(proposal), false);
 
   InputBuffer buffer(proposal);
-  ProposedBlock to_validate(ProposedBlock::Create(buffer, chain_state_, keys_, utx_pool_ptr_->get_transaction_creation_manager()));
+  ProposedBlock to_validate(ProposedBlock::Create(buffer, chain_state_, keys_,
+                                                  utx_pool_ptr_->getTransactionCreationManager()));
   auto valid = to_validate.validate(keys_);
   size_t node_num = 2;
   auto sign = to_validate.signBlock(keys_, node_num);
@@ -737,7 +740,8 @@ TEST_F(UnrecordedTransactionPoolTest, finalize_inn_tx) {
   EXPECT_EQ(ProposedBlock::isNullProposal(proposal), false);
 
   InputBuffer buffer(proposal);
-  ProposedBlock to_validate(ProposedBlock::Create(buffer, chain_state_, keys_, utx_pool_ptr_->get_transaction_creation_manager()));
+  ProposedBlock to_validate(ProposedBlock::Create(buffer, chain_state_, keys_,
+                                                  utx_pool_ptr_->getTransactionCreationManager()));
 
   EXPECT_EQ(to_validate.getVersion(), 0);
 
@@ -788,7 +792,8 @@ auto proposal = createTestProposal();
 EXPECT_EQ(ProposedBlock::isNullProposal(proposal), false);
 
 InputBuffer buffer(proposal);
-ProposedBlock to_validate(ProposedBlock::Create(buffer, chain_state_, keys_, utx_pool_ptr_->get_transaction_creation_manager()));
+ProposedBlock to_validate(ProposedBlock::Create(buffer, chain_state_, keys_,
+                                                utx_pool_ptr_->getTransactionCreationManager()));
 auto valid = to_validate.validate(keys_);
 size_t node_num = 2;
 auto sign = to_validate.signBlock(keys_, node_num);
@@ -825,7 +830,7 @@ TEST_F(UnrecordedTransactionPoolTest, DISABLED_proposal_stream_0) {
   auto proposal = createTestProposal();
 
   InputBuffer buffer(proposal);
-  auto proposal2 = ProposedBlock::Create(buffer, chain_state_, keys_, utx_pool_ptr_->get_transaction_creation_manager());
+  auto proposal2 = ProposedBlock::Create(buffer, chain_state_, keys_, utx_pool_ptr_->getTransactionCreationManager());
 
   EXPECT_EQ(proposal, proposal2.getCanonical());
 }
