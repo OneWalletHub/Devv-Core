@@ -69,8 +69,14 @@ class BlockchainModule : public ModuleInterface {
   /** Initialize devcoin core: Basic context setup.
    *  @note Do not call Shutdown() if this function fails.
    *  @pre Parameters should be parsed and config file should be read.
+   *  @param working_dir a directory to check for a pre-existing blockchain
    */
   void init() override;
+
+  /** Load chain history into memory.
+   *  @param working_dir a directory to check for a pre-existing blockchain
+   */
+  void loadHistoricChain(const std::string& working_dir);
 
   /**
    * Initialization sanity checks: ecc init, sanity checks, dir lock.
