@@ -21,7 +21,7 @@ class ModuleInterface {
   /**
    * Basic tests to ensure the module has been initialized properly
    */
-  virtual void performSanityChecks() = 0;
+  virtual bool performSanityChecks() = 0;
 
   /**
    * Shut this module down
