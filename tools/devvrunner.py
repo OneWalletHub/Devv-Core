@@ -12,8 +12,6 @@ import argparse
 import threading
 import subprocess
 
-_exe_dir= '/home/mckenney/projects/devcash/devcash-core/build-host'
-
 _validator_bin= 'devv-validator'
 _announcer_bin= 'devv-announcer'
 _query_bin= 'devv-query'
@@ -212,9 +210,23 @@ Exit status:\n\
   0 if OK
 """)
 
-    validator_exe = os.path.join(_exe_dir, _validator_bin)
-    announcer_exe = os.path.join(_exe_dir, _announcer_bin)
-    query_exe = os.path.join(_exe_dir, _query_bin)
+    parser.add_argument('--config-dir', action='store', dest='config_dir',
+                        help='Location of the configuration files (devv.conf, devv-*.conf, etc)',
+                        default=None, required=True)
+
+    parser.add_argument('--bin-dir', action='store', dest='bin_dir',
+                        help='Location of devv-* executables',
+                        default=None, required=True)
+
+    parser.add_argument('--working-dir', action='store', dest='working_dir',
+                        help='Directory to write log files and chain data files',
+                        default=None, required=True)
+
+    args = parser.parse_args()
+
+    validator_exe = os.path.join(args.bin_dir, _validator_bin)
+    announcer_exe = os.path.join(args.bin_dir, _announcer_bin)
+    query_exe = os.path.join(args.bin_dir, _query_bin)
 
     os.makedirs(_endpoint_tmpdir, exist_ok=True)
     print("announcer : {}".format(announcer_exe))
@@ -222,14 +234,14 @@ Exit status:\n\
     print("query     : {}".format(query_exe))
 
     config_map = {}
-    config_path = '/home/mckenney/projects/devcash/Devv-Config/config/etc'
+    config_path = args.config_dir
     config_map['base'] = config_path
     config_map['devv'] = os.path.join(config_path, 'devv.conf')
     config_map['announcer'] = os.path.join(config_path, 'devv-announcer.conf')
     config_map['validator'] = os.path.join(config_path, 'devv-validator.conf')
     config_map['query'] = os.path.join(config_path, 'devv-query.conf')
     config_map['key-pass'] = os.path.join(config_path, 'test-key-pass_test.conf')
-    config_map['working-dir'] = '/tmp/working'
+    config_map['working-dir'] = args.working_dir
 
     # Create the output director
     os.makedirs(os.path.join(config_map['working-dir'], 'shard-1'), exist_ok=True)
