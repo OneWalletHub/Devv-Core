@@ -16,7 +16,7 @@
 #include "io/message_service.h"
 #include "modules/ParallelExecutor.h"
 #include "modules/ModuleInterface.h"
-#include "io/message_service.h"
+#include "primitives/block_tools.h"
 
 namespace Devv {
 
@@ -32,7 +32,6 @@ class BlockchainModule : public ModuleInterface {
   BlockchainModule(io::TransactionServer &server,
                   io::TransactionClient &client,
                   io::TransactionClient &loopback_client,
-                  Blockchain& final_chain,
                   const KeyRing &keys,
                   const ChainState &prior,
                   eAppMode mode,

@@ -245,7 +245,7 @@ void BlockchainModule::loadHistoricChain(const std::string& working_dir) {
               while (buffer.getOffset() < static_cast<size_t>(file_size)) {
                 try {
                   ChainState prior = final_chain_.getHighestChainState();
-                  auto new_block = std::make_shared<FinalBlock>(buffer, prior, keys_, mode_));
+                  auto new_block = std::make_shared<FinalBlock>(buffer, prior, keys_, mode_);
                   Hash p_hash = new_block->getPreviousHash();
                   if (!std::equal(std::begin(prev_hash), std::end(prev_hash), std::begin(p_hash))) {
                     LOG_FATAL << "CHAINBREAK: The previous hash referenced in this block does not match the expected hash.";
