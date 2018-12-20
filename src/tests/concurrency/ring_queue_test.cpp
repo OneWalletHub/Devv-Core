@@ -3,13 +3,13 @@
 #include <thread>
 #include <condition_variable>
 #include <mutex>
-#include "concurrency/DevcashRingQueue.h"
-#include "types/DevcashMessage.h"
+#include "concurrency/DevvRingQueue.h"
+#include "types/DevvMessage.h"
 
 const int kMessageCount = 100000;
 const int kWorkerNum = 10;
-using namespace Devcash;
-DevcashRingQueue rq;
+using namespace Devv;
+DevvRingQueue rq;
 
 class DataStore {
  public:
@@ -38,7 +38,7 @@ class BufferTester {
   bool theFunk() {
 	while (!stop) {
 	  LOG_DEBUG << "Going to pop!!\n";
-      DevcashMessage* message = rq.pop().get();
+      DevvMessage* message = rq.pop().get();
       theData->incTotal();
       LOG_DEBUG << "Got " << std::to_string(theData->getTotal()) << " messages\n";
       if (message->message_type == eMessageType::VALID) {
@@ -72,7 +72,7 @@ int main(int, char**) {
 
   for (auto i = 0; i < kMessageCount; i++) {
     LOG_DEBUG << "Sent " << std::to_string(i) << " messages\n";
-    auto ptr = std::unique_ptr<DevcashMessage>(new DevcashMessage("Hello", eMessageType::VALID, data, 10));
+    auto ptr = std::unique_ptr<DevvMessage>(new DevvMessage("Hello", eMessageType::VALID, data, 10));
     rq.push(std::move(ptr));
     if (i == kMessageCount-kWorkerNum) { //ensure the workers get a chance to stop
       for (auto iter = workers.begin(); iter != workers.end(); ++iter) {

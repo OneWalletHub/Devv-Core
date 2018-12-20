@@ -1,19 +1,18 @@
 /*
- * primitives/block.h
+ * block.h provides header information for a block.
  *
- *  Created on: Jun 6, 2018
- *      Author: Shawn McKenney
+ * @copywrite  2018 Devvio Inc
  */
 #pragma once
 
 #include <cstdint>
 
-#include "common/devcash_types.h"
+#include "common/devv_types.h"
 #include "primitives/Summary.h"
 #include "primitives/Transaction.h"
 #include "primitives/Validation.h"
 
-namespace Devcash {
+namespace Devv {
 
 /**
  * Holds block-related data
@@ -41,4 +40,4 @@ struct block_info {
   ChainState block_state;
 };
 
-} // namespace Devcash
+} // namespace Devv

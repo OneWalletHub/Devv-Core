@@ -1,8 +1,7 @@
 /*
- * devvsign.cpp signs a transaction using a given private key
+ * devv-sign.cpp signs a transaction using a given private key
  *
- *  Created on: 8/8/18
- *      Author: Shawn McKenney
+ * @copywrite  2018 Devvio Inc
  */
 
 #include <cstdio>
@@ -11,12 +10,13 @@
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
-#include "common/devcash_context.h"
+#include "common/devv_context.h"
 #include "io/file_ops.h"
 #include "consensus/KeyRing.h"
 #include "pbuf/devv_pbuf.h"
+#include "common/ossladapter.h"
 
-using namespace Devcash;
+using namespace Devv;
 namespace fs = boost::filesystem;
 
 /**
@@ -48,7 +48,7 @@ std::unique_ptr<struct devvsign_options> ParseDevvsignOptions(int argc, char** a
 void TestSign(EC_KEY& ec_key) {
   std::vector<byte> msg = {'h', 'e', 'l', 'l', 'o'};
   Hash test_hash;
-  test_hash = DevcashHash(msg);
+  test_hash = DevvHash(msg);
 
   Signature sig = SignBinary(&ec_key, test_hash);
   if (!VerifyByteSig(&ec_key, test_hash, sig)) {
@@ -57,6 +57,7 @@ void TestSign(EC_KEY& ec_key) {
 }
 
 int main(int argc, char* argv[]) {
+  init_log();
 
   std::unique_ptr<struct devvsign_options> options;
   try {
@@ -82,6 +83,11 @@ int main(int argc, char* argv[]) {
 
   options->file_type = devvsign_options::eTxFileType::PROTOBUF;
 
+  // If there is a newline between the address and key, get rid of it
+  if (tup.key[0] == '\n') {
+    tup.key.erase(0,1);
+  }
+
   auto ec_key = LoadEcKey(tup.address, tup.key, options->key_pass);
 
   if (ec_key == nullptr) {
@@ -99,7 +105,7 @@ int main(int argc, char* argv[]) {
   out_stream << "addr_size    : " << tup.address.size() << std::endl;
   out_stream << "env_str_size : " << env_str.size() << std::endl;
 
-  Devv::proto::Envelope envelope;
+  devv::proto::Envelope envelope;
   auto res = envelope.ParseFromString(env_str);
 
   out_stream << "res: " << res << std::endl;

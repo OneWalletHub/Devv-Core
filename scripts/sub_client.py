@@ -1,8 +1,16 @@
+#!/usr/bin/env python
+"""
+Subscription client to sniff Devv network messages.
+"""
+
+__copyright__ = "Copyright 2018, Devvio Inc"
+__email__ = "security@devv.io"
+
 import sys
 import zmq
 import struct
 
-def get_devcashmessagetype_string(mess_type):
+def get_devvmessagetype_string(mess_type):
     if mess_type == 0:
         string = "FINAL_BLOCK"
     elif mess_type == 1:
@@ -21,7 +29,7 @@ def get_devcashmessagetype_string(mess_type):
         string = "ERROR_UNKNOWN_TYPE"
     return string
 
-def get_devcashmessage(string_buf):
+def get_devvmessage(string_buf):
     unpack_str0 = '=1sIii'
     size = struct.calcsize(unpack_str0)
     rem = len(string) - size
@@ -34,10 +42,10 @@ def get_devcashmessage(string_buf):
     if tup2[1] != mess_size:
         return("ERROR - size({}) != message bufsize({})".format(tup2[1], mess_size))
     #print(tup2)
-    #print(get_devcashmessagetype_string(tup[2]))
+    #print(get_devvmessagetype_string(tup[2]))
     s = "HDR: {}".format(str(ord(tup[0])))
     s += " | IDX: {}".format(tup[1])
-    s += " | TPE: {}".format(get_devcashmessagetype_string(tup[2]))
+    s += " | TPE: {}".format(get_devvmessagetype_string(tup[2]))
     s += " | SZE: {}".format(mess_size)
     return(s)
 
@@ -68,6 +76,6 @@ for update_nbr in range(500):
     #print("len: {}".format(len(string)))
     uri = string
     string = socket.recv()
-    print("URI: {} | {}".format(uri.decode('utf-8'), get_devcashmessage(string)))
+    print("URI: {} | {}".format(uri.decode('utf-8'), get_devvmessage(string)))
 
 print("done.")

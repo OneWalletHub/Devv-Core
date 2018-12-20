@@ -1,23 +1,22 @@
 /*
- * KeyRing.h definted key management for Devcash.
+ * KeyRing.h crypto key management for Devv.
  *
- *  Created on: Mar 3, 2018
- *      Author: Nick Williams
+ * @copywrite  2018 Devvio Inc
  */
 
 #ifndef CONSENSUS_KEYRING_H_
 #define CONSENSUS_KEYRING_H_
 
-#include "common/devcash_context.h"
+#include "common/devv_context.h"
 #include "primitives/Transfer.h"
 
-namespace Devcash {
+namespace Devv {
 
 
 class KeyRing {
  public:
   KeyRing() : key_map_(), node_list_(), inn_addr_() {}
-  KeyRing(const DevcashContext& context);
+  KeyRing(const DevvContext& context);
   virtual ~KeyRing() {};
 
   /**
@@ -38,7 +37,7 @@ class KeyRing {
   void addWalletKeyPair(const std::string& address, const std::string& key, const std::string& password) {
     std::vector<byte> msg = {'h', 'e', 'l', 'l', 'o'};
     Hash test_hash;
-    test_hash = DevcashHash(msg);
+    test_hash = DevvHash(msg);
 
     EC_KEY* wallet_key = LoadEcKey(address, key, password);
     Signature sig = SignBinary(wallet_key, test_hash);
@@ -54,7 +53,7 @@ class KeyRing {
   void addNodeKeyPair(const std::string& address, const std::string& key, const std::string& password) {
     std::vector<byte> msg = {'h', 'e', 'l', 'l', 'o'};
     Hash test_hash;
-    test_hash = DevcashHash(msg);
+    test_hash = DevvHash(msg);
 
     EC_KEY* node_key = LoadEcKey(address, key, password);
     Signature sig = SignBinary(node_key, test_hash);
@@ -70,7 +69,7 @@ class KeyRing {
   void setInnKeyPair(const std::string& address, const std::string& key, const std::string& password) {
     std::vector<byte> msg = {'h', 'e', 'l', 'l', 'o'};
     Hash test_hash;
-    test_hash = DevcashHash(msg);
+    test_hash = DevvHash(msg);
 
     EC_KEY* inn_key = LoadEcKey(address, key, password);
     Signature sig = SignBinary(inn_key, test_hash);
@@ -145,8 +144,8 @@ class KeyRing {
   std::vector<Address> getDesignatedWallets(int index) const;
 
  private:
-  KeyRing& operator=(KeyRing&);
-  KeyRing(KeyRing&);
+  KeyRing& operator=(const KeyRing&);
+  KeyRing(const KeyRing&);
 
   std::map<Address, EC_KEY*> key_map_;
   std::vector<Address> node_list_;
@@ -154,6 +153,6 @@ class KeyRing {
   Address inn_addr_;
 };
 
-} /* namespace Devcash */
+} /* namespace Devv */
 
 #endif /* CONSENSUS_KEYRING_H_ */

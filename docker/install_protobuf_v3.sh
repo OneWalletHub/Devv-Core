@@ -13,11 +13,11 @@ git submodule update --init --recursive
 ./autogen.sh
 ./configure --prefix=/usr/local
 make -j4
-make check
+make -j4 check
 sudo make install
 sudo ldconfig
 
 cd python
 python3 setup.py build
 python3 setup.py test
-python3 setup.py install
+sudo python3 setup.py install

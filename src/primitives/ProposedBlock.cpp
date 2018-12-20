@@ -1,13 +1,13 @@
 /*
- * ProposedBlock.h
+ * FinalBlock.cpp
+ * Implements tools to Create proposed blocks
  *
- *  Created on: Jun 19, 2018
- *      Author: Shawn McKenney
+ * @copywrite  2018 Devvio Inc
  */
 #include "ProposedBlock.h"
 #include "primitives/json_interface.h"
 
-namespace Devcash {
+namespace Devv {
 
 bool ProposedBlock::validate(const KeyRing& keys) const {
   LOG_DEBUG << "validate()";
@@ -25,7 +25,10 @@ bool ProposedBlock::validate(const KeyRing& keys) const {
 
   std::vector<byte> md = summary_.getCanonical();
   for (auto& sig : vals_.getValidationMap()) {
-    if (!VerifyByteSig(keys.getKey(sig.first), DevcashHash(md), sig.second)) {
+    EC_KEY* eckey = keys.getKey(sig.first);
+    auto verified = VerifyByteSig(eckey, DevvHash(md), sig.second);
+    EC_KEY_free(eckey);
+    if (!verified) {
       LOG_WARNING << "Invalid block signature";
       LOG_DEBUG << "Block state: " + GetJSON(*this);
       LOG_DEBUG << "Block Node Addr: " + sig.first.getJSON();
@@ -37,4 +40,4 @@ bool ProposedBlock::validate(const KeyRing& keys) const {
   return true;
 }
 
-} // namespace Devcash
+} // namespace Devv

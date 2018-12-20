@@ -1,29 +1,37 @@
+/*
+ * transaction_server.cpp - implements a server for connectivity tests
+ * between T2 and T1 shards.
+ *
+ *
+ * @copywrite  2018 Devvio Inc
+ */
+
 #include <unistd.h>
 #include <chrono>
 #include <thread>
 
 #include "io/constants.h"
 #include "io/message_service.h"
-#include "types/DevcashMessage.h"
+#include "types/DevvMessage.h"
 
 #include "transaction_test_struct.h"
 
 int main(int argc, char** argv) {
-  auto dev_message = std::make_unique<Devcash::DevcashMessage>(10);
+  auto dev_message = std::make_unique<Devv::DevvMessage>(10);
   dev_message->index = 10;
   dev_message->uri = "Hello!";
-  dev_message->message_type = Devcash::eMessageType::VALID;
+  dev_message->message_type = Devv::eMessageType::VALID;
   dev_message->data.emplace_back(25);
 
-  Devcash::LogDevcashMessageSummary(*dev_message, "main()");
+  Devv::LogDevvMessageSummary(*dev_message, "main()");
 
-  auto buffer = Devcash::serialize(*dev_message);
+  auto buffer = Devv::serialize(*dev_message);
 
-  auto new_message = Devcash::deserialize(buffer);
+  auto new_message = Devv::deserialize(buffer);
 
   assert(dev_message->index == new_message->index);
 
-  Devcash::LogDevcashMessageSummary(*new_message, "main2()");
+  Devv::LogDevvMessageSummary(*new_message, "main2()");
   LOG_INFO << "We made it!!!";
 
   if (argc < 2) {
@@ -50,20 +58,20 @@ int main(int argc, char** argv) {
 
   // Zmq Context
   zmq::context_t context(1);
-  Devcash::io::TransactionServer server{context, bind_endpoint};
+  Devv::io::TransactionServer server{context, bind_endpoint};
   server.startServer();
 
   for (;;) {
     sleep(1);
-    auto devcash_message = std::make_unique<Devcash::DevcashMessage>(10);
-    devcash_message->index = 15;
-    devcash_message->uri = my_uri;
-    devcash_message->message_type = Devcash::eMessageType::VALID;
-    devcash_message->SetData(test);
-    Devcash::LogDevcashMessageSummary(*devcash_message, "");
+    auto message = std::make_unique<Devv::DevvMessage>(10);
+    message->index = 15;
+    message->uri = my_uri;
+    message->message_type = Devv::eMessageType::VALID;
+    message->SetData(test);
+    Devv::LogDevvMessageSummary(*message, "");
 
     // LOG_INFO << "Sending message: " << message;
-    server.queueMessage(std::move(devcash_message));
+    server.queueMessage(std::move(message));
   }
 
   return 0;

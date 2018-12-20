@@ -2,22 +2,18 @@
  * Tier2Transaction.h defines the structure of the transaction section of a block
  * for Tier 2 shards.
  *
- *  Created on: Dec 11, 2017
- *  Author: Nick Williams
- *
+ * @copywrite  2018 Devvio Inc
  *
  */
 
 #ifndef PRIMITIVES_TIER2TRANSACTION_H_
 #define PRIMITIVES_TIER2TRANSACTION_H_
 
-#include "common/logger.h"
-#include "common/devcash_exceptions.h"
 #include "Transaction.h"
+#include "common/devv_exceptions.h"
+#include "common/logger.h"
 
-using namespace Devcash;
-
-namespace Devcash {
+namespace Devv {
 
 /**
  * The Tier2 representation of a Transaction
@@ -38,6 +34,8 @@ class Tier2Transaction : public Transaction {
 
   /**
    * Constructor
+   * The constructor will sign this transaction after creation
+   *
    * @param oper Operation of this transaction
    * @param xfers
    * @param nonce
@@ -53,7 +51,7 @@ class Tier2Transaction : public Transaction {
     nonce_size_ = nonce.size();
 
     if (nonce_size_ < minNonceSize()) {
-      throw DevcashMessageError("Invalid serialized T2 transaction, nonce is too small ("
+      throw DevvMessageError("Invalid serialized T2 transaction, nonce is too small ("
         + std::to_string(nonce_size_) + ")");
     }
 
@@ -74,22 +72,25 @@ class Tier2Transaction : public Transaction {
 
     canonical_.insert(std::end(canonical_), std::begin(nonce), std::end(nonce));
     std::vector<byte> msg(getMessageDigest());
-    Signature sig = SignBinary(eckey, DevcashHash(msg));
+    Signature sig = SignBinary(eckey, DevvHash(msg));
     std::vector<byte> sig_canon(sig.getCanonical());
     canonical_.insert(std::end(canonical_), std::begin(sig_canon), std::end(sig_canon));
     is_sound_ = isSound(keys);
     if (!is_sound_) {
-      throw DevcashMessageError("Invalid serialized T2 transaction, not sound!");
+      throw DevvMessageError("Invalid serialized T2 transaction, not sound!");
     }
   }
 
   /**
    * Constructor
+   * This constructor will use the provided signature
+   *
    * @param oper Operation of this transaction
    * @param xfers
    * @param nonce
    * @param eckey
    * @param keys
+   * @param signature
    */
   Tier2Transaction(byte oper,
                    const std::vector<Transfer>& xfers,
@@ -127,7 +128,7 @@ class Tier2Transaction : public Transaction {
     canonical_.insert(std::end(canonical_), std::begin(sig_canon), std::end(sig_canon));
     is_sound_ = isSound(keys);
     if (!is_sound_) {
-      throw DevcashMessageError("Invalid serialized T2 transaction, not sound!");
+      throw DevvMessageError("Invalid serialized T2 transaction, not sound!");
     }
   }
 
@@ -167,7 +168,7 @@ class Tier2Transaction : public Transaction {
 
     canonical_.insert(std::end(canonical_), std::begin(nonce), std::end(nonce));
     std::vector<byte> msg(getMessageDigest());
-    Signature signature = SignBinary(eckey, DevcashHash(msg));
+    Signature signature = SignBinary(eckey, DevvHash(msg));
     LOG_DEBUG << signature.getJSON();
     std::vector<byte> sig_canon(signature.getCanonical());
     canonical_.insert(std::end(canonical_), std::begin(sig_canon), std::end(sig_canon));
@@ -391,11 +392,14 @@ class Tier2Transaction : public Transaction {
         throw std::runtime_error("TransactionError: INN transaction not performed by INN");
       }
 
-      EC_KEY* eckey(keys.getKey(sender));
+      EC_KEY* eckey = keys.getKey(sender);
       std::vector<byte> msg(getMessageDigest());
       Signature sig = getSignature();
 
-      if (!VerifyByteSig(eckey, DevcashHash(msg), sig)) {
+      auto verified = VerifyByteSig(eckey, DevvHash(msg), sig);
+      EC_KEY_free(eckey);
+
+      if (!verified) {
         std::string err = "TransactionError: transaction signature did not validate";
         LOG_DEBUG << "Transaction state is: " + getJSON();
         LOG_DEBUG << "Sender addr is: " + sender.getJSON();
@@ -429,15 +433,20 @@ class Tier2Transaction : public Transaction {
         Address addr = it->getAddress();
         //LOG_DEBUG << "STATE (amt/coin/tot/address): " << amount << "/" << coin << "/" << state.getAmount(coin, addr)<< "/"<< addr.getHexString();
         if (amount < 0) {
-          if ((oper == eOpType::Exchange) && ((amount) > state.getAmount(coin, addr))) {
+          if ((oper == eOpType::Exchange) && (std::abs(amount) > state.getAmount(coin, addr))) {
             LOG_WARNING << "Coins not available at addr: amount(" << amount
                         << "), state.getAmount()(" << state.getAmount(coin, addr) << ")";
             return false;
+          } else {
+            LOG_INFO << "eOpType(" << int(oper) << "): addr(" << addr.getHexString() << "): amount: " << amount
+                     << " state.getAmount(): " << state.getAmount(coin, addr);
           }
         }
         SmartCoin next_flow(addr, coin, amount);
         state.addCoin(next_flow);
         summary.addItem(addr, coin, amount, it->getDelay());
+        LOG_INFO << "New balance: wallet address: " << addr.getHexString()
+                 << "; coin: " << coin << "; balance: " << state.getAmount(coin, addr);
       }
       return true;
     } catch (const std::exception& e) {
@@ -471,24 +480,29 @@ class Tier2Transaction : public Transaction {
       byte oper = getOperation();
       std::vector<TransferPtr> xfers = getTransfers();
       bool no_error = true;
+      LOG_DEBUG << "do_isValidInAggregate() state.getStateMap().size():  " << state.getStateMap().size();
       for (auto& it : xfers) {
         int64_t amount = it->getAmount();
         uint64_t coin = it->getCoin();
         Address addr = it->getAddress();
         if (amount < 0) {
-          if ((oper == eOpType::Exchange) && (amount > state.getAmount(coin, addr))) {
-            LOG_WARNING << "Coins not available at addr: amount(" << amount
+          if ((oper == eOpType::Exchange) && (std::abs(amount) > state.getAmount(coin, addr))) {
+            LOG_WARNING << "Coins not available at addr("<<addr.getHexString()<<"): amount(" << amount
                         << "), state.getAmount()(" << state.getAmount(coin, addr) << ")";
             return false;
+          } else {
+            LOG_DEBUG << "eOpType(" << int(oper) << "): addr(" << addr.getHexString() << "): amount: " << amount
+                     << " state.getAmount(): " << state.getAmount(coin, addr);
           }
-          auto it = aggregate.find(addr);
-          if (it != aggregate.end()) {
+          auto addr_it = aggregate.find(addr);
+          if (addr_it != aggregate.end()) {
             int64_t historic = prior.getAmount(coin, addr);
-            int64_t committed = it->second.getAmount();
+            int64_t committed = addr_it->second.getAmount();
             //if sum of negative transfers < 0 a bad ordering is possible
-            if ((historic+committed+amount) < 0) return false;
+            if (addr.isWalletAddress()
+                && ((historic+committed+amount) < 0)) return false;
             SmartCoin sc(addr, coin, amount+committed);
-            it->second = sc;
+            addr_it->second = sc;
           } else {
             SmartCoin sc(addr, coin, amount);
             auto result = aggregate.insert(std::make_pair(addr, sc));
@@ -498,6 +512,8 @@ class Tier2Transaction : public Transaction {
         SmartCoin next_flow(addr, coin, amount);
         state.addCoin(next_flow);
         summary.addItem(addr, coin, amount, it->getDelay());
+        LOG_INFO << "New balance: wallet address: " << addr.getHexString()
+                 << "; coin: " << coin << "; balance: " << state.getAmount(coin, addr);
       }
       return no_error;
     } catch (const std::exception& e) {
@@ -510,7 +526,7 @@ class Tier2Transaction : public Transaction {
    * Returns a JSON string representing this transaction.
    * @return a JSON string representing this transaction.
    */
-  std::string do_getJSON() const {
+  std::string do_getJSON() const override {
     std::string json("{\"" + kXFER_SIZE_TAG + "\":");
     json += std::to_string(xfer_size_) + ",";
     json += "\"" + kNONCE_SIZE_TAG + "\":"+std::to_string(nonce_size_)+",";
@@ -534,6 +550,6 @@ class Tier2Transaction : public Transaction {
 };
 
 typedef std::unique_ptr<Tier2Transaction> Tier2TransactionPtr;
-}  // end namespace Devcash
+}  // end namespace Devv
 
-#endif  // DEVCASH_PRIMITIVES_TRANSACTION_H
+#endif  // DEVV_PRIMITIVES_TRANSACTION_H

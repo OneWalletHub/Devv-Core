@@ -1,15 +1,19 @@
-//
-// Created by mckenney on 6/15/18.
-//
-#ifndef DEVCASH_BUFFERS_H
-#define DEVCASH_BUFFERS_H
+/*
+ * buffers.h provides methods to track and utilize Devv binary data
+ *
+ * @copywrite  2018 Devvio Inc
+ */
+#ifndef DEVV_BUFFERS_H
+#define DEVV_BUFFERS_H
 
 #include <vector>
 #include "common/binary_converters.h"
-#include "common/devcash_constants.h"
-#include "common/devcash_types.h"
+#include "common/devv_constants.h"
+#include "common/devv_types.h"
+#include "primitives/Address.h"
+#include "primitives/Signature.h"
 
-namespace Devcash {
+namespace Devv {
 
 /**
  * Class used to help deserialize input buffers.
@@ -268,5 +272,5 @@ class InputBuffer {
   size_t offset_ = 0;
 };
 
-} // namespace Devcash
-#endif //DEVCASH_BUFFERS_H
+} // namespace Devv
+#endif //DEVV_BUFFERS_H

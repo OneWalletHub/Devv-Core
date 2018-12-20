@@ -1,43 +1,50 @@
+/*
+ * boost_spsc_test.cpp - tests the single producer single consumer queue.
+ *
+ *
+ * @copywrite  2018 Devvio Inc
+ */
+
 #include <boost/thread/thread.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
 #include <iostream>
 
 #include "common/logger.h"
 #include "common/util.h"
-#include "types/DevcashMessage.h"
+#include "types/DevvMessage.h"
 
 #include <boost/atomic.hpp>
 
 const int kMessageCount = 100000;
-using namespace Devcash;
+using namespace Devv;
 
 int producer_count = 0;
 boost::atomic_int consumer_count (0);
 
-boost::lockfree::spsc_queue<DevcashMessage, boost::lockfree::capacity<1024> > spsc_queue;
+boost::lockfree::spsc_queue<DevvMessage, boost::lockfree::capacity<1024> > spsc_queue;
 
 const int iterations = 10000000;
 
-DevcashMessage get_message() {
+DevvMessage get_message() {
   std::vector<uint8_t> data(100);
   eMessageType msg{eMessageType::VALID};
   URI uri = "Hello";
 
-  DevcashMessage d(uri, msg, data, 0);
+  DevvMessage d(uri, msg, data, 0);
   return d;
 }
 
-DevcashMessage get_message_ptr() {
+DevvMessage get_message_ptr() {
   std::vector<uint8_t> data(1000000);
   eMessageType msg{eMessageType::VALID};
   URI uri = "Hello";
 
-  DevcashMessage d(uri, msg, data, 0);
+  DevvMessage d(uri, msg, data, 0);
   return d;
 }
 
 struct BufferTester {
-  bool operator()(DevcashMessage& message) {
+  bool operator()(DevvMessage& message) {
     ++tot_count;
     if (!(tot_count % 1000)) {
       LOG_DEBUG << "Got " << int(tot_count/1000) << " messages";
@@ -70,7 +77,7 @@ boost::atomic<bool> done (false);
 void consumer(void)
 {
   BufferTester t;
-  DevcashMessage value{0};
+  DevvMessage value{0};
     while (!done) {
         while (spsc_queue.pop(value))
             ++consumer_count;

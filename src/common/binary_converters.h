@@ -1,12 +1,14 @@
-//
-// Created by mckenney on 6/13/18.
-//
-#ifndef DEVCASH_BINARY_CONVERTERS_H
-#define DEVCASH_BINARY_CONVERTERS_H
+/*
+ * binary_converters.h includes functions for common conversions.
+ *
+ * @copywrite  2018 Devvio Inc
+ */
+#ifndef DEVV_BINARY_CONVERTERS_H
+#define DEVV_BINARY_CONVERTERS_H
 
 #include "common/util.h"
 
-namespace Devcash {
+namespace Devv {
 
 static const size_t kBYTES_PER_INT = 4;
 
@@ -174,5 +176,5 @@ static std::string ToHex(const Array& input, size_t num_bytes = UINT32_MAX) {
   return (ss.str());
 }
 
-}  // namespace Devcash
-#endif  // DEVCASH_BINARY_CONVERTERS_H
+}  // namespace Devv
+#endif  // DEVV_BINARY_CONVERTERS_H

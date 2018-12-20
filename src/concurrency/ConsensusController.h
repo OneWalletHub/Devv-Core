@@ -1,66 +1,65 @@
-/*
- * ConsensusController.h
+/**
+ * ConsensusController.h controls callbacks for the
+ * consensus process between Devv validators.
  *
- *  Created on: 6/22/18
- *      Authors: Shawn McKenney
- *               Nick Williams
+ * @copywrite  2018 Devvio Inc
  */
 #pragma once
 
-#include "types/DevcashMessage.h"
+#include "types/DevvMessage.h"
 #include "consensus/UnrecordedTransactionPool.h"
 #include "consensus/blockchain.h"
 #include "consensus/chainstate.h"
 
-namespace Devcash {
+namespace Devv {
 
 class ConsensusController {
-typedef std::function<bool(DevcashMessageUniquePtr ptr,
-                           const DevcashContext &context,
+typedef std::function<bool(DevvMessageUniquePtr ptr,
+                           const DevvContext &context,
                            const KeyRing &keys,
                            Blockchain &final_chain,
                            UnrecordedTransactionPool &utx_pool,
-                           std::function<void(DevcashMessageUniquePtr)> callback)> FinalBlockCallback;
+                           std::function<void(DevvMessageUniquePtr)> callback)> FinalBlockCallback;
 
-typedef std::function<bool(DevcashMessageUniquePtr ptr,
-                           const DevcashContext &context,
+typedef std::function<bool(DevvMessageUniquePtr ptr,
+                           const DevvContext &context,
                            const KeyRing &keys,
                            Blockchain &final_chain,
-                           TransactionCreationManager &tcm,
-                           std::function<void(DevcashMessageUniquePtr)> callback)> ProposalBlockCallback;
+                           UnrecordedTransactionPool &utx_pool,
+                           std::function<void(DevvMessageUniquePtr)> callback)> ProposalBlockCallback;
 
-typedef std::function<bool(DevcashMessageUniquePtr ptr,
-                           const DevcashContext &context,
+typedef std::function<bool(DevvMessageUniquePtr ptr,
+                           const DevvContext &context,
                            Blockchain &final_chain,
                            UnrecordedTransactionPool &utx_pool,
-                           std::function<void(DevcashMessageUniquePtr)> callback)> ValidationBlockCallback;
+                           std::function<void(DevvMessageUniquePtr)> callback)> ValidationBlockCallback;
  public:
   ConsensusController(const KeyRing& keys,
-                      DevcashContext& context,
+                      DevvContext& context,
                       const ChainState& prior,
                       Blockchain& final_chain,
                       UnrecordedTransactionPool& utx_pool,
                       eAppMode mode);
 
-  void registerOutgoingCallback(DevcashMessageCallback callback) {
+  void registerOutgoingCallback(DevvMessageCallback callback) {
     outgoing_callback_ = callback;
   }
   /**
    * Process a consensus worker message.
    */
-  void consensusCallback(DevcashMessageUniquePtr ptr);
+  void consensusCallback(DevvMessageUniquePtr ptr);
 
  private:
   const KeyRing& keys_;
-  DevcashContext& context_;
+  DevvContext& context_;
   Blockchain& final_chain_;
   UnrecordedTransactionPool& utx_pool_;
   eAppMode mode_;
 
   mutable std::mutex mutex_;
 
-  /// A callback to send the analyzed DevcashMessage
-  DevcashMessageCallback outgoing_callback_;
+  /// A callback to send the analyzed DevvMessage
+  DevvMessageCallback outgoing_callback_;
 
   FinalBlockCallback final_block_cb_;
   ProposalBlockCallback proposal_block_cb_;
@@ -68,4 +67,4 @@ typedef std::function<bool(DevcashMessageUniquePtr ptr,
 
 };
 
-} // namespace Devcash
+} // namespace Devv

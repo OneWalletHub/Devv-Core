@@ -1,13 +1,13 @@
 /*
  * Tier2Transaction.cpp
+ * implements methods to generate and copy Tier2Transactions.
  *
- *  Created on: Jun 20, 2018
- *      Author: Shawn McKenney
+ * @copywrite  2018 Devvio Inc
  */
 #include "primitives/Tier2Transaction.h"
-#include "common/devcash_exceptions.h"
+#include "common/devv_exceptions.h"
 
-namespace Devcash {
+namespace Devv {
 
 void Tier2Transaction::QuickFill(Tier2Transaction& tx,
                     InputBuffer &buffer) {
@@ -42,7 +42,7 @@ void Tier2Transaction::QuickFill(Tier2Transaction& tx,
   }
 
   size_t tx_size = buffer.offsetAt(kTRANSFER_OFFSET+tx.xfer_size_+tx.nonce_size_)
-                   +kTRANSFER_OFFSET+tx.xfer_size_+tx.nonce_size_;
+                   +kTRANSFER_OFFSET+tx.xfer_size_+tx.nonce_size_+1;
 
   if (buffer.size() < buffer.getOffset() + tx_size) {
     std::stringstream ss;
@@ -93,7 +93,7 @@ void Tier2Transaction::Fill(Tier2Transaction& tx,
   }
 
   size_t tx_size = buffer.offsetAt(kTRANSFER_OFFSET+tx.xfer_size_+tx.nonce_size_)
-                   +kTRANSFER_OFFSET+tx.xfer_size_+tx.nonce_size_;
+                   +kTRANSFER_OFFSET+tx.xfer_size_+tx.nonce_size_+1;
 
   if (buffer.size() < buffer.getOffset() + tx_size) {
     std::stringstream ss;
@@ -141,4 +141,4 @@ Tier2TransactionPtr Tier2Transaction::CreateUniquePtr(InputBuffer& buffer,
   return tx;
 }
 
-} // namespace Devcash
+} // namespace Devv

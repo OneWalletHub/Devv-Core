@@ -14,8 +14,7 @@
  *  73 -> raw Wallet Signature (secp256k1) follows, 73 bytes
  *  105 -> raw Node Signature (secp384r1) follows, 105 bytes
  *
- *  Created on: July 15, 2018
- *      Author: Nick Williams
+ * @copywrite  2018 Devvio Inc
  */
 
 #ifndef PRIMITIVES_SIGNATURE_H_
@@ -23,8 +22,9 @@
 
 #include <stdint.h>
 #include <algorithm>
+#include "common/binary_converters.h"
 
-namespace Devcash {
+namespace Devv {
 
 static const size_t kWALLET_SIG_SIZE = 73;
 static const size_t kNODE_SIG_SIZE = 105;
@@ -67,7 +67,8 @@ class Signature {
       }
     } else {
       /// @todo (mckenney) Don't throw from constructor
-      std::string err = "Invalid Signature size: " + std::to_string(vec.size());
+      std::string err = "Invalid Signature size: "
+                        + std::to_string(vec.size()) + " : " + Bin2Str(vec);
       throw std::runtime_error(err);
     }
   }
@@ -189,6 +190,6 @@ class Signature {
   std::vector<byte> canonical_;
 };
 
-}  // end namespace Devcash
+}  // end namespace Devv
 
 #endif /* PRIMITIVES_SIGNATURE_H_ */

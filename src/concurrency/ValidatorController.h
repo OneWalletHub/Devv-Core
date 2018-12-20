@@ -1,11 +1,10 @@
 /*
- * ValidatorController.h controls worker threads for the Devcash protocol.
+ * ValidatorController.h controls consensus worker threads for the Devv protocol.
  *
- *  Created on: Mar 21, 2018
- *      Author: Nick Williams
+ * @copywrite  2018 Devvio Inc
  */
-#ifndef CONCURRENCY_DEVCASHCONTROLLER_H_
-#define CONCURRENCY_DEVCASHCONTROLLER_H_
+#ifndef CONCURRENCY_VALIDATORCONTROLLER_H_
+#define CONCURRENCY_VALIDATORCONTROLLER_H_
 
 #include <condition_variable>
 #include <mutex>
@@ -16,17 +15,17 @@
 #include "consensus/chainstate.h"
 #include "io/message_service.h"
 
-namespace Devcash {
+namespace Devv {
 
 class ValidatorController {
   typedef std::function<std::vector<byte>(const KeyRing &keys,
                                                 Blockchain &final_chain,
                                                 UnrecordedTransactionPool &utx_pool,
-                                                const DevcashContext &context)> TransactionAnnouncementCallback;
+                                                const DevvContext &context)> TransactionAnnouncementCallback;
 
  public:
   ValidatorController(const KeyRing& keys,
-                      DevcashContext& context,
+                      DevvContext& context,
                       const ChainState&,
                       Blockchain& final_chain,
                       UnrecordedTransactionPool& utx_pool,
@@ -34,17 +33,17 @@ class ValidatorController {
 
   ~ValidatorController();
 
-  void registerOutgoingCallback(DevcashMessageCallback callback) {
+  void registerOutgoingCallback(DevvMessageCallback callback) {
     outgoing_callback_ = callback;
   }
   /**
    * Process a validator worker message.
    */
-  void validatorCallback(DevcashMessageUniquePtr ptr);
+  void validatorCallback(DevvMessageUniquePtr ptr);
 
  private:
   const KeyRing& keys_;
-  DevcashContext& context_;
+  DevvContext& context_;
   Blockchain& final_chain_;
   UnrecordedTransactionPool& utx_pool_;
   eAppMode mode_;
@@ -52,12 +51,12 @@ class ValidatorController {
   mutable std::mutex mutex_;
   //uint64_t remote_blocks_ = 0;
 
-  /// A callback to send the analyzed DevcashMessage
-  DevcashMessageCallback outgoing_callback_;
+  /// A callback to send the analyzed DevvMessage
+  DevvMessageCallback outgoing_callback_;
 
   TransactionAnnouncementCallback tx_announcement_cb_;
 };
 
-} /* namespace Devcash */
+} /* namespace Devv */
 
-#endif /* CONCURRENCY_DEVCASHCONTROLLER_H_ */
+#endif /* CONCURRENCY_VALIDATORCONTROLLER_H_ */

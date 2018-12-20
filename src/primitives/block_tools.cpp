@@ -1,12 +1,12 @@
 /*
- * primitives/block_tools.h
+ * block_tools.cpp implements tools for
+ * utilizing blocks
  *
- *  Created on: July 2, 2018
- *      Author: Shawn McKenney
+ * @copywrite  2018 Devvio Inc
  */
 #include "block_tools.h"
 
-namespace Devcash {
+namespace Devv {
 
 bool IsBlockData(const std::vector<byte>& raw) {
   //check if big enough
@@ -93,8 +93,8 @@ Tier1TransactionPtr CreateTier1Transaction(const FinalBlock& block, const KeyRin
 
 Signature SignSummary(const Summary& summary, const KeyRing& keys) {
   auto node_sig = SignBinary(keys.getNodeKey(0),
-                             DevcashHash(summary.getCanonical()));
+                             DevvHash(summary.getCanonical()));
   return(node_sig);
 }
 
-} // namespace Devcash
+} // namespace Devv

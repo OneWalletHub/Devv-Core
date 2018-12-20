@@ -1,3 +1,10 @@
+/*
+ * t1_example.cpp - tests connectivity between T2 and T1 shards.
+ *
+ *
+ * @copywrite  2018 Devvio Inc
+ */
+
 #include <exception>
 #include <iostream>
 #include <string>
@@ -9,14 +16,14 @@
 #include "io/constants.h"
 #include "io/message_service.h"
 
-void print_t1_devcash_message(Devcash::DevcashMessageUniquePtr message) {
+void print_t1_devv_message(Devv::DevvMessageUniquePtr message) {
   LOG(info) << "Got a T1 message: "
-            << "Devcash->uri: " << message->uri;
+            << "Devv->uri: " << message->uri;
 }
 
-void print_t2_devcash_message(Devcash::DevcashMessageUniquePtr message) {
+void print_t2_devv_message(Devv::DevvMessageUniquePtr message) {
   LOG(info) << "Got a T2 message: "
-            << "Devcash->uri: " << message->uri;
+            << "Devv->uri: " << message->uri;
 }
 
 namespace po = boost::program_options;
@@ -32,7 +39,7 @@ int main(int argc, char** argv) {
     po::options_description desc(
         "\n\
 The t1_example program can be used to demonstrate connectivity of\n\
-T1 and T2 networks. By default, it will send random DevcashMessage\n\
+T1 and T2 networks. By default, it will send random DevvMessage\n\
 every 5 seconds to any other t1_example programs that have connected\n\
 to it will receive the message. If it receives a message, it will\n\
 execute the appropriate T1 or T2 callback. t1_example can connect\n\
@@ -97,11 +104,11 @@ network could be build and tested.\n\nAllowed options");
 
   // Setup the T1 client. This will connect to
   // other nodes
-  Devcash::io::TransactionClient t1_client{context};
+  Devv::io::TransactionClient t1_client{context};
   for (auto i : t1_host_vector) {
     t1_client.addConnection(i);
   }
-  t1_client.attachCallback(print_t1_devcash_message);
+  t1_client.attachCallback(print_t1_devv_message);
 
   std::thread t1_client_thread([&t1_client]() noexcept {
     LOG(info) << "Starting T1 client thread ...";
@@ -111,19 +118,19 @@ network could be build and tested.\n\nAllowed options");
 
   all_threads.emplace_back(std::move(t1_client_thread));
 
-  typedef std::unique_ptr<Devcash::io::TransactionServer> TSPtr;
+  typedef std::unique_ptr<Devv::io::TransactionServer> TSPtr;
   TSPtr t1_server;
   if (t1_bind_endpoint.size() > 0) {
-    t1_server = TSPtr(new Devcash::io::TransactionServer(context, t1_bind_endpoint));
+    t1_server = TSPtr(new Devv::io::TransactionServer(context, t1_bind_endpoint));
     t1_server->startServer();
     std::thread t1_server_thread([&t1_server]() {
       for (;;) {
         sleep(5);
-        auto devcash_message = Devcash::DevcashMessageUniquePtr(new Devcash::DevcashMessage);
-        devcash_message->uri = "my_uri1";
-        devcash_message->message_type = Devcash::eMessageType::VALID;
+        auto message = Devv::DevvMessageUniquePtr(new Devv::DevvMessage);
+        message->uri = "my_uri1";
+        message->message_type = Devv::eMessageType::VALID;
         LOG(info) << "Sending message";
-        t1_server->queueMessage(std::move(devcash_message));
+        t1_server->queueMessage(std::move(message));
       }
     });
     all_threads.emplace_back(std::move(t1_server_thread));
@@ -132,11 +139,11 @@ network could be build and tested.\n\nAllowed options");
   sleep(2);
   // Setup the T2 client. This will connect to
   // other nodes
-  Devcash::io::TransactionClient t2_client{context};
+  Devv::io::TransactionClient t2_client{context};
   for (auto i : t2_host_vector) {
     t2_client.addConnection(i);
   }
-  t2_client.attachCallback(print_t2_devcash_message);
+  t2_client.attachCallback(print_t2_devv_message);
 
   std::thread t2_client_thread([&t2_client]() noexcept {
     LOG(info) << "Starting T2 client thread ...";
@@ -146,19 +153,19 @@ network could be build and tested.\n\nAllowed options");
 
   all_threads.emplace_back(std::move(t2_client_thread));
 
-  typedef std::unique_ptr<Devcash::io::TransactionServer> TSPtr;
+  typedef std::unique_ptr<Devv::io::TransactionServer> TSPtr;
   TSPtr t2_server;
   if (t2_bind_endpoint.size() > 0) {
-    t2_server = TSPtr(new Devcash::io::TransactionServer(context, t2_bind_endpoint));
+    t2_server = TSPtr(new Devv::io::TransactionServer(context, t2_bind_endpoint));
     t2_server->startServer();
     std::thread t2_server_thread([&t2_server]() {
       for (;;) {
         sleep(5);
-        auto devcash_message = Devcash::DevcashMessageUniquePtr(new Devcash::DevcashMessage);
-        devcash_message->uri = "my_uri2";
-        devcash_message->message_type = Devcash::eMessageType::VALID;
+        auto message = Devv::DevvMessageUniquePtr(new Devv::DevvMessage);
+        message->uri = "my_uri2";
+        message->message_type = Devv::eMessageType::VALID;
         LOG(info) << "Sending message";
-        t2_server->queueMessage(std::move(devcash_message));
+        t2_server->queueMessage(std::move(message));
       }
     });
     all_threads.emplace_back(std::move(t2_server_thread));

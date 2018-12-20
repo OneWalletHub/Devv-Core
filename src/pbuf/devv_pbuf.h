@@ -1,11 +1,10 @@
 /*
- * ${Filename}
+ * devv_pbuf.h tools for integration with Protobuf formatted data.
  *
- *  Created on: 8/6/18
- *      Author: mckenney
+ * @copywrite  2018 Devvio Inc
  */
-#ifndef DEVCASH_DEVV_PBUF_H
-#define DEVCASH_DEVV_PBUF_H
+#ifndef DEVV_PBUF_H
+#define DEVV_PBUF_H
 
 #include <vector>
 #include <exception>
@@ -14,8 +13,10 @@
 #include "consensus/blockchain.h"
 #include "primitives/Tier2Transaction.h"
 #include "oracles/api.h"
+#include "oracles/coin_request.h"
 #include "oracles/data.h"
 #include "oracles/dcash.h"
+#include "oracles/do_transaction.h"
 #include "oracles/dnero.h"
 #include "oracles/dneroavailable.h"
 #include "oracles/dnerowallet.h"
@@ -24,7 +25,7 @@
 
 #include "devv.pb.h"
 
-namespace Devcash {
+namespace Devv {
 
 struct Proposal {
   std::string oracle_name;
@@ -68,7 +69,23 @@ struct RepeaterResponse {
 };
 typedef std::unique_ptr<RepeaterResponse> RepeaterResponsePtr;
 
-TransactionPtr CreateTransaction(const Devv::proto::Transaction& transaction, const KeyRing& keys, bool do_sign = false) {
+struct ServiceRequest {
+  int64_t timestamp = 0;
+  std::string endpoint;
+  std::map<std::string, std::string> args;
+};
+typedef std::unique_ptr<ServiceRequest> ServiceRequestPtr;
+
+struct ServiceResponse {
+  int64_t request_timestamp = 0;
+  std::string endpoint;
+  uint32_t return_code = 0;
+  std::string message;
+  std::map<std::string, std::string> args;
+};
+typedef std::unique_ptr<ServiceResponse> ServiceResponsePtr;
+
+TransactionPtr CreateTransaction(const devv::proto::Transaction& transaction, const KeyRing& keys, bool do_sign = false) {
   auto operation = transaction.operation();
   auto pb_xfers = transaction.xfers();
 
@@ -77,6 +94,10 @@ TransactionPtr CreateTransaction(const Devv::proto::Transaction& transaction, co
   for (auto const& xfer : pb_xfers) {
     std::vector<byte> bytes(xfer.address().begin(), xfer.address().end());
     auto address = Address(bytes);
+    LOG_INFO << "Transfer addr: "+ToHex(xfer.address());
+    LOG_INFO << "Coin: "+std::to_string(xfer.coin());
+    LOG_INFO << "Amount: "+std::to_string(xfer.amount());
+    LOG_INFO << "Delay: "+std::to_string(xfer.delay());
     transfers.emplace_back(address, xfer.coin(), xfer.amount(), xfer.delay());
     if (xfer.amount() < 0) {
       if (key != nullptr) {
@@ -99,6 +120,7 @@ TransactionPtr CreateTransaction(const Devv::proto::Transaction& transaction, co
         nonce,
         key,
         keys);
+    EC_KEY_free(key);
     return t2tx.clone();
   } else {
     std::vector<byte> sig(transaction.sig().begin(), transaction.sig().end());
@@ -111,11 +133,12 @@ TransactionPtr CreateTransaction(const Devv::proto::Transaction& transaction, co
         key,
         keys,
         signature);
+    EC_KEY_free(key);
     return t2tx.clone();
   }
 }
 
-Tier2TransactionPtr CreateTransaction(const Devv::proto::Transaction& transaction
+Tier2TransactionPtr CreateTransaction(const devv::proto::Transaction& transaction
     , std::string pk, std::string pk_pass) {
   auto operation = transaction.operation();
   auto pb_xfers = transaction.xfers();
@@ -152,13 +175,15 @@ Tier2TransactionPtr CreateTransaction(const Devv::proto::Transaction& transactio
 }
 
 std::vector<TransactionPtr> validateOracle(oracleInterface& oracle
-                                              , const Blockchain& chain) {
+                            , const Blockchain& chain, const KeyRing& keys) {
   std::vector<TransactionPtr> out;
   if (oracle.isValid(chain)) {
-    std::map<uint64_t, std::vector<Tier2Transaction>> oracle_actions = oracle.getTransactions(chain);
+    std::map<uint64_t, std::vector<Tier2Transaction>> oracle_actions =
+      oracle.getNextTransactions(chain, keys);
     for (auto& it : oracle_actions) {
       //TODO (nick) forward transactions for other shards to those shards
       for (auto& tx : it.second) {
+        LOG_INFO << "Oracle: "+oracle.getOracleName()+" creates transaction: "+tx.getJSON();
         TransactionPtr t2tx_ptr = tx.clone();
         out.push_back(std::move(t2tx_ptr));
       }
@@ -167,73 +192,49 @@ std::vector<TransactionPtr> validateOracle(oracleInterface& oracle
   return out;
 }
 
-std::string SignProposal(const Devv::proto::Proposal& proposal
-          , std::string addr , std::string pk, std::string pk_pass) {
-  std::string oracle_name = proposal.oraclename();
-  if (oracle_name == api::getOracleName()) {
-    api oracle(proposal.data());
-    return oracle.Sign(addr, pk, pk_pass);
-  } else if (oracle_name == data::getOracleName()) {
-    data oracle(proposal.data());
-    return oracle.Sign(addr, pk, pk_pass);
-  } else if (oracle_name == dcash::getOracleName()) {
-    dcash oracle(proposal.data());
-    return oracle.Sign(addr, pk, pk_pass);
-  } else if (oracle_name == dnero::getOracleName()) {
-    dnero oracle(proposal.data());
-    return oracle.Sign(addr, pk, pk_pass);
-  } else if (oracle_name == dneroavailable::getOracleName()) {
-    dneroavailable oracle(proposal.data());
-    return oracle.Sign(addr, pk, pk_pass);
-  } else if (oracle_name == dnerowallet::getOracleName()) {
-    dnerowallet oracle(proposal.data());
-    return oracle.Sign(addr, pk, pk_pass);
-  } else if (oracle_name == id::getOracleName()) {
-    id oracle(proposal.data());
-    return oracle.Sign(addr, pk, pk_pass);
-  } else if (oracle_name == vote::getOracleName()) {
-    vote oracle(proposal.data());
-    return oracle.Sign(addr, pk, pk_pass);
-  } else {
-    LOG_ERROR << "Unknown oracle: "+oracle_name;
-  }
-  return "";
-}
-
-std::vector<TransactionPtr> DecomposeProposal(const Devv::proto::Proposal& proposal, const Blockchain& chain) {
+std::vector<TransactionPtr> DecomposeProposal(const devv::proto::Proposal& proposal, const Blockchain& chain
+                                             , const KeyRing& keys) {
   std::vector<TransactionPtr> ptrs;
   std::string oracle_name = proposal.oraclename();
-  if (oracle_name == api::getOracleName()) {
+  if (oracle_name == CoinRequest::GetOracleName()) {
+    CoinRequest oracle(proposal.data());
+    std::vector<TransactionPtr> actions = validateOracle(oracle, chain, keys);
+    ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));
+  }else if (oracle_name == DoTransaction::GetOracleName()) {
+    DoTransaction oracle(proposal.data());
+    std::vector<TransactionPtr> actions = validateOracle(oracle, chain, keys);
+    ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));
+  } else if (oracle_name == api::GetOracleName()) {
     api oracle(proposal.data());
-    std::vector<TransactionPtr> actions = validateOracle(oracle, chain);
+    std::vector<TransactionPtr> actions = validateOracle(oracle, chain, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));
-  } else if (oracle_name == data::getOracleName()) {
+  } else if (oracle_name == data::GetOracleName()) {
     data oracle(proposal.data());
-    std::vector<TransactionPtr> actions = validateOracle(oracle, chain);
+    std::vector<TransactionPtr> actions = validateOracle(oracle, chain, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));
-  } else if (oracle_name == dcash::getOracleName()) {
+  } else if (oracle_name == dcash::GetOracleName()) {
     dcash oracle(proposal.data());
-    std::vector<TransactionPtr> actions = validateOracle(oracle, chain);
+    std::vector<TransactionPtr> actions = validateOracle(oracle, chain, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));
-  } else if (oracle_name == dnero::getOracleName()) {
+  } else if (oracle_name == dnero::GetOracleName()) {
     dnero oracle(proposal.data());
-    std::vector<TransactionPtr> actions = validateOracle(oracle, chain);
+    std::vector<TransactionPtr> actions = validateOracle(oracle, chain, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));
-  } else if (oracle_name == dneroavailable::getOracleName()) {
+  } else if (oracle_name == dneroavailable::GetOracleName()) {
     dneroavailable oracle(proposal.data());
-    std::vector<TransactionPtr> actions = validateOracle(oracle, chain);
+    std::vector<TransactionPtr> actions = validateOracle(oracle, chain, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));
-  } else if (oracle_name == dnerowallet::getOracleName()) {
+  } else if (oracle_name == dnerowallet::GetOracleName()) {
     dnerowallet oracle(proposal.data());
-    std::vector<TransactionPtr> actions = validateOracle(oracle, chain);
+    std::vector<TransactionPtr> actions = validateOracle(oracle, chain, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));
-  } else if (oracle_name == id::getOracleName()) {
+  } else if (oracle_name == id::GetOracleName()) {
     id oracle(proposal.data());
-    std::vector<TransactionPtr> actions = validateOracle(oracle, chain);
+    std::vector<TransactionPtr> actions = validateOracle(oracle, chain, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));
-  } else if (oracle_name == vote::getOracleName()) {
+  } else if (oracle_name == vote::GetOracleName()) {
     vote oracle(proposal.data());
-    std::vector<TransactionPtr> actions = validateOracle(oracle, chain);
+    std::vector<TransactionPtr> actions = validateOracle(oracle, chain, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));
   } else {
     LOG_ERROR << "Unknown oracle: " + oracle_name;
@@ -242,7 +243,7 @@ std::vector<TransactionPtr> DecomposeProposal(const Devv::proto::Proposal& propo
 }
 
 std::vector<TransactionPtr> DeserializeEnvelopeProtobufString(const std::string& pb_envelope, const KeyRing& keys) {
-  Devv::proto::Envelope envelope;
+  devv::proto::Envelope envelope;
   envelope.ParseFromString(pb_envelope);
 
   std::vector<TransactionPtr> ptrs;
@@ -256,7 +257,7 @@ std::vector<TransactionPtr> DeserializeEnvelopeProtobufString(const std::string&
   Blockchain chain("test-shard");
   auto pb_proposals = envelope.proposals();
   for (auto const& proposal : pb_proposals) {
-    std::vector<TransactionPtr> actions = DecomposeProposal(proposal, chain);
+    std::vector<TransactionPtr> actions = DecomposeProposal(proposal, chain, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin())
                           , std::make_move_iterator(actions.end()));
   }
@@ -266,7 +267,7 @@ std::vector<TransactionPtr> DeserializeEnvelopeProtobufString(const std::string&
 
 TransactionPtr DeserializeTxProtobufString(const std::string& pb_tx, const KeyRing& keys, bool do_sign = false) {
 
-  Devv::proto::Transaction tx;
+  devv::proto::Transaction tx;
   tx.ParseFromString(pb_tx);
 
   auto t2tx_ptr = CreateTransaction(tx, keys, do_sign);
@@ -274,12 +275,12 @@ TransactionPtr DeserializeTxProtobufString(const std::string& pb_tx, const KeyRi
   return t2tx_ptr;
 }
 
-Devv::proto::AnnouncerResponse SerializeAnnouncerResponse(const AnnouncerResponsePtr& response_ptr) {
-  Devv::proto::AnnouncerResponse response;
+devv::proto::AnnouncerResponse SerializeAnnouncerResponse(const AnnouncerResponsePtr& response_ptr) {
+  devv::proto::AnnouncerResponse response;
   response.set_return_code(response_ptr->return_code);
   response.set_message(response_ptr->message);
   for (auto const& pending_ptr : response_ptr->pending) {
-    Devv::proto::PendingTransaction* one_pending_tx = response.add_txs();
+    devv::proto::PendingTransaction* one_pending_tx = response.add_txs();
     std::string raw_sig(std::begin(pending_ptr->sig.getCanonical())
                       , std::end(pending_ptr->sig.getCanonical()));
     one_pending_tx->set_signature(raw_sig);
@@ -290,7 +291,7 @@ Devv::proto::AnnouncerResponse SerializeAnnouncerResponse(const AnnouncerRespons
 }
 
 RepeaterRequestPtr DeserializeRepeaterRequest(const std::string& pb_request) {
-  Devv::proto::RepeaterRequest incoming_request;
+  devv::proto::RepeaterRequest incoming_request;
   incoming_request.ParseFromString(pb_request);
 
   RepeaterRequest request;
@@ -300,8 +301,8 @@ RepeaterRequestPtr DeserializeRepeaterRequest(const std::string& pb_request) {
   return std::make_unique<RepeaterRequest>(request);
 }
 
-Devv::proto::RepeaterResponse SerializeRepeaterResponse(const RepeaterResponsePtr& response_ptr) {
-  Devv::proto::RepeaterResponse response;
+devv::proto::RepeaterResponse SerializeRepeaterResponse(const RepeaterResponsePtr& response_ptr) {
+  devv::proto::RepeaterResponse response;
   response.set_request_timestamp(response_ptr->request_timestamp);
   response.set_operation(response_ptr->operation);
   response.set_return_code(response_ptr->return_code);
@@ -312,14 +313,43 @@ Devv::proto::RepeaterResponse SerializeRepeaterResponse(const RepeaterResponsePt
   return response;
 }
 
-Devv::proto::Transaction SerializeTransaction(const Tier2Transaction& one_tx
-      , Devv::proto::Transaction& tx) {
-  tx.set_operation(static_cast<Devv::proto::eOpType>(one_tx.getOperation()));
+ServiceRequestPtr DeserializeServiceRequest(const std::string& pb_request) {
+  devv::proto::ServiceRequest incoming_request;
+  incoming_request.ParseFromString(pb_request);
+
+  ServiceRequest request;
+  request.timestamp = incoming_request.timestamp();
+  request.endpoint = incoming_request.endpoint();
+  auto pb_args = incoming_request.args();
+  for (auto const& one_arg : pb_args) {
+    std::pair<std::string, std::string> arg_pair(one_arg.key(), one_arg.value());
+    request.args.insert(arg_pair);
+  }
+  return std::make_unique<ServiceRequest>(request);
+}
+
+devv::proto::ServiceResponse SerializeServiceResponse(const ServiceResponsePtr& response_ptr) {
+  devv::proto::ServiceResponse response;
+  response.set_request_timestamp(response_ptr->request_timestamp);
+  response.set_endpoint(response_ptr->endpoint);
+  response.set_return_code(response_ptr->return_code);
+  response.set_message(response_ptr->message);
+  for (auto const& one_arg : response_ptr->args) {
+    devv::proto::KeyValuePair* pb_arg = response.add_args();
+    pb_arg->set_key(one_arg.first);
+    pb_arg->set_value(one_arg.second);
+  }
+  return response;
+}
+
+devv::proto::Transaction SerializeTransaction(const Tier2Transaction& one_tx
+      , devv::proto::Transaction& tx) {
+  tx.set_operation(static_cast<devv::proto::eOpType>(one_tx.getOperation()));
   std::vector<byte> nonce = one_tx.getNonce();
   std::string nonce_str(std::begin(nonce), std::end(nonce));
   tx.set_nonce(nonce_str);
   for (auto const& xfer : one_tx.getTransfers()) {
-    Devv::proto::Transfer* transfer = tx.add_xfers();
+    devv::proto::Transfer* transfer = tx.add_xfers();
     std::string addr(std::begin(xfer->getAddress().getCanonical())
                     ,std::end(xfer->getAddress().getCanonical()));
     transfer->set_address(addr);
@@ -334,8 +364,8 @@ Devv::proto::Transaction SerializeTransaction(const Tier2Transaction& one_tx
   return tx;
 }
 
-Devv::proto::FinalBlock SerializeFinalBlock(const FinalBlock& block) {
-  Devv::proto::FinalBlock final_block;
+devv::proto::FinalBlock SerializeFinalBlock(const FinalBlock& block) {
+  devv::proto::FinalBlock final_block;
   final_block.set_version(block.getVersion());
   final_block.set_num_bytes(block.getNumBytes());
   final_block.set_block_time(block.getBlockTime());
@@ -348,8 +378,8 @@ Devv::proto::FinalBlock SerializeFinalBlock(const FinalBlock& block) {
   final_block.set_val_count(block.getNumValidations());
   for (auto const& one_tx : block.getRawTransactions()) {
     InputBuffer buffer(one_tx);
-    Devv::proto::Transaction* tx = final_block.add_txs();
-    Devv::proto::Transaction pbuf_tx = SerializeTransaction(Tier2Transaction::QuickCreate(buffer), *tx);
+    devv::proto::Transaction* tx = final_block.add_txs();
+    devv::proto::Transaction pbuf_tx = SerializeTransaction(Tier2Transaction::QuickCreate(buffer), *tx);
   }
   std::vector<byte> summary(block.getSummary().getCanonical());
   std::string summary_str(std::begin(summary), std::end(summary));
@@ -360,17 +390,17 @@ Devv::proto::FinalBlock SerializeFinalBlock(const FinalBlock& block) {
   return final_block;
 }
 
-Devv::proto::Envelope SerializeEnvelopeFromBinaryTransactions(const std::vector<std::vector<byte>>& txs) {
-  Devv::proto::Envelope envelope;
+devv::proto::Envelope SerializeEnvelopeFromBinaryTransactions(const std::vector<std::vector<byte>>& txs) {
+  devv::proto::Envelope envelope;
   for (auto const& one_tx : txs) {
     InputBuffer buffer(one_tx);
-    Devv::proto::Transaction* tx = envelope.add_txs();
-    Devv::proto::Transaction pbuf_tx = SerializeTransaction(Tier2Transaction::QuickCreate(buffer), *tx);
+    devv::proto::Transaction* tx = envelope.add_txs();
+    devv::proto::Transaction pbuf_tx = SerializeTransaction(Tier2Transaction::QuickCreate(buffer), *tx);
   }
 
   return envelope;
 }
 
-} // namespace Devcash
+} // namespace Devv
 
-#endif //DEVCASH_DEVV_PBUF_H
+#endif //DEVV_PBUF_H

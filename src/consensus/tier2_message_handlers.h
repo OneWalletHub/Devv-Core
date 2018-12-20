@@ -1,24 +1,16 @@
-/**
- * Copyright (C) 2018 Devvio, Inc - All Rights Reserved
- * You may use, distribute and modify this code under the
- * terms of the MIT license, which unfortunately won't be
- * written for another century.
+/*
+ * tier2_message_handlers.h structure consensus logic for Tier2 validators.
  *
- * You should have received a copy of the MIT license with
- * this file. If not, please visit http://www.devv.io
- *
- *   Created on: Jun 1, 2018
- *       Author: Nick Williams <nick@cloudsolar.co>
- *       Author: Shawn McKenney <shawn.mckenney@emmion.com>
-**/
-#include "types/DevcashMessage.h"
-#include "common/devcash_context.h"
+ * @copywrite  2018 Devvio Inc
+ */
+#include "types/DevvMessage.h"
+#include "common/devv_context.h"
 #include "common/logger.h"
 #include "common/util.h"
 #include "consensus/blockchain.h"
 #include "consensus/UnrecordedTransactionPool.h"
 
-namespace Devcash {
+namespace Devv {
 
 /**
  * Creates a proposal from the UnrecordedTransactionPool
@@ -31,27 +23,27 @@ namespace Devcash {
 std::vector<byte> CreateNextProposal(const KeyRing& keys,
                                            Blockchain& final_chain,
                                            UnrecordedTransactionPool& utx_pool,
-                                           const DevcashContext& context);
+                                           const DevvContext& context);
 /**
- * Registered with DevcashController and called when a eMessageType::FINAL_BLOCK
+ * Registered with DevvController and called when a eMessageType::FINAL_BLOCK
  * message arrives.
- * @param[in] ptr Pointer to incoming DevcashMessage
- * @param[in] context DevcashContext
+ * @param[in] ptr Pointer to incoming DevvMessage
+ * @param[in] context DevvContext
  * @param[in] keys KeyRing keys
  * @param[in, out] final_chain The Blockchain to be updated with the incoming FINAL_BLOCK
  * @param[in, out] utx_pool
  * @param[in] callback Completion callback
  * @return
  */
-bool HandleFinalBlock(DevcashMessageUniquePtr ptr,
-                      const DevcashContext& context,
+bool HandleFinalBlock(DevvMessageUniquePtr ptr,
+                      const DevvContext& context,
                       const KeyRing& keys,
                       Blockchain& final_chain,
                       UnrecordedTransactionPool& utx_pool,
-                      std::function<void(DevcashMessageUniquePtr)> callback);
+                      std::function<void(DevvMessageUniquePtr)> callback);
 
 /**
- * Registered with DevcashController and called when a eMessageType::PROPOSAL_BLOCK message
+ * Registered with DevvController and called when a eMessageType::PROPOSAL_BLOCK message
  * arrives.
  * @param[in] ptr
  * @param[in] context
@@ -61,12 +53,12 @@ bool HandleFinalBlock(DevcashMessageUniquePtr ptr,
  * @param[in] callback
  * @return
  */
-bool HandleProposalBlock(DevcashMessageUniquePtr ptr,
-                         const DevcashContext& context,
+bool HandleProposalBlock(DevvMessageUniquePtr ptr,
+                         const DevvContext& context,
                          const KeyRing& keys,
-                         Blockchain& final_chain,
-                         TransactionCreationManager& tcm,
-                         std::function<void(DevcashMessageUniquePtr)> callback);
+                         const Blockchain& final_chain,
+                         UnrecordedTransactionPool& utx_pool,
+                         std::function<void(DevvMessageUniquePtr)> callback);
 
 /**
  *
@@ -77,11 +69,11 @@ bool HandleProposalBlock(DevcashMessageUniquePtr ptr,
  * @param callback
  * @return
  */
-bool HandleValidationBlock(DevcashMessageUniquePtr ptr,
-                           const DevcashContext& context,
+bool HandleValidationBlock(DevvMessageUniquePtr ptr,
+                           const DevvContext& context,
                            Blockchain& final_chain,
                            UnrecordedTransactionPool& utx_pool,
-                           std::function<void(DevcashMessageUniquePtr)> callback);
+                           std::function<void(DevvMessageUniquePtr)> callback);
 
 /**
  *
@@ -92,9 +84,9 @@ bool HandleValidationBlock(DevcashMessageUniquePtr ptr,
  * @param remote_blocks
  * @return
  */
-bool HandleBlocksSince(DevcashMessageUniquePtr ptr,
+bool HandleBlocksSince(DevvMessageUniquePtr ptr,
                        Blockchain& final_chain,
-                       DevcashContext context,
+                       DevvContext context,
                        const KeyRing& keys,
                        const UnrecordedTransactionPool&,
                        uint64_t& remote_blocks);
@@ -108,9 +100,24 @@ bool HandleBlocksSince(DevcashMessageUniquePtr ptr,
  * @param callback
  * @return
  */
-bool HandleBlocksSinceRequest(DevcashMessageUniquePtr ptr,
+bool HandleBlocksSinceRequest(DevvMessageUniquePtr ptr,
                               Blockchain& final_chain,
-                              const DevcashContext& context,
+                              const DevvContext& context,
                               const KeyRing& keys,
-                              std::function<void(DevcashMessageUniquePtr)> callback);
-}  // namespace Devcash
+                              std::function<void(DevvMessageUniquePtr)> callback);
+
+/**
+ * Creates a proposal from the UnrecordedTransactionPool
+ * @param[in] keys
+ * @param[in, out] final_chain
+ * @param[in, out] utx_pool
+ * @param[in] context
+ * @return
+ */
+void CreateAndSendNextProposal(const KeyRing& keys,
+                               Blockchain& final_chain,
+                               UnrecordedTransactionPool& utx_pool,
+                               const DevvContext& context,
+                               DevvMessageCallback callback);
+
+}  // namespace Devv

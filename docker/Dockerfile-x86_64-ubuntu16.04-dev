@@ -1,0 +1,133 @@
+FROM ubuntu:16.04
+ARG java_support
+
+# System packages
+RUN apt-get update && apt-get install -y \
+    aptitude \
+    autoconf \
+    autoconf-archive \
+    automake \
+    bash-completion \
+    binutils-dev \
+    bison \
+    clang \
+    clang-format \
+    cmake \
+    cmake-curses-gui \
+    cmake-extras \
+    emacs \
+    extra-cmake-modules \
+    flex \
+    g++ \
+    gdb \
+    git \
+    htop \
+    libboost-all-dev \
+    libdouble-conversion-dev \
+    libevent-dev \
+    libiberty-dev \
+    libjemalloc-dev \
+    libkrb5-dev \
+    liblz4-dev \
+    liblzma-dev \
+    libnuma-dev \
+    libsasl2-dev \
+    libsnappy-dev \
+    libssl-dev \
+    libssl1.0.0-dbg \
+    libtool \
+    lldb \
+    make \
+    pkg-config \
+    scons \
+    unzip \
+    valgrind \
+    wget \
+    zip \
+    zlib1g-dev
+
+# Python3 and virtualenv
+RUN apt-get install -y \
+    python3 \
+    python3-pip \
+    libpng-dev \
+    libpng++-dev \
+    python3-crypto-dbg \
+    python-crypto-doc \
+    python-cryptography-doc \
+    python3-cryptography-vectors \
+    python-dbus-doc \
+    python3-dbus-dbg \
+    python-secretstorage-doc \
+    python-setuptools-doc
+
+# ZeroMQ and protobuf
+RUN apt-get install -y \
+    libzmqpp-dev \
+    libzmq5-dbg \
+    libsodium-dev \
+    libsodium-dbg \
+    python-yaml \
+    python3-yaml \
+    python-zmq \
+    python3-zmq
+
+# Database deps
+RUN apt-get install -y \
+    libpqxx-dev
+
+RUN apt-get install -y \
+    software-properties-common
+
+# matplotlib numpy
+RUN apt-get install -y \
+    libfreetype6-dev \
+    libjpeg-dev \
+    libopenblas-dev
+
+# Utilities
+RUN apt-get install -y \
+    iputils-ping \
+    netcat \
+    net-tools \
+    sudo \
+    supervisor \
+    telnet
+
+# Java deps
+RUN if [ "x$java_support" != "x" ] ; then apt-get install -y maven openjdk-8-jdk; fi
+
+# Cleanup
+RUN apt-get clean autoclean
+
+RUN groupadd --gid 1002 dcrunner
+RUN useradd -d /opt/dcrunner --uid 1002 -m --gid 1002 dcrunner
+COPY bashrc /opt/dcrunner/.bashrc
+RUN echo "dcrunner ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+# Python3 virtualenvwrapper
+RUN pip3 install --upgrade pip setuptools
+RUN pip3 install virtualenvwrapper --ignore-installed six
+
+# Use dcrunner account to install virtualenv
+USER dcrunner
+COPY install_virtualenvwrapper.sh /tmp/
+RUN /bin/bash -c "/tmp/install_virtualenvwrapper.sh"
+
+# Install protobuf3
+COPY install_protobuf_v3.sh /tmp/
+RUN /bin/bash -c "/tmp/install_protobuf_v3.sh"
+
+COPY install_googletest.sh /tmp/install_googletest.sh
+RUN /tmp/install_googletest.sh
+
+COPY setup_virtualenv.sh /opt/dcrunner
+
+WORKDIR /opt/dcrunner
+
+# Back to user root
+USER root
+
+# https://denibertovic.com/posts/handling-permissions-with-docker-volumes/
+COPY entrypoint.sh /tmp/entrypoint.sh
+ENTRYPOINT ["/tmp/entrypoint.sh"]

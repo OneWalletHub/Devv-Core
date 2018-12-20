@@ -1,8 +1,7 @@
 /*
- * message_service.cpp - implements messaging
+ * message_service.cpp Sends and receives Devv messages using ZMQ.
  *
- *  Created on: Mar 3, 2018
- *  Author: Shawn McKenney
+ * @copywrite  2018 Devvio Inc
  */
 #include <io/message_service.h>
 
@@ -10,13 +9,13 @@
 
 #include <io/constants.h>
 
-namespace Devcash {
+namespace Devv {
 namespace io {
 
 TransactionServer::TransactionServer(zmq::context_t& context, const std::string& bind_url)
     : bind_url_(bind_url), context_(context) {}
 
-void TransactionServer::sendMessage(DevcashMessageUniquePtr dc_message) noexcept {
+void TransactionServer::sendMessage(DevvMessageUniquePtr dc_message) noexcept {
   if (!keep_running_) {
     LOG_WARNING << "sendMessage(): Won't send message: !keep_running!";
     return;
@@ -30,7 +29,7 @@ void TransactionServer::sendMessage(DevcashMessageUniquePtr dc_message) noexcept
   s_send(*pub_socket_, buffer);
 }
 
-void TransactionServer::queueMessage(DevcashMessageUniquePtr message) noexcept {
+void TransactionServer::queueMessage(DevvMessageUniquePtr message) noexcept {
   LOG_DEBUG << "queueMessage(): Queue: [" << message->index << ", " << GetMessageType(*message) << ", " << message->uri
             << "]";
   message_queue_.push(std::move(message));
@@ -77,7 +76,7 @@ void TransactionServer::run() noexcept {
 
 /**
  * Communication class. Register a callback using the registerCallback() method
- * and connect to one or more TransactionServers to receive DevcashMessages
+ * and connect to one or more TransactionServers to receive DevvMessages
  */
 TransactionClient::TransactionClient(zmq::context_t& context)
     : peer_urls_(), context_(context), sub_socket_(nullptr), callback_() {}
@@ -95,14 +94,14 @@ void TransactionClient::processIncomingMessage() noexcept {
   auto mess = s_vrecv(*sub_socket_);
   if (mess.size() == 0) { return; }
 
-  auto devcash_message = deserialize(mess);
-  LOG_DEBUG << "processIncomingMessage(): Received [" << devcash_message->index << ", "
-            << GetMessageType(*devcash_message) << ", " << devcash_message->uri << "]";
+  auto devv_message = deserialize(mess);
+  LOG_DEBUG << "processIncomingMessage(): Received [" << devv_message->index << ", "
+            << GetMessageType(*devv_message) << ", " << devv_message->uri << "]";
   MTR_INSTANT_FUNC();
 
-  LogDevcashMessageSummary(*devcash_message, "processIncomingMessage");
+  LogDevvMessageSummary(*devv_message, "processIncomingMessage");
 
-  callback_(std::move(devcash_message));
+  callback_(std::move(devv_message));
 }
 
 void TransactionClient::run() {
@@ -155,7 +154,7 @@ void TransactionClient::stopClient() {
 
 void TransactionClient::listenTo(const std::string& filter) { filter_vector_.push_back(filter); }
 
-void TransactionClient::attachCallback(DevcashMessageCallback callback) { callback_ = callback; }
+void TransactionClient::attachCallback(DevvMessageCallback callback) { callback_ = callback; }
 
 std::unique_ptr<io::TransactionClient> CreateTransactionClient(const std::vector<std::string>& host_vector,
                                                                zmq::context_t& context) {
@@ -174,4 +173,4 @@ std::unique_ptr<io::TransactionServer> CreateTransactionServer(const std::string
 }
 
 }  // namespace io
-}  // namespace Devcash
+}  // namespace Devv

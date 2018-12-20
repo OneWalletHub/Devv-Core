@@ -1,18 +1,16 @@
 /*
  * FinalBlock.h
+ * Defines the structure of a Devv final block.
  *
- *  Created on: Apr 21, 2018
- *      Author: Nick Williams
+ * @copywrite  2018 Devvio Inc
  */
 #ifndef PRIMITIVES_FINALBLOCK_H_
 #define PRIMITIVES_FINALBLOCK_H_
 
-#include "common/devcash_exceptions.h"
+#include "common/devv_exceptions.h"
 #include "primitives/ProposedBlock.h"
 
-using namespace Devcash;
-
-namespace Devcash {
+namespace Devv {
 
 /**
  * Contains a finalized blockchain block
@@ -36,7 +34,7 @@ class FinalBlock {
         summary_(Summary::Copy(proposed.getSummary())),
         vals_(proposed.getValidation()),
         block_state_(proposed.getBlockState()) {
-    merkle_root_ = DevcashHash(getBlockDigest());
+    merkle_root_ = DevvHash(getBlockDigest());
     std::vector<byte> merkle(std::begin(merkle_root_), std::end(merkle_root_));
     LOG_INFO << "Merkle: " + ToHex(merkle);
   }
@@ -75,6 +73,12 @@ class FinalBlock {
 
     tcm.set_keys(&keys);
     raw_transactions_ = tcm.CreateTransactions(buffer, transaction_vector_, MinSize(), tx_size_);
+
+    for (auto& tx : transaction_vector_) {
+      auto summary = Summary::Create();
+      tx->isValid(block_state_, keys, summary);
+      LOG_DEBUG << "FINALBLOCK VERIFIED blk("<<block_state_.size()<<"): " << tx->getSignature().getJSON();
+    }
 
     summary_ = Summary::Create(buffer);
     vals_ = Validation::Create(buffer);
@@ -122,6 +126,10 @@ class FinalBlock {
         Tier2TransactionPtr one_tx = Tier2Transaction::CreateUniquePtr(buffer, keys);
         raw_transactions_.push_back(one_tx->getCanonical());
         transaction_vector_.push_back(std::move(one_tx));
+        for (auto& tx : transaction_vector_) {
+          auto summary = Summary::Create();
+          tx->isValid(block_state_, keys, summary);
+        }
       } else {
         throw std::runtime_error("Unsupported mode: "+std::to_string(mode));
       }
@@ -396,7 +404,9 @@ class FinalBlock {
 };
 
 typedef std::shared_ptr<FinalBlock> FinalPtr;
+typedef std::shared_ptr<const FinalBlock> FinalBlockSharedPtr;
+typedef std::shared_ptr<const FinalBlock> ConstFinalBlockSharedPtr;
 
-}  // end namespace Devcash
+}  // end namespace Devv
 
 #endif /* PRIMITIVES_FINALBLOCK_H_ */

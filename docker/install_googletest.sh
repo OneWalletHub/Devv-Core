@@ -15,5 +15,5 @@ cmake ..
 make
 sudo make install
 cd ..
-mv googletest /usr/src/
-mv googlemock /usr/src/gmock
+sudo mv googletest /usr/src/
+sudo mv googlemock /usr/src/gmock

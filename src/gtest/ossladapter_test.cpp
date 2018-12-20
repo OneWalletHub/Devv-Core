@@ -1,8 +1,7 @@
 /*
- * ossladapter_test.cpp
+ * ossladapter_test.cpp tests the Devv OpenSSL adapter.
  *
- *  Created on: 7/20/18
- *      Author: mckenney
+ * @copywrite  2018 Devvio Inc
  */
 
 #include "gtest/gtest.h"
@@ -11,7 +10,7 @@
 
 namespace {
 
-using namespace Devcash;
+using namespace Devv;
 
 #define TEST_DESCRIPTION(desc) RecordProperty("OpenSSL interface unit tests", desc)
 

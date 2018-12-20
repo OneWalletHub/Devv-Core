@@ -1,14 +1,7 @@
 /*
  * Summary.h
  *
- * Serial form is Address count (uint64_t),...
- * [Address count times]:
- *   Address,delayed coin count (uint64_t), coin count (uint64_t)...
- *     coin, delay, delta [delayed coin count times]
- *     coin, delta [coin count times]
- *
- *  Created on: Apr 18, 2018
- *      Author: Nick Williams
+ * @copywrite  2018 Devvio Inc
  */
 
 #ifndef PRIMITIVES_SUMMARY_H_
@@ -22,7 +15,7 @@
 #include "primitives/buffers.h"
 #include "Transfer.h"
 
-namespace Devcash {
+namespace Devv {
 
 /**
  * Holds the change and delay of a coin
@@ -58,18 +51,7 @@ typedef std::map<Address, SummaryPair> SummaryMap;
  * @param[in,out] existing
  * @return
  */
-inline bool AddToDelayedMap(uint64_t coin, const DelayedItem &item, DelayedMap &existing) {
-  if (existing.count(coin) > 0) {
-    DelayedItem the_item = existing.at(coin);
-    the_item.delta += item.delta;
-    the_item.delay = std::max(the_item.delay, item.delay);
-    existing.at(coin) = the_item;
-  } else {
-    std::pair<uint64_t, DelayedItem> one_item(coin, item);
-    existing.insert(one_item);
-  }
-  return true;
-}
+bool AddToDelayedMap(uint64_t coin, const DelayedItem &item, DelayedMap &existing);
 
 /**
  * Add a coin to the existing map
@@ -377,6 +359,6 @@ inline Summary Summary::Copy(const Summary& summary) {
   return new_summary;
 }
 
-}  // end namespace Devcash
+}  // end namespace Devv
 
 #endif /* PRIMITIVES_SUMMARY_H_ */

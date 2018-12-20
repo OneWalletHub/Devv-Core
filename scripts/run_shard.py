@@ -1,5 +1,5 @@
-#!/usr/bin/python3
-'''
+#!/usr/bin/env python
+"""
 Usage:
   ./run_shard.py config_file output_dir
 Example:
@@ -8,7 +8,10 @@ Example:
 Creates an X node shard on localhost. Each node will read the config file for
 default options. The nodes will be connected to each other and each will also
 open a connection to an announcer at "tcp://localhost:(announcer_base_port + node_num).
-'''
+"""
+
+__copyright__ = "Copyright 2018, Devvio Inc"
+__email__ = "security@devv.io"
 
 import sys
 import os

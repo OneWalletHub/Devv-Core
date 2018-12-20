@@ -1,3 +1,11 @@
+/*
+ * transaction_client.cpp - implements a client for connectivity tests
+ * between T2 and T1 shards.
+ *
+ *
+ * @copywrite  2018 Devvio Inc
+ */
+
 #include <string>
 #include <vector>
 
@@ -8,9 +16,9 @@
 
 #include "transaction_test_struct.h"
 
-void print_devcash_message(Devcash::DevcashMessageUniquePtr message) {
+void print_devv_message(Devv::DevvMessageUniquePtr message) {
   LOG(info) << "Got a message!";
-  LogDevcashMessageSummary(*message, "transaction_client");
+  LogDevvMessageSummary(*message, "transaction_client");
 
   test_struct test;
   message->GetData(test);
@@ -40,9 +48,9 @@ int main(int argc, char** argv) {
   zmq::context_t context(1);
 
   // start ZmqClient
-  Devcash::io::TransactionClient client{context};
+  Devv::io::TransactionClient client{context};
   client.addConnection(endpoint);
-  client.attachCallback(print_devcash_message);
+  client.attachCallback(print_devv_message);
 
   client.listenTo(filter);
 

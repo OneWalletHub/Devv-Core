@@ -4,7 +4,20 @@
 #include "Summary.h"
 #include "primitives/json_interface.h"
 
-namespace Devcash {
+namespace Devv {
+
+bool AddToDelayedMap(uint64_t coin, const DelayedItem& item, DelayedMap& existing) {
+  if (existing.count(coin) > 0) {
+    DelayedItem the_item = existing.at(coin);
+    the_item.delta += item.delta;
+    the_item.delay = std::max(the_item.delay, item.delay);
+    existing.at(coin) = the_item;
+  } else {
+    std::pair<uint64_t, DelayedItem> one_item(coin, item);
+    existing.insert(one_item);
+  }
+  return true;
+}
 
 bool Summary::isSane() const {
   if (summary_.empty()) { return false; }

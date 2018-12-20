@@ -1,14 +1,14 @@
 /*
- * primitives/block_tools.h
+ * primitives/block_tools.h defines tools for
+ * utilizing blocks
  *
- *  Created on: July 2, 2018
- *      Author: Shawn McKenney
+ * @copywrite  2018 Devvio Inc
  */
 #pragma once
 
 #include "primitives/FinalBlock.h"
 
-namespace Devcash {
+namespace Devv {
 
 /** Checks if binary is encoding a block
  * @note this function is pretty heuristic, do not use in critical cases
@@ -56,4 +56,4 @@ Tier1TransactionPtr CreateTier1Transaction(const FinalBlock& block, const KeyRin
  */
 Signature SignSummary(const Summary& summary, const KeyRing& keys);
 
-} // namespace Devcash
+} // namespace Devv

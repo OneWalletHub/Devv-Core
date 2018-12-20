@@ -1,16 +1,16 @@
 /*
- * FinalBlock.h
+ * factories.h provides methods to generate Transactions
+ * and/or other primitize Devv types.
  *
- *  Created on: Jun 20, 2018
- *      Author: Shawn McKenney
+ * @copywrite  2018 Devvio Inc
  */
 #pragma once
 
 #include "primitives/Tier1Transaction.h"
 #include "primitives/Tier2Transaction.h"
-#include "common/devcash_exceptions.h"
+#include "common/devv_exceptions.h"
 
-namespace Devcash {
+namespace Devv {
 
 static std::unique_ptr<Transaction> CreateTransaction(InputBuffer& buffer,
                                                const KeyRing& keys,
@@ -27,4 +27,4 @@ static std::unique_ptr<Transaction> CreateTransaction(InputBuffer& buffer,
   }
 }
 
-} // namespace Devcash
+} // namespace Devv

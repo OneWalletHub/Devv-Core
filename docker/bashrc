@@ -118,8 +118,7 @@ blue=$(tput setaf 4)
 reset=$(tput sgr0)
 PS1='\[$red\]\u\[$reset\]@\[$green\]\h\[$reset\]:\[$blue\]\w\[$reset\]\$ '
 
+source ${HOME}/setup_virtualenv.sh
+export PATH=${HOME}/local/bin:${PATH}
 
-export WORKON_HOME=/home/dcrunner/py_virtual_env
-export VIRTUALENVWRAPPER_PYTHON=`which python3`
-source /usr/local/bin/virtualenvwrapper.sh
 workon dc-dev

@@ -1,8 +1,8 @@
 /*
  * ProposedBlock.h
+ * Defines the strcuture of a proposed block, prior to consensus.
  *
- *  Created on: Apr 20, 2018
- *      Author: Nick Williams
+ * @copywrite  2018 Devvio Inc
  */
 #ifndef PRIMITIVES_PROPOSEDBLOCK_H_
 #define PRIMITIVES_PROPOSEDBLOCK_H_
@@ -17,7 +17,7 @@
 
 #include "concurrency/TransactionCreationManager.h"
 
-namespace Devcash {
+namespace Devv {
 
 /**
  * Perform a deep copy of the vector of Transaction unique_ptrs
@@ -83,6 +83,7 @@ class ProposedBlock {
       , val_count_(other.val_count_)
       , transaction_vector_(std::move(other.transaction_vector_))
       , summary_(Summary::Copy(other.summary_))
+      , proposal_hash_(other.proposal_hash_)
       , vals_(other.vals_)
       , block_state_(other.block_state_) {}
 
@@ -98,7 +99,8 @@ class ProposedBlock {
                 std::vector<TransactionPtr>& txs,
                 const Summary& summary,
                 const Validation& validations,
-                const ChainState& prior_state)
+                const ChainState& prior_state,
+                const KeyRing& keys)
       : num_bytes_(0)
       , prev_hash_(prev_hash)
       , tx_size_(0)
@@ -109,9 +111,18 @@ class ProposedBlock {
       , vals_(validations)
       , block_state_(prior_state) {
     MTR_SCOPE_FUNC();
+	std::map<Address, SmartCoin> aggregate;
     for (auto const& item : transaction_vector_) {
       tx_size_ += item->getByteSize();
+      if (!item->isValidInAggregate(block_state_, keys, summary_, aggregate, prior_state)) {
+        LOG_ERROR << "Invalid Proposal generated!";
+	  }
     }
+    sum_size_ = summary_.getByteSize();
+
+    std::vector<byte> proposal_unique = summary_.getCanonical();
+    proposal_unique.insert(std::begin(proposal_unique), std::begin(prev_hash_), std::end(prev_hash_));
+    proposal_hash_ = DevvHash(proposal_unique);
 
     num_bytes_ = MinSize() + tx_size_ + sum_size_ + val_count_ * vals_.pairSize();
   }
@@ -188,13 +199,12 @@ class ProposedBlock {
    * @return true iff the block was signed.
    * @return false otherwise
    */
-  bool signBlock(const KeyRing &keys, const DevcashContext& context) {
+  bool signBlock(const KeyRing &keys, size_t node_num) {
     MTR_SCOPE_FUNC();
     std::vector<byte> md = summary_.getCanonical();
     /// @todo (mckenney) need another solution for node_num with dynamic shards
-    size_t node_num = context.get_current_node() % context.get_peer_count();
     Address node_addr = keys.getNodeAddr(node_num);
-    Signature node_sig = SignBinary(keys.getNodeKey(node_num), DevcashHash(md));
+    Signature node_sig = SignBinary(keys.getNodeKey(node_num), DevvHash(md));
     vals_.addValidation(node_addr, node_sig);
     val_count_++;
     num_bytes_ = MinSize() + tx_size_ + sum_size_ + (val_count_ * Validation::pairSize());
@@ -208,15 +218,18 @@ class ProposedBlock {
    * @return true iff this block has enough validations to finalize
    * @return false otherwise
    */
-  bool checkValidationData(InputBuffer& buffer, const DevcashContext& context) {
+  bool checkValidationData(InputBuffer& buffer, const DevvContext& context) {
     MTR_SCOPE_FUNC();
     if (buffer.size() < MinValidationSize()) {
-      LOG_WARNING << "Invalid validation data, too small!";
-      return false;
+      std::ostringstream err;
+      err << "Invalid validation data, too small: buffer("
+             << buffer.size() << ") < min_size(" << MinValidationSize() << ")";
+      LOG_ERROR << err.str();
+      throw std::runtime_error(err.str());
     }
     Hash incoming_hash;
     buffer.copy(incoming_hash);
-    if (incoming_hash == prev_hash_) {  // validations are for this proposal
+    if (incoming_hash == proposal_hash_) {  // validations are for this proposal
       Validation val_temp(Validation::Create(buffer));
       vals_.addValidation(val_temp);
       val_count_ = vals_.getValidationCount();
@@ -227,7 +240,7 @@ class ProposedBlock {
     } else {
       std::stringstream out;
       out << "Invalid validation data, hash does not match this proposal - "
-             << "incoming: " << ToHex(incoming_hash, 8) << " prev: " << ToHex(prev_hash_, 8);
+             << "incoming: " << ToHex(incoming_hash, 8) << " prev: " << ToHex(proposal_hash_, 8);
       LOG_INFO << out.str();
       /// @todo(mckenney) Up the stack, we need to check that this incoming_hash has already
       /// been added to the chain, or this is a bigger problem
@@ -285,6 +298,16 @@ class ProposedBlock {
     return out;
   }
 
+  const std::vector<Signature> copyTransactionSignatures() const {
+    std::vector<Signature> out;
+    for (auto const& item : transaction_vector_) {
+      Signature tx_sig(item->getSignature());
+      out.push_back(tx_sig);
+    }
+    return out;
+  }
+
+
   /**
    *
    * @return
@@ -304,7 +327,7 @@ class ProposedBlock {
   std::vector<byte> getValidationData() {
     MTR_SCOPE_FUNC();
     std::vector<byte> out;
-    out.insert(out.end(), prev_hash_.begin(), prev_hash_.end());
+    out.insert(out.end(), proposal_hash_.begin(), proposal_hash_.end());
     const std::vector<byte> val_canon(vals_.getCanonical());
     out.insert(out.end(), val_canon.begin(), val_canon.end());
     return out;
@@ -323,6 +346,12 @@ class ProposedBlock {
   const ChainState& getBlockState() const { return block_state_; }
 
   /**
+   *
+   * @return
+   */
+  ChainState& getBlockState() { return block_state_; }
+
+  /**
    * Performs a shallow copy. Moves the transactions from the other ProposedBlock
    * to this block.
    * @param other the ProposedBlock from which to move transactions from
@@ -337,6 +366,7 @@ class ProposedBlock {
     val_count_ = other.val_count_;
     transaction_vector_ = std::move(other.transaction_vector_);
     summary_ = std::move(other.summary_);
+    proposal_hash_ = other.proposal_hash_;
     vals_ = other.vals_;
     block_state_ = other.block_state_;
     return *this;
@@ -395,6 +425,8 @@ class ProposedBlock {
   std::vector<TransactionPtr> transaction_vector_;
   /// Summary
   Summary summary_ = Summary::Create();
+  /// unique Hash(prev_hash_ + Summary in canonical form)
+  Hash proposal_hash_ = {};
   /// Validation
   Validation vals_ = Validation::Create();
   /// ChainState
@@ -403,6 +435,7 @@ class ProposedBlock {
 
 
 inline ProposedBlock ProposedBlock::Create(const ChainState& prior) {
+  LOG_DEBUG << "ProposedBlock::Create(): prior.size(): " << prior.size();
   ProposedBlock new_block(prior);
   return new_block;
 }
@@ -414,6 +447,8 @@ inline ProposedBlock ProposedBlock::Create(InputBuffer &buffer,
   MTR_SCOPE_FUNC();
   ProposedBlock new_block(prior);
 
+  // FIXME(spm): Debugging number for profiling
+  // Still shouldn't be a magic number
   int proposed_block_int = 123;
   MTR_START("proposed_block", "proposed_block", &proposed_block_int);
 
@@ -444,12 +479,16 @@ inline ProposedBlock ProposedBlock::Create(InputBuffer &buffer,
   new_block.tx_size_ = buffer.getNextUint64();
   new_block.sum_size_ = buffer.getNextUint64();
   new_block.val_count_ = buffer.getNextUint32();
+
   MTR_STEP("proposed_block", "construct", &proposed_block_int, "transaction list");
   tcm.set_keys(&keys);
   tcm.CreateTransactions(buffer, new_block.transaction_vector_, MinSize(), new_block.tx_size_);
 
   MTR_STEP("proposed_block", "construct", &proposed_block_int, "step3");
   new_block.summary_ = Summary::Create(buffer);
+  std::vector<byte> proposal_unique = new_block.summary_.getCanonical();
+  proposal_unique.insert(std::begin(proposal_unique), std::begin(new_block.prev_hash_), std::end(new_block.prev_hash_));
+  new_block.proposal_hash_ = DevvHash(proposal_unique);
 
   MTR_STEP("proposed_block", "construct", &proposed_block_int, "step4");
   Validation val_temp(Validation::Create(buffer));
@@ -462,6 +501,6 @@ inline ProposedBlock ProposedBlock::Create(InputBuffer &buffer,
 typedef std::unique_ptr<ProposedBlock> ProposedBlockPtr;
 typedef std::shared_ptr<ProposedBlock> ProposedBlockSharedPtr;
 
-}  // end namespace Devcash
+}  // end namespace Devv
 
 #endif /* PRIMITIVES_PROPOSEDBLOCK_H_ */

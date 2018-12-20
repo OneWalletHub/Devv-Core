@@ -1,8 +1,7 @@
 /*
  * chainstate.h holds the state of the chain for each validating fork
  *
- *  Created on: Jan 12, 2018
- *  Author: Nick Williams
+ * @copywrite  2018 Devvio Inc
  */
 
 #ifndef SRC_CONSENSUS_STATESTUB_H_
@@ -13,7 +12,7 @@
 
 #include "primitives/SmartCoin.h"
 
-namespace Devcash
+namespace Devv
 {
 
 class ChainState {
@@ -34,6 +33,8 @@ public:
    * @param other
    */
   ChainState(ChainState&& other) noexcept = default;
+
+  static ChainState Copy(const ChainState& state);
 
   ChainState& operator=(const ChainState&& other)
   {
@@ -63,19 +64,33 @@ public:
  *  @param the address to check
  *  @return the number of this type of coins at this address
 */
-  long getAmount(uint64_t type, const Address& addr) const;
+  int64_t getAmount(uint64_t type, const Address& addr) const;
 
 /** Get the map describing this chain state
- *  @return tre map describing this chain state
+ *  @return the map describing this chain state
 */
-  std::map<Address, std::map<uint64_t, int64_t>> getStateMap() {
+  const std::map<Address, std::map<uint64_t, int64_t>>& getStateMap() const {
     return state_map_;
+  }
+
+  std::map<Address, std::map<uint64_t, int64_t>>& getStateMap() {
+    return state_map_;
+  }
+
+  size_t size() const {
+    return state_map_.size();
   }
 
 private:
  std::map<Address, std::map<uint64_t, int64_t>> state_map_;
+
 };
 
-} //namespace Devcash
+inline ChainState ChainState::Copy(const ChainState& state) {
+  ChainState new_state(state);
+  return new_state;
+}
+
+} //namespace Devv
 
 #endif /* SRC_CONSENSUS_STATESTUB_H_ */

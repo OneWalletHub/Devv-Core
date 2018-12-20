@@ -1,3 +1,9 @@
+/*
+ * argument-parser.h parses arguments for a Devv core validator.
+ *
+ * @copywrite  2018 Devvio Inc
+ */
+
 #pragma once
 
 #ifndef COMMON_ARGUMENT_PARSER_H_
@@ -13,10 +19,10 @@
 
 #include <boost/program_options.hpp>
 
-#include "devcash_context.h"
+#include "devv_context.h"
 #include "common/logger.h"
 
-namespace Devcash {
+namespace Devv {
 
 template <typename T>
 void RemoveDuplicates(std::vector<T>& vec)
@@ -25,7 +31,7 @@ void RemoveDuplicates(std::vector<T>& vec)
   vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
 }
 
-struct devcash_options {
+struct devv_options {
   std::string bind_endpoint;
   std::vector<std::string> host_vector{};
   eAppMode mode = T1;
@@ -46,11 +52,11 @@ struct devcash_options {
   eDebugMode debug_mode = off;
 };
 
-inline std::unique_ptr<struct devcash_options> ParseDevcashOptions(int argc, char** argv) {
+inline std::unique_ptr<struct devv_options> ParseDevvOptions(int argc, char** argv) {
 
   namespace po = boost::program_options;
 
-  std::unique_ptr<devcash_options> options(new devcash_options());
+  std::unique_ptr<devv_options> options(new devv_options());
   std::vector<std::string> config_filenames;
 
   try {
@@ -63,7 +69,7 @@ inline std::unique_ptr<struct devcash_options> ParseDevcashOptions(int argc, cha
 
     po::options_description behavior("Identity and Behavior Options");
     behavior.add_options()
-        ("mode", po::value<std::string>(), "Devcash mode (T1|T2|scan)")
+        ("mode", po::value<std::string>(), "Devv mode (T1|T2)")
         ("node-index", po::value<unsigned int>(), "Index of this node")
         ("shard-index", po::value<unsigned int>(), "Index of this shard")
         ("host-list,H", po::value<std::vector<std::string>>()->composing(),
@@ -125,9 +131,7 @@ inline std::unique_ptr<struct devcash_options> ParseDevcashOptions(int argc, cha
 
     if (vm.count("mode")) {
       std::string mode = vm["mode"].as<std::string>();
-      if (mode == "SCAN") {
-        options->mode = scan;
-      } else if (mode == "T1") {
+      if (mode == "T1") {
         options->mode = T1;
       } else if (mode == "T2") {
         options->mode = T2;
@@ -281,6 +285,6 @@ inline std::unique_ptr<struct devcash_options> ParseDevcashOptions(int argc, cha
   return options;
 }
 
-} // namespace Devcash
+} // namespace Devv
 
 #endif /* COMMON_ARGUMENT_PARSER_H_ */

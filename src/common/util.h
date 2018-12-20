@@ -1,16 +1,15 @@
 /*
  * util.h general utilities.
  *
- *  Created on: Dec 27, 2017
- *  Author: Nick Williams
+ * @copywrite  2018 Devvio Inc
  */
 
 /**
  * Server/client environment: argument handling, config file parsing,
  * logging, thread wrappers, startup time
  */
-#ifndef DEVCASH_UTIL_H
-#define DEVCASH_UTIL_H
+#ifndef DEVV_UTIL_H
+#define DEVV_UTIL_H
 
 #include <atomic>
 #include <chrono>
@@ -25,14 +24,12 @@
 #include <memory>
 #include <thread>
 
-#include "common/devcash_types.h"
-#include "common/devcash_constants.h"
+#include "common/devv_types.h"
+#include "common/devv_constants.h"
 #include "common/logger.h"
 #include "common/minitrace.h"
-#include "primitives/Address.h"
-#include "primitives/Signature.h"
 
-namespace Devcash
+namespace Devv
 {
 
 template <typename Container>
@@ -188,6 +185,21 @@ static int char2int(char in) {
   return(-1);
 }
 
+static bool SearchString(const std::string & strHaystack, const std::string & strNeedle
+    , bool case_sensitive)
+{
+  if (case_sensitive) {
+    return (strHaystack.find(strNeedle) != std::string::npos);
+  } else {
+    auto it = std::search(
+      strHaystack.begin(), strHaystack.end(),
+      strNeedle.begin(),   strNeedle.end(),
+      [](char ch1, char ch2) { return std::toupper(ch1) == std::toupper(ch2); }
+    );
+    return (it != strHaystack.end());
+  }
+}
+
 template<typename T, typename ...Args>
 std::unique_ptr<T> make_unique( Args&& ...args )
 {
@@ -273,6 +285,6 @@ public:
 
 };
 
-} //end namespace Devcash
+} //end namespace Devv
 
-#endif // DEVCASH_UTIL_H
+#endif // DEVV_UTIL_H

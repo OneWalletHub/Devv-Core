@@ -1,3 +1,11 @@
+#!/usr/bin/env python
+"""
+Tool to run an entire Devv shard and its supporting processes.
+"""
+
+__copyright__ = "Copyright 2018, Devvio Inc"
+__email__ = "security@devv.io"
+
 import yaml
 import argparse
 import sys
@@ -398,10 +406,10 @@ def get_nodes(yml_dict, host_index_map):
 
 
 def run_validator(node):
-    # ./devcash --node-index 0 --config ../opt/basic_shard.conf --config ../opt/default_pass.conf --host-list tcp://localhost:56551 --host-list tcp://localhost:56552 --host-list tcp://localhost:57550 --bind-endpoint tcp://*:56550
+    # ./devv --node-index 0 --config ../opt/basic_shard.conf --config ../opt/default_pass.conf --host-list tcp://localhost:56551 --host-list tcp://localhost:56552 --host-list tcp://localhost:57550 --bind-endpoint tcp://*:56550
 
     cmd = []
-    cmd.append("./devcash")
+    cmd.append("./devv")
     cmd.extend(["--shard-index", str(node.get_shard_index())])
     cmd.extend(["--node-index", str(node.get_index())])
     cmd.extend(["--num-consensus-threads", "1"])
@@ -416,10 +424,10 @@ def run_validator(node):
 
 
 def run_announcer(node):
-    # ./announcer --node-index 0 --shard-index 1 --mode T2 --stop-file /tmp/stop-devcash-announcer.ctl --inn-keys ../opt/inn.key --node-keys ../opt/node.key --bind-endpoint 'tcp://*:50020' --working-dir ../../tmp/working/input/laminar4/ --key-pass password --separate-ops true
+    # ./devv-announcer --node-index 0 --shard-index 1 --mode T2 --stop-file /tmp/stop-devcash-announcer.ctl --inn-keys ../opt/inn.key --node-keys ../opt/node.key --bind-endpoint 'tcp://*:50020' --working-dir ../../tmp/working/input/laminar4/ --key-pass password --separate-ops true
 
     cmd = []
-    cmd.append("./pb_announcer")
+    cmd.append("./devv-announcer")
     cmd.extend(["--shard-index", str(node.get_shard_index())])
     cmd.extend(["--node-index", str(node.get_index())])
     cmd.extend(["--config", node.get_config_file()])
@@ -433,11 +441,11 @@ def run_announcer(node):
     return cmd
 
 
-def run_repeater(node):
-    # ./repeater --node-index 0 --shard-index 1 --mode T2 --stop-file /tmp/stop-devcash-repeater.ctl --inn-keys ../opt/inn.key --node-keys ../opt/node.key --working-dir ../../tmp/working/output/repeater --host-list tcp://localhost:56550 --key-pass password
+def run_devv_query(node):
+    # ./devv-query --node-index 0 --shard-index 1 --mode T2 --stop-file /tmp/stop-devv-query.ctl --inn-keys ../opt/inn.key --node-keys ../opt/node.key --working-dir ../../tmp/working/output/repeater --host-list tcp://localhost:56550 --key-pass password
 
     cmd = []
-    cmd.append("./repeater")
+    cmd.append("./devv-query")
     cmd.extend(["--shard-index", str(node.get_shard_index())])
     cmd.extend(["--node-index", str(node.get_index())])
     cmd.extend(["--num-consensus-threads", "1"])
@@ -480,7 +488,7 @@ if __name__ == '__main__':
             if n.get_name() == 'validator':
                 cmds.append(run_validator(n))
             elif n.get_name() == 'repeater':
-                cmds.append(run_repeater(n))
+                cmds.append(run_devv_query(n))
             elif n.get_name() == 'announcer':
                 cmds.append(run_announcer(n))
             logfiles.append(os.path.join(args.logdir,

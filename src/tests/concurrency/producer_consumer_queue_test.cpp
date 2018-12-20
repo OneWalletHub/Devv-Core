@@ -1,27 +1,34 @@
+/*
+ * producer_consumer_queue_test.cpp - tests the producer consumer queue.
+ *
+ *
+ * @copywrite  2018 Devvio Inc
+ */
+
 #include <memory>
-#include "queues/DevcashRingQueue.h"
-#include "types/DevcashMessage.h"
+#include "queues/DevvRingQueue.h"
+#include "types/DevvMessage.h"
 
 #include "folly/ProducerConsumerQueue.h"
 
 const int kMessageCount = 100000;
-using namespace Devcash;
+using namespace Devv;
 
-std::unique_ptr<DevcashMessage> get_unique() {
+std::unique_ptr<DevvMessage> get_unique() {
   std::vector<uint8_t> data(100);
   eMessageType msg{eMessageType::VALID};
   URI uri = "Hello";
-  
-  auto ptr = std::unique_ptr<DevcashMessage>(new DevcashMessage(uri, msg, data));
+
+  auto ptr = std::unique_ptr<DevvMessage>(new DevvMessage(uri, msg, data));
   return ptr;
 }
 
 void
-put_unique(std::unique_ptr<DevcashMessage> message) {
+put_unique(std::unique_ptr<DevvMessage> message) {
 }
 
 struct BufferTester {
-  bool operator()(std::unique_ptr<DevcashMessage> message) {
+  bool operator()(std::unique_ptr<DevvMessage> message) {
     ++tot_count;
     if (!(tot_count % 1000)) {
       LOG_DEBUG << "Got " << int(tot_count/1000) << " messages";
@@ -44,12 +51,12 @@ main(int, char**) {
 
   LOG_DEBUG << "Going to run!!";
 
-  folly::ProducerConsumerQueue<DevcashMessage> queue(10);
+  folly::ProducerConsumerQueue<DevvMessage> queue(10);
 
   BufferTester func;
-  
+
   auto msg = get_unique();
-  
+
   std::thread reader([&queue, &func] {
       bool quit = false;
       LOG_DEBUG << "Going to pop!!";

@@ -1,16 +1,15 @@
 /*
- * ThreadGroup.cpp
+ * ThreadGroup.h supports concurrency for Devv.
  *
- *  Created on: 6/21/18
- *      Author: Shawn McKenney
+ * @copywrite  2018 Devvio Inc
  */
 #pragma once
 #include <boost/thread/thread.hpp>
-#include "types/DevcashMessage.h"
-#include "common/devcash_constants.h"
-#include "concurrency/DevcashMPMCQueue.h"
+#include "types/DevvMessage.h"
+#include "common/devv_constants.h"
+#include "concurrency/DevvMPMCQueue.h"
 
-namespace Devcash {
+namespace Devv {
 
 /**
  * The ThreadGroup enables parallel execution of a given function. When start() is called,
@@ -26,7 +25,7 @@ class ThreadGroup {
    * threads.
    * @param callback
    */
-  void attachCallback(DevcashMessageCallback callback);
+  void attachCallback(DevvMessageCallback callback);
 
   /**
    * Starts the threads. Each thread will run the loop() function.
@@ -44,7 +43,7 @@ class ThreadGroup {
    * can safely push messages onto the input queue.
    * @param message
    */
-  void pushMessage(DevcashMessageUniquePtr message);
+  void pushMessage(DevvMessageUniquePtr message);
 
  private:
   /**
@@ -59,11 +58,11 @@ class ThreadGroup {
   /// Thread pool
   boost::thread_group thread_pool_;
   /// Incoming data queue. Each thread will block on pop()ping from here
-  DevcashMPMCQueue thread_queue_;
-  /// Function to execute in each thread. Accepts a DevcashMessageUniquePtr
-  DevcashMessageCallback message_callback_ = nullptr;
+  DevvMPMCQueue thread_queue_;
+  /// Function to execute in each thread. Accepts a DevvMessageUniquePtr
+  DevvMessageCallback message_callback_ = nullptr;
   /// True when running - false signals all threads to stop gracefully
   std::atomic<bool> do_run_ = ATOMIC_VAR_INIT(false);
 };
 
-} // namespace Devcash
+} // namespace Devv

@@ -1,6 +1,6 @@
 #!/bin/bash -ex
 
-# ../scripts/run_devcash_node.sh ${NODE_INDEX} 2>&1 | tee /home/spmckenney/dmnt/logs/dc_out_$(cat /home/spmckenney/dmnt/logs/log_inc.txt)_${NODE_INDEX}.log
+# ../scripts/run_devv_node.sh ${NODE_INDEX} 2>&1 | tee /home/spmckenney/dmnt/logs/dc_out_$(cat /home/spmckenney/dmnt/logs/log_inc.txt)_${NODE_INDEX}.log
 
 node_index=$1
 do_inc=$2
@@ -28,7 +28,7 @@ fi
 
 echo "node index: ${node_index} $update_log_index"
 
-run_script=${HOME}/dmnt/devcash-core/scripts/run_devcash_node.sh
+run_script=${HOME}/dmnt/devcash-core/scripts/run_devv_node.sh
 
 $run_script ${node_index} ${do_debug} 2>&1 | tee /home/spmckenney/dmnt/logs/dc_out_${log_num}_${node_index}.log
 

@@ -1,3 +1,11 @@
+/*
+ * TransactionCreationManager.h supports concurrency for Devv
+ * by providing means to create or prase multiple transactions
+ * in parallel.
+ *
+ * @copywrite  2018 Devvio Inc
+ */
+
 #ifndef CONCURRENCY_TRANSACTIONCREATIONMANAGER_H_
 #define CONCURRENCY_TRANSACTIONCREATIONMANAGER_H_
 
@@ -9,9 +17,7 @@
 #include "primitives/buffers.h"
 #include "primitives/factories.h"
 
-using namespace Devcash;
-
-namespace Devcash
+namespace Devv
 {
 
 typedef boost::packaged_task<bool> task_t;
@@ -34,13 +40,18 @@ class TransactionCreationManager {
 public:
   TransactionCreationManager(TransactionCreationManager&) = delete;
 
-  TransactionCreationManager(eAppMode mode)
+  TransactionCreationManager(eAppMode mode, int num_threads = -1)
     : io_service_()
     , threads_()
     , work_(io_service_)
     , app_mode_(mode)
+    , num_threads_(num_threads)
   {
-    for (unsigned int i = 0; i < boost::thread::hardware_concurrency(); ++i)
+    if (num_threads_ < 0) {
+      num_threads_ = boost::thread::hardware_concurrency();
+    }
+    LOG_DEBUG << "TransactionCreationManager: setting thread count to " << num_threads_;
+    for (int i = 0; i < num_threads_; ++i)
     {
         threads_.create_thread(boost::bind(&boost::asio::io_service::run,
                                           &io_service_));
@@ -72,13 +83,20 @@ public:
       vtx.push_back(std::move(tx));
     }
 
-    std::vector<boost::shared_future<bool>> pending_data; // vector of futures
+    if (num_threads_ > 0) {
+      std::vector<boost::shared_future<bool>> pending_data; // vector of futures
 
-    for (auto& tx : vtx) {
-      push_job(*tx, *keys_p_, io_service_, pending_data);
+      for (auto& tx : vtx) {
+        push_job(*tx, *keys_p_, io_service_, pending_data);
+      }
+
+      boost::wait_for_all(pending_data.begin(), pending_data.end());
+    } else {
+      for (auto& tx : vtx) {
+        tx->isSound(*keys_p_);
+      }
+
     }
-
-    boost::wait_for_all(pending_data.begin(), pending_data.end());
     return raw_txs;
   }
 
@@ -96,6 +114,7 @@ public:
   boost::thread_group threads_;
   boost::asio::io_service::work work_;
   const eAppMode app_mode_;
+  int num_threads_;
 };
 
 }

@@ -1,8 +1,7 @@
 /*
- * ValidatorController.cpp
+ * ValidatorController.cpp controls consensus worker threads for the Devv protocol.
  *
- *  Created on: Mar 23, 2018
- *      Author: Nick Williams
+ * @copywrite  2018 Devvio Inc
  */
 
 #include "ValidatorController.h"
@@ -14,8 +13,7 @@
 #include <ctime>
 #include <boost/filesystem.hpp>
 
-#include "DevcashWorker.h"
-#include "common/devcash_exceptions.h"
+#include "common/devv_exceptions.h"
 #include "common/logger.h"
 #include "io/message_service.h"
 #include "consensus/KeyRing.h"
@@ -27,14 +25,14 @@ typedef std::chrono::milliseconds millisecs;
 
 namespace fs = boost::filesystem;
 
-namespace Devcash {
+namespace Devv {
 
 #define DEBUG_TRANSACTION_INDEX \
   (processed + (context_.get_current_node()+1)*11000000)
 
 ValidatorController::ValidatorController(
     const KeyRing& keys,
-    DevcashContext& context,
+    DevvContext& context,
     const ChainState&,
     Blockchain& final_chain,
     UnrecordedTransactionPool& utx_pool,
@@ -53,43 +51,60 @@ ValidatorController::~ValidatorController() {
   LOG_DEBUG << "~ValidatorController()";
 }
 
-void ValidatorController::validatorCallback(DevcashMessageUniquePtr ptr) {
+void ValidatorController::validatorCallback(DevvMessageUniquePtr ptr) {
   LOG_DEBUG << "ValidatorController::validatorCallback()";
+  std::unique_lock<std::mutex> lock(utx_pool_.getBigMutex());
+
+  //Do not remove lock_guard, function may use atomic<bool> as concurrency signal
   std::lock_guard<std::mutex> guard(mutex_);
   if (ptr == nullptr) {
-    throw DevcashMessageError("validatorCallback(): ptr == nullptr, ignoring");
+    throw DevvMessageError("validatorCallback(): ptr == nullptr, ignoring");
   }
-  LogDevcashMessageSummary(*ptr, "validatorCallback");
+  LogDevvMessageSummary(*ptr, "validatorCallback");
 
   LOG_DEBUG << "ValidatorController::validatorCallback()";
   MTR_SCOPE_FUNC();
-  if (ptr->message_type == TRANSACTION_ANNOUNCEMENT) {
-    DevcashMessage msg(*ptr.get());
-    utx_pool_.AddTransactions(msg.data, keys_);
-    size_t block_height = final_chain_.size();
-    if (block_height%context_.get_peer_count() == context_.get_current_node()%context_.get_peer_count()) {
-      LOG_INFO << "Received txs: CreateNextProposal? utx_pool.HasProposal(): " << utx_pool_.HasProposal();
-      if (!utx_pool_.HasProposal()) {
-        std::vector<byte> proposal = CreateNextProposal(keys_,final_chain_,utx_pool_,context_);
-        if (!ProposedBlock::isNullProposal(proposal)) {
-          // Create message
-           auto propose_msg = std::make_unique<DevcashMessage>(context_.get_shard_uri()
-	                                        , PROPOSAL_BLOCK
-	                                        , proposal
-	                                        , ((block_height+1)
-	                                        + (context_.get_current_node()+1)*1000000));
-          // FIXME (spm): define index value somewhere
-          LogDevcashMessageSummary(*propose_msg, "CreateNextProposal");
-          outgoing_callback_(std::move(propose_msg));
-        }
-      }
-    } else {
-      LOG_INFO << "NOT PROPOSING! (" << block_height%context_.get_peer_count() << ")" <<
-            " (" << context_.get_current_node()%context_.get_peer_count() << ")";
-    }
-  } else {
-    throw DevcashMessageError("Wrong message type arrived: " + std::to_string(ptr->message_type));
+
+  if (ptr->message_type != TRANSACTION_ANNOUNCEMENT) {
+    throw DevvMessageError("Wrong message type arrived: " + std::to_string(ptr->message_type));
   }
+
+  utx_pool_.addTransactions(ptr->data, keys_);
+  size_t block_height = final_chain_.size();
+  LOG_DEBUG << "current_node(" << context_.get_current_node() << ")" \
+              <<" peer_count(" << context_.get_peer_count() << ")" \
+              << " block_height (" << block_height << ")";
+
+  if (block_height%context_.get_peer_count() != context_.get_current_node()%context_.get_peer_count()) {
+    LOG_INFO << "NOT PROPOSING! (" << block_height % context_.get_peer_count() << ")" <<
+             " (" << context_.get_current_node() % context_.get_peer_count() << ")";
+    return;
+  }
+
+  // Acquire the proposal lock, but don't lock it yet (we don't want to block
+  // on a lock here)
+  auto proposal_lock = utx_pool_.acquireProposalPermissionLock(false);
+
+  // Try to acquire the lock, break out if the lock is in use
+  if (!proposal_lock.try_lock()) {
+    LOG_INFO << proposal_lock << " validatorCallback(): proposal_lock.try_lock() == false, not proposing";
+    return;
+  }
+  LOG_DEBUG << proposal_lock << " validatorCallback(): proposal_lock acquired";
+
+  // Do not propose if proposal is forestalled by HandleFinalBlock
+  if (utx_pool_.isNewFinalBlockProcessing()) {
+    LOG_INFO << proposal_lock << " utx_pool_.isProposalForestalled() == true, not proposing";
+    return;
+  }
+
+  CreateAndSendNextProposal(keys_,
+                            final_chain_,
+                            utx_pool_,
+                            context_,
+                            outgoing_callback_
+  );
+  LOG_DEBUG << proposal_lock << " ValidatorController::validatorCallback(): proposal message sent";
 }
 
-} //end namespace Devcash
+} //end namespace Devv

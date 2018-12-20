@@ -1,18 +1,17 @@
 /*
- * message_service.h - Sending and receiving Devcash messages
+ * message_service.h Sends and receives Devv messages using ZMQ.
  *
- *  Created on: Mar 3, 2018
- *  Created by: Shawn McKenney
+ * @copywrite  2018 Devvio Inc
  */
 #pragma once
 
 #include "io/zhelpers.hpp"
 
-#include "concurrency/DevcashMPMCQueue.h"
-#include "concurrency/DevcashSPSCQueue.h"
-#include "types/DevcashMessage.h"
+#include "concurrency/DevvMPMCQueue.h"
+#include "concurrency/DevvSPSCQueue.h"
+#include "types/DevvMessage.h"
 
-namespace Devcash {
+namespace Devv {
 
 namespace io {
 
@@ -39,7 +38,7 @@ class TransactionServer final {
    * QueueMessage() should probably be used.
    * @param message messge to send
    */
-  void sendMessage(DevcashMessageUniquePtr message) noexcept;
+  void sendMessage(DevvMessageUniquePtr message) noexcept;
 
   /**
    * Queue a message.
@@ -49,7 +48,7 @@ class TransactionServer final {
    * multiple threads simultaneously.
    * @param message message to queue
    */
-  void queueMessage(DevcashMessageUniquePtr message) noexcept;
+  void queueMessage(DevvMessageUniquePtr message) noexcept;
 
   /**
    * Starts a server in a background thread
@@ -80,7 +79,7 @@ class TransactionServer final {
   std::unique_ptr<std::thread> server_thread_ = nullptr;
 
   /// Used to queue outgoing messages
-  DevcashMPMCQueue message_queue_;
+  DevvMPMCQueue message_queue_;
 
   // Set to true when server thread starts and false when a shutdown is requested
   bool keep_running_ = false;
@@ -99,10 +98,10 @@ class TransactionClient final {
   }
 
   /**
-   * Attach a callback to be called when a DevcashMessage arrives on the wire.
+   * Attach a callback to be called when a DevvMessage arrives on the wire.
    * @param callback to call when a message arrives
    */
-  void attachCallback(DevcashMessageCallback callback);
+  void attachCallback(DevvMessageCallback callback);
 
   /**
    * Start the transaction client service. Blocks until stopClient() is called.
@@ -110,7 +109,7 @@ class TransactionClient final {
   void run();
 
   /**
-   * Add a Devcash node to connect to
+   * Add a Devv node to connect to
    * @param endpoint URI to connect to
    */
   void addConnection(const std::string& endpoint);
@@ -151,7 +150,7 @@ class TransactionClient final {
   std::unique_ptr<std::thread> client_thread_ = nullptr;
 
   /// List of callbacks to call when a message arrives
-  DevcashMessageCallback callback_;
+  DevvMessageCallback callback_;
 
   /// List of strings to filter incoming messages
   std::vector<std::string> filter_vector_;
@@ -196,4 +195,4 @@ std::unique_ptr<io::TransactionServer> CreateTransactionServer(const std::string
                                                                zmq::context_t& context);
 
 }  // namespace io
-}  // namespace Devcash
+}  // namespace Devv

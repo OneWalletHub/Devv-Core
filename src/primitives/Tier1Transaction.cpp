@@ -1,13 +1,13 @@
 /*
  * Tier1Transaction.cpp
+ * implements methods to generate and copy Tier1Transactions.
  *
- *  Created on: Jun 20, 2018
- *      Author: Shawn McKenney
+ * @copywrite  2018 Devvio Inc
  */
 #include "primitives/Tier1Transaction.h"
-#include "common/devcash_exceptions.h"
+#include "common/devv_exceptions.h"
 
-namespace Devcash {
+namespace Devv {
 
 void Tier1Transaction::Fill(Tier1Transaction& tx,
                     InputBuffer &buffer,
@@ -54,4 +54,4 @@ Tier1TransactionPtr Tier1Transaction::CreateUniquePtr(InputBuffer& buffer,
   return tx;
 }
 
-} // namespace Devcash
+} // namespace Devv

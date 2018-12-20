@@ -1,15 +1,12 @@
 /*
  * data.h is an oracle to handle data storage on chain.
  *
- * Internal format is addr|signature|data
+ * Proposal.data format is addr|signature|data
  *
- *  Created on: Mar 1, 2018
- *  Author: Nick Williams
+ * @copywrite  2018 Devvio Inc
  *
  */
-
-#ifndef ORACLES_DATA_H_
-#define ORACLES_DATA_H_
+#pragma once
 
 #include <string>
 
@@ -17,7 +14,7 @@
 #include "consensus/chainstate.h"
 #include "consensus/KeyRing.h"
 
-using namespace Devcash;
+namespace Devv {
 
 class data : public oracleInterface {
 
@@ -36,22 +33,29 @@ class data : public oracleInterface {
 /**
  *  @return the string name that invokes this oracle
  */
-  static std::string getOracleName() {
-    return("io.devv.data");
+  virtual std::string getOracleName() override {
+    return (data::GetOracleName());
+  }
+
+/**
+ *  @return the string name that invokes this oracle
+ */
+  static std::string GetOracleName() {
+    return ("io.devv.data");
   }
 
 /**
  *  @return the shard used by this oracle
  */
   static uint64_t getShardIndex() {
-    return(6);
+    return (6);
   }
 
 /**
  *  @return the coin type used by this oracle
  */
   static uint64_t getCoinIndex() {
-    return(6);
+    return (6);
   }
 
 /** Checks if this proposal is objectively sound according to this oracle.
@@ -65,13 +69,13 @@ class data : public oracleInterface {
     if (addr_size < 1) {
       error_msg_ = "Bad address size.";
       return false;
-	}
-	size_t sig_size = Signature::getSizeByType(raw_data_.at(addr_size+1));
-	if (sig_size < 1) {
+    }
+    size_t sig_size = Signature::getSizeByType(raw_data_.at(addr_size + 1));
+    if (sig_size < 1) {
       error_msg_ = "Bad signature size.";
       return false;
-	}
-	size_t data_size = raw_data_.size()-addr_size-sig_size-2;
+    }
+    size_t data_size = raw_data_.size() - addr_size - sig_size - 2;
     if (data_size <= 0) {
       error_msg_ = "Bad data size.";
       return false;
@@ -88,48 +92,53 @@ class data : public oracleInterface {
   bool isValid(const Blockchain& context) override {
     if (!isSound()) return false;
     size_t addr_size = Address::getSizeByType(raw_data_.at(0));
-    Address client(Str2Bin(raw_data_.substr(0, addr_size+1)));
-	size_t sig_size = Signature::getSizeByType(raw_data_.at(addr_size+1));
-	size_t data_size = raw_data_.size()-addr_size-sig_size-2;
-    int64_t coins_needed = ceil(data_size/kBYTES_PER_COIN);
+    Address client(Str2Bin(raw_data_.substr(0, addr_size + 1)));
+    size_t sig_size = Signature::getSizeByType(raw_data_.at(addr_size + 1));
+    size_t data_size = raw_data_.size() - addr_size - sig_size - 2;
+    int64_t coins_needed = ceil(data_size / kBYTES_PER_COIN);
     ChainState last_state = context.getHighestChainState();
     int64_t available = last_state.getAmount(getCoinIndex(), client);
     if (available < coins_needed) {
       error_msg_ = "Data too large for coins provided";
       return false;
-	}
-	return true;
+    }
+    return true;
   }
 
 /**
  *  @return if not valid or not sound, return an error message
  */
   std::string getErrorMessage() override {
-    return(error_msg_);
+    return (error_msg_);
   }
 
-/** Generate the transactions to encode the effect of this propsal on chain.
- *
- * @pre This transaction must be valid.
- * @params context the blockchain of the shard that provides context for this oracle
- * @return a map of shard indicies to transactions to encode in each shard
- */
   std::map<uint64_t, std::vector<Tier2Transaction>>
-      getTransactions(const Blockchain& context) override {
+  getTrace(const Blockchain& context) override {
+    std::map<uint64_t, std::vector<Tier2Transaction>> out;
+    return out;
+  }
+
+  uint64_t getCurrentDepth(const Blockchain& context) override {
+    //@TODO(nick) scan pre-existing chain for this oracle instance.
+    return (0);
+  }
+
+  std::map<uint64_t, std::vector<Tier2Transaction>>
+  getNextTransactions(const Blockchain& context, const KeyRing& keys) override {
     std::map<uint64_t, std::vector<Tier2Transaction>> out;
     if (!isValid(context)) return out;
     size_t addr_size = Address::getSizeByType(raw_data_.at(0));
-    Address client(Str2Bin(raw_data_.substr(0, addr_size+1)));
-    size_t sig_size = Signature::getSizeByType(raw_data_.at(addr_size+1));
-    Signature sig(Str2Bin(raw_data_.substr(addr_size+1, sig_size+1)));
-    size_t data_size = raw_data_.size()-addr_size-sig_size-2;
-    int64_t coins_needed = ceil(data_size/kBYTES_PER_COIN);
+    Address client(Str2Bin(raw_data_.substr(0, addr_size + 1)));
+    size_t sig_size = Signature::getSizeByType(raw_data_.at(addr_size + 1));
+    Signature sig(Str2Bin(raw_data_.substr(addr_size + 1, sig_size + 1)));
+    size_t data_size = raw_data_.size() - addr_size - sig_size - 2;
+    int64_t coins_needed = ceil(data_size / kBYTES_PER_COIN);
     std::vector<Transfer> xfers;
-    Transfer pay(client, getCoinIndex(), -1*coins_needed, 0);
+    Transfer pay(client, getCoinIndex(), -1 * coins_needed, 0);
     Transfer settle(getDataSinkAddress(), getCoinIndex(), coins_needed, 0);
     xfers.push_back(pay);
     xfers.push_back(settle);
-    std::vector<byte> nonce(Str2Bin(raw_data_.substr(raw_data_.size()-data_size)));
+    std::vector<byte> nonce(Str2Bin(raw_data_.substr(raw_data_.size() - data_size)));
     Tier2Transaction the_tx(eOpType::Exchange, xfers, nonce, sig);
     std::vector<Tier2Transaction> txs;
     txs.push_back(std::move(the_tx));
@@ -145,7 +154,7 @@ class data : public oracleInterface {
  * @return a map of oracles to data
  */
   std::map<std::string, std::vector<byte>>
-      getDecompositionMap(const Blockchain& context) override {
+  getDecompositionMap(const Blockchain& context) override {
     std::map<std::string, std::vector<byte>> out;
     std::vector<byte> data(Str2Bin(raw_data_));
     std::pair<std::string, std::vector<byte>> p(getOracleName(), data);
@@ -160,41 +169,15 @@ class data : public oracleInterface {
  * @return a map of oracles to data encoded in JSON
  */
   std::map<std::string, std::string>
-      getDecompositionMapJSON(const Blockchain& context) override {
+  getDecompositionMapJSON(const Blockchain& context) override {
     std::map<std::string, std::string> out;
     std::pair<std::string, std::string> p(getOracleName(), getJSON());
     out.insert(p);
     return out;
   }
 
-/** Generate the appropriate signature(s) for this proposal.
- *
- * @params address - the address corresponding to this key
- * @params key - an ECDSA key, AES encrypted with ASCII armor
- * @params aes_password - the AES password for the key
- * @return the signed oracle data
- */
-  std::string Sign(std::string address
-        , std::string key, std::string aes_password) override {
-    EC_KEY* key_ptr = LoadEcKey(address, key, aes_password);
-
-    size_t data_size = raw_data_.size();
-    int64_t coins_needed = ceil(data_size/kBYTES_PER_COIN);
-    std::vector<Transfer> xfers;
-    Address client(Str2Bin(address));
-    Transfer pay(client, getCoinIndex(), -1*coins_needed, 0);
-    Transfer settle(getDataSinkAddress(), getCoinIndex(), coins_needed, 0);
-    xfers.push_back(pay);
-    xfers.push_back(settle);
-
-    Tier2Transaction the_tx((byte) eOpType::Exchange, xfers
-                           , Str2Bin(raw_data_), key_ptr);
-    std::vector<byte> sig = the_tx.getSignature().getCanonical();
-    std::vector<byte> bin_addr = client.getCanonical();
-    //note that these inserts are on the front of the raw data
-    raw_data_.insert(std::begin(raw_data_), std::begin(sig), std::end(sig));
-    raw_data_.insert(std::begin(raw_data_), std::begin(bin_addr), std::end(bin_addr));
-    return raw_data_;
+  std::vector<byte> Sign() override {
+    return getCanonical();
   }
 
 /**
@@ -203,20 +186,20 @@ class data : public oracleInterface {
   std::string getJSON() override {
     size_t addr_size = Address::getSizeByType(raw_data_.at(0));
     if (addr_size < 1) return "{\"data\":\"ADDR_ERROR\"}";
-    Address client(Str2Bin(raw_data_.substr(0, addr_size+1)));
-    size_t sig_size = Signature::getSizeByType(raw_data_.at(addr_size+1));
+    Address client(Str2Bin(raw_data_.substr(0, addr_size + 1)));
+    size_t sig_size = Signature::getSizeByType(raw_data_.at(addr_size + 1));
     if (sig_size < 1) return "{\"data\":\"SIG_ERROR\"}";
-    Signature sig(Str2Bin(raw_data_.substr(addr_size+1, sig_size+1)));
-    size_t data_size = raw_data_.size()-addr_size-sig_size-2;
-    std::string json("{\"addr\":\""+client.getHexString()+"\",");
-    json += "\"sig\":\""+sig.getJSON()+"\",";
-    json += "\"data\":\""+ToHex(raw_data_.substr(raw_data_.size()-data_size))+"\"}";
+    Signature sig(Str2Bin(raw_data_.substr(addr_size + 1, sig_size + 1)));
+    size_t data_size = raw_data_.size() - addr_size - sig_size - 2;
+    std::string json("{\"addr\":\"" + client.getHexString() + "\",");
+    json += "\"sig\":\"" + sig.getJSON() + "\",";
+    json += "\"data\":\"" + ToHex(raw_data_.substr(raw_data_.size() - data_size)) + "\"}";
     return json;
   }
 
-private:
- std::string error_msg_;
+ private:
+  std::string error_msg_;
 
 };
 
-#endif /* ORACLES_DATA_H_ */
+} // namespace Devv

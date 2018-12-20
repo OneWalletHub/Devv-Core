@@ -1,8 +1,7 @@
 /*
- * chainstate.h holds state for a validating fork
+ * chainstate.cpp holds the state of the chain for each validating fork
  *
- *  Created on: Jan 12, 2018
- *  Author: Nick Williams
+ * @copywrite  2018 Devvio Inc
  */
 
 #include "chainstate.h"
@@ -13,10 +12,10 @@
 
 #include "primitives/Summary.h"
 
-namespace Devcash
+namespace Devv
 {
 
-using namespace Devcash;
+using namespace Devv;
 
 bool ChainState::addCoin(const SmartCoin& coin) {
   bool no_error = true;
@@ -30,10 +29,12 @@ bool ChainState::addCoin(const SmartCoin& coin) {
     auto result = state_map_.insert(outer);
     no_error = result.second && no_error;
   }
+  LOG_DEBUG << "ChainState::AddCoin(): addr(" <<
+            coin.getAddress().getHexString() << ") coin(" << coin.getCoin() << ") amount("<<coin.getAmount()<<") result("<<no_error<<")";
   return(no_error);
 }
 
-long ChainState::getAmount(uint64_t type, const Address& addr) const {
+int64_t ChainState::getAmount(uint64_t type, const Address& addr) const {
   auto it = state_map_.find(addr);
   if (it != state_map_.end()) {
     int64_t amount = it->second.at(type);
@@ -42,4 +43,4 @@ long ChainState::getAmount(uint64_t type, const Address& addr) const {
   return(0);
 }
 
-} //end namespace Devcash
+} //end namespace Devv

@@ -1,9 +1,8 @@
 /**
  * blockchain.h
- *  Classes to manage blockchains
+ * Provides access to blockchain structures.
  *
- *  Created on: Apr 8, 2018
- *      Author: Shawn McKenney <shawn.mckenney@emmion.com
+ * @copywrite  2018 Devvio Inc
  */
 #pragma once
 
@@ -12,14 +11,15 @@
 
 #include "primitives/FinalBlock.h"
 
-namespace Devcash {
+namespace Devv {
 
 class Blockchain {
 public:
   typedef std::shared_ptr<FinalBlock> BlockSharedPtr;
+  typedef std::shared_ptr<const FinalBlock> ConstBlockSharedPtr;
 
   explicit Blockchain(const std::string& name)
-    : name_(name), chain_size_(0), num_transactions_(0)
+    : name_(name), chain_size_(0), num_transactions_(0), genesis_time_(0)
   {
   }
 
@@ -31,12 +31,15 @@ public:
    */
   void push_back(BlockSharedPtr block) {
     chain_.push_back(block);
+    if (chain_size_ == 0) {
+      genesis_time_ = block->getBlockTime();
+    }
     chain_size_++;
     num_transactions_ += block->getNumTransactions();
 
     LOG_NOTICE << name_ << "- Updating Final Blockchain - (size/ntxs)" <<
                " (" << chain_size_ << "/" << num_transactions_ << ")" <<
-          " this (" << ToHex(DevcashHash(block->getCanonical()), 8) << ")" <<
+          " this (" << ToHex(DevvHash(block->getCanonical()), 8) << ")" <<
           " prev (" << ToHex(block->getPreviousHash(), 8) << ")";
   }
 
@@ -46,6 +49,14 @@ public:
    */
   size_t getNumTransactions() const {
     return num_transactions_;
+  }
+
+  uint64_t getAvgBlocktime() const {
+    if (chain_size_ > 1) {
+      return ((chain_.back()->getBlockTime() - genesis_time_)/chain_size_);
+    } else {
+      return 0;
+	}
   }
 
   /**
@@ -65,11 +76,36 @@ public:
   }
 
   /**
+   * @return a pointer to a given block in this chain.
+   */
+  std::vector<byte> raw_at(size_t height) {
+    LOG_TRACE << name_ << ": at(); size(" << chain_size_ << ")";
+    return chain_.at(height)->getCanonical();
+  }
+
+  /**
+   * @return a pointer to a given block in this chain.
+   */
+  const std::vector<byte> raw_at(size_t height) const {
+    LOG_TRACE << name_ << ": at() const; size(" << chain_size_ << ")";
+    return chain_.at(height)->getCanonical();
+  }
+
+  /**
    * @return the size of this chain.
    */
   size_t size() const {
     LOG_TRACE << name_ << ": size(" << chain_size_ << ")";
     return chain_size_;
+  }
+
+  /**
+   *
+   * @param loc
+   * @return
+   */
+  BlockSharedPtr at(size_t loc) const {
+    return chain_.at(loc);
   }
 
   /**
@@ -87,10 +123,12 @@ public:
    * @return the highest chain state of this chain
    */
   ChainState getHighestChainState() const {
+    LOG_DEBUG << " chain_size: " << chain_size_;
     if (chain_size_ < 1) {
       ChainState state;
       return state;
     }
+    LOG_DEBUG << "back()->getChainState().size(): " << back()->getChainState().size();
     return back()->getChainState();
   }
 
@@ -134,6 +172,9 @@ private:
   const std::string name_;
   std::atomic<int> chain_size_;
   std::atomic<int> num_transactions_;
+  uint64_t genesis_time_;
 };
 
-} // namespace Devcash
+typedef std::shared_ptr<Blockchain> BlockchainPtr;
+
+} // namespace Devv

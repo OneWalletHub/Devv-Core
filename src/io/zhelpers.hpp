@@ -1,3 +1,9 @@
+/*
+ * zhelpers.hpp Helper functions and macros for networking.
+ *
+ * @copywrite  2018 Devvio Inc
+ */
+
 #ifndef __ZHELPERS_HPP_INCLUDED__
 #define __ZHELPERS_HPP_INCLUDED__
 

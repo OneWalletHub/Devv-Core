@@ -16,8 +16,7 @@
  *
  *
  *
- *  Created on: July 13, 2018
- *      Author: Nick Williams
+ * @copywrite  2018 Devvio Inc
  */
 
 #ifndef PRIMITIVES_ADDRESS_H_
@@ -26,9 +25,9 @@
 #include <stdint.h>
 #include <algorithm>
 
-#include "common/devcash_constants.h"
+#include "common/devv_constants.h"
 
-namespace Devcash {
+namespace Devv {
 
 class Address {
  public:
@@ -52,7 +51,9 @@ class Address {
         && vec.at(0) == kNODE_ADDR_SIZE) {
       //already good, copied from argument
     } else {
-      LOG_ERROR << "Invalid Address size.";
+      LOG_ERROR << "Invalid Address size: "
+            + std::to_string(vec.size()) + " : " + Bin2Str(vec);
+
     }
   }
 
@@ -187,6 +188,6 @@ class Address {
   std::vector<byte> canonical_{0};
 };
 
-}  // end namespace Devcash
+}  // end namespace Devv
 
 #endif /* PRIMITIVES_SIGNATURE_H_ */

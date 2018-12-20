@@ -1,8 +1,7 @@
 /*
  * util.cpp general utilities.
  *
- *  Created on: Dec 27, 2017
- *  Author: Nick Williams
+ * @copywrite  2018 Devvio Inc
  */
 
 #include "util.h"
@@ -70,7 +69,7 @@
 
 #include "logger.h"
 
-namespace Devcash
+namespace Devv
 {
 
 std::string ReadFile(const std::string& file_path)
@@ -117,4 +116,4 @@ void signalHandler(int signum) {
   //shutdown();
 }
 
-} //end namespace Devcash
+} //end namespace Devv

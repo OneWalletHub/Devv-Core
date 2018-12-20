@@ -1,9 +1,9 @@
 /*
- * BlockchainModule.h manages this node in the devcash network.
+ * BlockchainModule.h manages this node in the devv network.
  *
- *  Created on: Mar 20, 2018
- *      Author: Nick Williams
+ * @copywrite  2018 Devvio Inc
  */
+
 #pragma once
 
 #include <string>
@@ -18,7 +18,7 @@
 #include "modules/ModuleInterface.h"
 #include "io/message_service.h"
 
-namespace Devcash {
+namespace Devv {
 
 /**
  * The Blockchain Module implements the blockchain logic
@@ -35,7 +35,7 @@ class BlockchainModule : public ModuleInterface {
                   const KeyRing &keys,
                   const ChainState &prior,
                   eAppMode mode,
-                  DevcashContext &context,
+                  DevvContext &context,
                   size_t max_tx_per_block);
 
   /**
@@ -62,7 +62,7 @@ class BlockchainModule : public ModuleInterface {
                                 const KeyRing &keys,
                                 const ChainState &prior,
                                 eAppMode mode,
-                                DevcashContext &context,
+                                DevvContext &context,
                                 size_t max_tx_per_block);
 
   /** Initialize devcoin core: Basic context setup.
@@ -84,12 +84,12 @@ class BlockchainModule : public ModuleInterface {
   void shutdown();
 
   /**
-   * Devcash core main initialization.
+   * Devv core main initialization.
    * @note Call Shutdown() if this function fails.
    */
   void start();
 
-  void handleMessage(DevcashMessageUniquePtr message);
+  void handleMessage(DevvMessageUniquePtr message);
 
   Blockchain& getFinalChain() { return final_chain_; }
 
@@ -108,7 +108,7 @@ class BlockchainModule : public ModuleInterface {
   const KeyRing &keys_;
   const ChainState &prior_;
   eAppMode mode_;
-  DevcashContext &app_context_;
+  DevvContext &app_context_;
 
   Blockchain final_chain_;
   UnrecordedTransactionPool utx_pool_;
@@ -125,4 +125,4 @@ class BlockchainModule : public ModuleInterface {
   uint64_t remote_blocks_ = 0;
 };
 
-} //end namespace Devcash
+} //end namespace Devv

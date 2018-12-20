@@ -1,20 +1,19 @@
-/*
- * InternetworkController.cpp
+/**
+ * InternetworkController.cpp controls callbacks for
+ * communications to and from processes outside the Devv shard peers.
  *
- *  Created on: 6/22/18
- *      Authors: Nick Williams
- *               Shawn McKenney
+ * @copywrite  2018 Devvio Inc
  */
 #include "concurrency/InternetworkController.h"
 
-#include "common/devcash_exceptions.h"
+#include "common/devv_exceptions.h"
 #include "common/logger.h"
 #include "consensus/tier2_message_handlers.h"
 
-namespace Devcash {
+namespace Devv {
 
 InternetworkController::InternetworkController(const KeyRing &keys,
-                                         DevcashContext &context,
+                                         DevvContext &context,
                                          const ChainState &,
                                          Blockchain &final_chain,
                                          UnrecordedTransactionPool &utx_pool,
@@ -29,7 +28,7 @@ InternetworkController::InternetworkController(const KeyRing &keys,
 {
 }
 
-void InternetworkController::messageCallback(DevcashMessageUniquePtr ptr) {
+void InternetworkController::messageCallback(DevvMessageUniquePtr ptr) {
   std::lock_guard<std::mutex> guard(utx_mutex_);
   MTR_SCOPE_FUNC();
   try {
@@ -48,16 +47,16 @@ void InternetworkController::messageCallback(DevcashMessageUniquePtr ptr) {
             // so assume they are shards 1 and 2 (where T1 has the 0 index)
             std::string uri1 = context_.get_uri_from_index(
                 context_.get_peer_count() + context_.get_current_node() % context_.get_peer_count());
-            auto blocks_msg1 = std::make_unique<DevcashMessage>(uri1, GET_BLOCKS_SINCE, request, remote_blocks_);
+            auto blocks_msg1 = std::make_unique<DevvMessage>(uri1, GET_BLOCKS_SINCE, request, remote_blocks_);
             outgoing_callback_(std::move(blocks_msg1));
             std::string uri2 = context_.get_uri_from_index(
                 context_.get_peer_count() * 2 + context_.get_current_node() % context_.get_peer_count());
-            auto blocks_msg2 = std::make_unique<DevcashMessage>(uri2, GET_BLOCKS_SINCE, request, remote_blocks_);
+            auto blocks_msg2 = std::make_unique<DevvMessage>(uri2, GET_BLOCKS_SINCE, request, remote_blocks_);
             outgoing_callback_(std::move(blocks_msg2));
           } else if (mode_ == eAppMode::T2) {
             // A T2 should request new blocks from the T1 node with the same node index as itself
             std::string uri = context_.get_uri_from_index(context_.get_current_node() % context_.get_peer_count());
-            auto blocks_msg = std::make_unique<DevcashMessage>(uri, GET_BLOCKS_SINCE, request, remote_blocks_);
+            auto blocks_msg = std::make_unique<DevvMessage>(uri, GET_BLOCKS_SINCE, request, remote_blocks_);
             outgoing_callback_(std::move(blocks_msg));
           } else {
             LOG_WARNING << "Unsupported mode: " << mode_;
@@ -73,7 +72,7 @@ void InternetworkController::messageCallback(DevcashMessageUniquePtr ptr) {
                                                    final_chain_,
                                                    context_,
                                                    keys_,
-                                                   [this](DevcashMessageUniquePtr p) {
+                                                   [this](DevvMessageUniquePtr p) {
                                                      this->outgoing_callback_(std::move(p));
                                                    });
         break;
@@ -97,4 +96,4 @@ void InternetworkController::messageCallback(DevcashMessageUniquePtr ptr) {
   }
 }
 
-} // namespace Devcash
+} // namespace Devv

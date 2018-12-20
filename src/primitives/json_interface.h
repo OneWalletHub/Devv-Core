@@ -1,6 +1,9 @@
-//
-// Created by mckenney on 6/17/18.
-//
+/*
+ * json_interface.h
+ * Tools to help dump the state of Devv primitives into JSON syntax.
+ *
+ * @copywrite  2018 Devvio Inc
+ */
 #pragma once
 
 #include "primitives/Summary.h"
@@ -9,7 +12,7 @@
 #include "primitives/FinalBlock.h"
 #include "consensus/blockchain.h"
 
-namespace Devcash {
+namespace Devv {
 
 /**
  *

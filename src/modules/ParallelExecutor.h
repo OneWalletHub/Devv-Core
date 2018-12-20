@@ -1,17 +1,16 @@
 /*
- * ParallelExecutor.h
+ * ParallelExecutor.h executes controllers in parallel
  *
- *  Created on: 6/21/18
- *      Author: Shawn McKenney <shawn.mckenney@emmion.com>
+ * @copywrite  2018 Devvio Inc
  */
 #pragma once
 
-#include "common/devcash_context.h"
+#include "common/devv_context.h"
 
 #include "concurrency/ThreadGroup.h"
-#include "types/DevcashMessage.h"
+#include "types/DevvMessage.h"
 
-namespace Devcash {
+namespace Devv {
 
 /**
  * The ParallelExecutor is a template class that can execute
@@ -41,7 +40,7 @@ class ParallelExecutor {
    * Attach a callback to be executed in parallel
    * @param callback
    */
-  void attachCallback(DevcashMessageCallback callback) {
+  void attachCallback(DevvMessageCallback callback) {
     if (callback == nullptr) {
       throw std::runtime_error("Cannot attach a nullptr callback");
     }
@@ -84,7 +83,7 @@ class ParallelExecutor {
    * Pushes a message to the ThreadGroup queue
    * @param message
    */
-  void pushMessage(DevcashMessageUniquePtr message) {
+  void pushMessage(DevvMessageUniquePtr message) {
     LOG_DEBUG << "pushMessage()";
     if (message == nullptr) {
       LOG_ERROR << "pushMessage() attempting to push a nullptr";
@@ -98,4 +97,4 @@ class ParallelExecutor {
   ThreadGroup thread_group_;
 };
 
-} // namespace Devcash
+} // namespace Devv

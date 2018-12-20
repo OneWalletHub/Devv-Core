@@ -12,7 +12,7 @@ python="python3"
 run_shard=${HOME}/dmnt/devcash-core/scripts/run_shard.py
 log_dir=${HOME}/run-${run}/shard-${shard}
 
-export DEVCASH_OUTPUT_LOGLEVEL=info
+export DEVV_OUTPUT_LOGLEVEL=info
 export PATH=${PATH}:${HOME}/dmnt/devcash-core/build
 
 mkdir -p $log_dir

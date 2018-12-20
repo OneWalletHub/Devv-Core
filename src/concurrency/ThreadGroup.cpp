@@ -1,13 +1,12 @@
 /*
- * ThreadGroup.cpp
+ * ThreadGroup.cpp supports concurrency for Devv.
  *
- *  Created on: June 21, 2018
- *      Author: Shawn McKenney
+ * @copywrite  2018 Devvio Inc
  */
 #include "ThreadGroup.h"
 #include "common/logger.h"
 
-namespace Devcash {
+namespace Devv {
 
 ThreadGroup::ThreadGroup(size_t num_threads)
   : num_threads_(num_threads) {
@@ -18,14 +17,14 @@ ThreadGroup::ThreadGroup(size_t num_threads)
   LOG_DEBUG << "ThreadGroup created with " << num_threads_ << " threads";
 }
 
-void ThreadGroup::attachCallback(DevcashMessageCallback callback) {
+void ThreadGroup::attachCallback(DevvMessageCallback callback) {
   if (callback == nullptr) {
     throw std::runtime_error("Cannot attach a nullptr callback");
   }
   message_callback_ = callback;
 }
 
-void ThreadGroup::pushMessage(DevcashMessageUniquePtr message) {
+void ThreadGroup::pushMessage(DevvMessageUniquePtr message) {
   if (message == nullptr) {
     throw std::runtime_error("pushMessage(): cannot push a nullptr to the input queue");
   }
@@ -78,4 +77,4 @@ void ThreadGroup::loop() {
   }
 }
 
-} // namespace Devcash
+} // namespace Devv

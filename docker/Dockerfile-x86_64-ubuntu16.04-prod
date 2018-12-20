@@ -1,0 +1,30 @@
+ARG version=v005
+FROM devvio-x86_64-ubuntu16.04-dev:${version}
+ARG branch=stable
+ARG CACHEBUST=1
+
+# Copy key
+RUN mkdir -p /opt/dcrunner/.ssh
+COPY id_rsa.bitbucket /opt/dcrunner/.ssh/
+RUN chmod 600 /opt/dcrunner/.ssh/id_rsa.bitbucket
+
+# Copy ssh config to disable HostKeyChecking
+COPY ssh_config /opt/dcrunner/.ssh/config
+RUN chmod 644 /opt/dcrunner/.ssh/config
+
+RUN chown -R dcrunner:dcrunner /opt/dcrunner/.ssh
+
+USER root
+USER dcrunner
+
+RUN echo ${CACHEBUST}
+COPY install_devvio.sh /tmp/
+RUN /bin/bash -c "/tmp/install_devvio.sh ${branch}"
+
+# Clean up private stuff
+#RUN rm -f /opt/dcrunner/.ssh/id_rsa.bitbucket
+#RUN rm -rf /opt/dcrunner/src/devcash-core
+
+ENV PATH="/opt/dcrunner/local/bin:${PATH}"
+
+ENTRYPOINT []

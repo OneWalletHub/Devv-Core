@@ -14,7 +14,7 @@
 #include "common/ossladapter.h"
 #include "common/util.h"
 
-namespace Devcash {
+namespace Devv {
 
 // keep coins within uint64, divisible to 10^-8
 /// @todo (mckenney) move to constants
@@ -87,6 +87,6 @@ class SmartCoin {
   int64_t amount_ = 0;
 };
 
-}  // end namespace Devcash
+}  // end namespace Devv
 
 #endif /* SRC_PRIMITIVES_SMARTCOIN_H_ */

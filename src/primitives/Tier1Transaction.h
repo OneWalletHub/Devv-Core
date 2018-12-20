@@ -2,8 +2,7 @@
  * Tier1Transaction.h defines the structure of the transaction section of a block
  * for Tier 1 shards.
  *
- *  Created on: May 4, 2018
- *  Author: Nick Williams
+ * @copywrite  2018 Devvio Inc
  *
  */
 
@@ -12,10 +11,10 @@
 
 #include "Transaction.h"
 #include "primitives/buffers.h"
-#include "common/devcash_exceptions.h"
+#include "common/devv_exceptions.h"
 #include "common/logger.h"
 
-namespace Devcash {
+namespace Devv {
 
 class Tier1Transaction : public Transaction {
  public:
@@ -51,7 +50,7 @@ class Tier1Transaction : public Transaction {
     if (calculate_soundness) {
       is_sound_ = isSound(keys);
       if (!is_sound_) {
-        throw DevcashMessageError("Invalid serialized T1 transaction, not sound!");
+        throw DevvMessageError("Invalid serialized T1 transaction, not sound!");
       }
     }
     MTR_FINISH("Transaction", "Transaction", &trace_int);
@@ -71,10 +70,10 @@ class Tier1Transaction : public Transaction {
       : Transaction(false), sum_size_(summary.getByteSize()) {
     /// @todo Don't throw from constructor
     if (!summary.isSane()) {
-      throw DevcashMessageError("Serialized T1 transaction has bad summary!");
+      throw DevvMessageError("Serialized T1 transaction has bad summary!");
     }
     if (sig.size() != kNODE_SIG_BUF_SIZE) {
-      throw DevcashMessageError("Incorrect signature!");
+      throw DevvMessageError("Incorrect signature!");
     }
     sum_size_ = summary.getByteSize();
     canonical_.reserve(sum_size_ + uint64Size() + kNODE_SIG_BUF_SIZE + kNODE_ADDR_BUF_SIZE);
@@ -87,7 +86,7 @@ class Tier1Transaction : public Transaction {
     canonical_.insert(std::end(canonical_), std::begin(sig_canon), std::end(sig_canon));
     is_sound_ = isSound(keys);
     if (!is_sound_) {
-      throw DevcashMessageError("Invalid serialized T1 transaction, not sound!");
+      throw DevvMessageError("Invalid serialized T1 transaction, not sound!");
     }
   }
 
@@ -183,7 +182,7 @@ class Tier1Transaction : public Transaction {
   bool do_setIsSound(const KeyRing& keys) {
     is_sound_ = isSound(keys);
     if (!is_sound_) {
-      throw DevcashMessageError("Invalid serialized T1 transaction, not sound!");
+      throw DevvMessageError("Invalid serialized T1 transaction, not sound!");
     }
     return is_sound_;
   }
@@ -200,11 +199,11 @@ class Tier1Transaction : public Transaction {
     if (is_sound_) { return (is_sound_); }
 
     Address node_addr = getNodeAddress();
-    EC_KEY* eckey(keys.getKey(node_addr));
+    EC_KEY* eckey = keys.getKey(node_addr);
     std::vector<byte> msg(getMessageDigest());
     Signature sig = getSignature();
 
-    if (!VerifyByteSig(eckey, DevcashHash(msg), sig)) {
+    if (!VerifyByteSig(eckey, DevvHash(msg), sig)) {
       LOG_WARNING << "Error: T1 transaction signature did not validate.\n";
       LOG_DEBUG << "Transaction state is: " + getJSON();
       LOG_DEBUG << "Node address is: " + node_addr.getJSON();
@@ -359,6 +358,6 @@ class Tier1Transaction : public Transaction {
 };
 
 typedef std::unique_ptr<Tier1Transaction> Tier1TransactionPtr;
-}  // end namespace Devcash
+}  // end namespace Devv
 
 #endif /* PRIMITIVES_TIER1TRANSACTION_H_ */
