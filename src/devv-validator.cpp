@@ -13,11 +13,65 @@
 #include "common/argument_parser.h"
 #include "common/devv_context.h"
 #include "concurrency/ValidatorController.h"
-#include "modules/BlockchainModule.h"
 #include "io/message_service.h"
+#include "primitives/block_tools.h"
+#include "modules/BlockchainModule.h"
 #include "modules/ParallelExecutor.h"
 
+#include <boost/filesystem.hpp>
+
 using namespace Devv;
+namespace fs = boost::filesystem;
+
+Blockchain LoadPriorChain(ChainState& prior, const std::string& shard_dir
+                         , const KeyRing& keys, eAppMode mode) {
+  LOG_DEBUG << "Looking for prior blockchain at: " << shard_dir;
+  Hash prev_hash = DevvHash({'G', 'e', 'n', 'e', 's', 'i', 's'});
+  Blockchain the_chain(shard_dir);
+  fs::path p(shard_dir);
+  if (!p.empty() && is_directory(p)) {
+    std::vector<std::string> files;
+    std::set<Signature> dupe_check;
+    for(auto& entry : boost::make_iterator_range(fs::directory_iterator(p), {})) {
+      files.push_back(entry.path().string());
+    }
+    std::sort(files.begin(), files.end());
+    for  (auto const& file_name : files) {
+      LOG_DEBUG << "Reading " << file_name;
+      std::ifstream file(file_name, std::ios::binary);
+      file.unsetf(std::ios::skipws);
+      std::size_t file_size;
+      file.seekg(0, std::ios::end);
+      file_size = file.tellg();
+      file.seekg(0, std::ios::beg);
+      std::vector<byte> raw;
+      raw.reserve(file_size);
+      raw.insert(raw.begin(), std::istream_iterator<byte>(file), std::istream_iterator<byte>());
+      if (IsBlockData(raw)) {
+        InputBuffer buffer(raw);
+        while (buffer.getOffset() < static_cast<size_t>(file_size)) {
+          try {
+            auto new_block = std::make_shared<FinalBlock>(buffer, prior, keys, options->mode));
+            Hash p_hash = new_block->getPreviousHash();
+            if (!std::equal(std::begin(prev_hash), std::end(prev_hash), std::begin(p_hash))) {
+              LOG_FATAL << "CHAINBREAK: The previous hash referenced in this block does not match the expected hash.";
+              break;
+            } else {
+              prior = new_block->getChainState();
+              prev_hash = DevvHash(new_block->getCanonical());
+              the_chain.push_back(new_block);
+	        }
+          } catch (const std::exception& e) {
+            LOG_ERROR << "Error scanning " << file_name << " skipping to next file.  Error details: "+FormatException(&e, "validator.init");
+            break;
+          }
+        }
+	  } else {
+        LOG_WARNING << "Working directory contained non-block binary data at: " << file_name;
+	  }
+  }
+  return(priori);
+}
 
 int main(int argc, char* argv[])
 {
@@ -45,6 +99,9 @@ int main(int argc, char* argv[])
                                 , options->max_wait);
     KeyRing keys(devv_context);
     ChainState prior;
+
+    //load existing blockchain, modifies prior ChainState
+    Blockchain the_chain = LoadPriorChain(prior, options->working_dir, keys, options->mode);
 
     auto server = io::CreateTransactionServer(options->bind_endpoint, zmq_context);
     auto peer_client = io::CreateTransactionClient(options->host_vector, zmq_context);
@@ -79,7 +136,9 @@ int main(int argc, char* argv[])
 
     {
       LOG_NOTICE << "Creating the BlockchainModule";
-      auto bcm = BlockchainModule::Create(*server, *peer_client, *loopback_client, keys, prior, options->mode, devv_context, options->batch_size);
+      auto bcm = BlockchainModule::Create(*server, *peer_client, *loopback_client
+                 , the_chain, keys, prior
+                 , options->mode, devv_context, options->batch_size);
       LOG_NOTICE << "Starting the BlockchainModule";
 
       bcm->start();

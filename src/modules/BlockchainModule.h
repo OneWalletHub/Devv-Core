@@ -32,6 +32,7 @@ class BlockchainModule : public ModuleInterface {
   BlockchainModule(io::TransactionServer &server,
                   io::TransactionClient &client,
                   io::TransactionClient &loopback_client,
+                  Blockchain& final_chain,
                   const KeyRing &keys,
                   const ChainState &prior,
                   eAppMode mode,
