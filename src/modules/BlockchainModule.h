@@ -69,12 +69,12 @@ class BlockchainModule : public ModuleInterface {
                                 DevvContext &context,
                                 size_t max_tx_per_block);
 
-  /** Initialize devcoin core: Basic context setup.
+  /** Initialize core: Basic context setup.
    *  @note Do not call Shutdown() if this function fails.
    *  @pre Parameters should be parsed and config file should be read.
    *  @param working_dir a directory to check for a pre-existing blockchain
    */
-  void init() override;
+  void init() final;
 
   /** Load chain history into memory.
    *  @param working_dir a directory to check for a pre-existing blockchain
@@ -86,7 +86,7 @@ class BlockchainModule : public ModuleInterface {
    * @note Do not call Shutdown() if this function fails.
    * @pre Parameters should be parsed and config file should be read.
    */
-  void performSanityChecks() override;
+  bool performSanityChecks() final;
 
   /**
    * Stop any running threads and shutdown the module

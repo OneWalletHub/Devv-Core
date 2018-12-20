@@ -22,7 +22,7 @@ class BlockchainModuleTest : public ::testing::Test {
 
  protected:
   BlockchainModuleTest()
-      : devv_context_(1, 0, eAppMode::T2, "", "", "")
+      : devv_context_(1, 0, eAppMode::T2, "", "", "password")
       , keys_(devv_context_)
       , context_(1)
   {
@@ -70,5 +70,21 @@ class BlockchainModuleTest : public ::testing::Test {
 };
 
 TEST_F(BlockchainModuleTest, constructor_0) {
+  EXPECT_TRUE(blockchainmodule_ptr_->performSanityChecks());
+}
 
+TEST_F(BlockchainModuleTest, initializations_0) {
+  auto& chain = blockchainmodule_ptr_->getFinalChain();
+  EXPECT_EQ(chain.size(), 0);
+  auto& utx = blockchainmodule_ptr_->getTransactionPool();
+  EXPECT_EQ(utx.getMode(), eAppMode::T2);
+}
+
+TEST_F(BlockchainModuleTest, loadHistoricChain_0) {
+  blockchainmodule_ptr_->loadHistoricChain("my/path");
+}
+
+int main(int argc, char **argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }

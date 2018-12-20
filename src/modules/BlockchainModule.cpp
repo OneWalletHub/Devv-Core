@@ -276,7 +276,7 @@ void BlockchainModule::loadHistoricChain(const std::string& working_dir) {
   }
 }
 
-void BlockchainModule::performSanityChecks()
+bool BlockchainModule::performSanityChecks()
 {
   if (!isCryptoInit) { InitCrypto(); }
   EVP_MD_CTX *ctx;
@@ -289,13 +289,14 @@ void BlockchainModule::performSanityChecks()
 
   EC_KEY *loadkey = LoadEcKey(kADDRs[1],
                               kADDR_KEYs[1],
-                              "password");
+                              app_context_.get_key_password());
 
   Signature sig = SignBinary(loadkey, test_hash);
 
   if (!VerifyByteSig(loadkey, test_hash, sig)) {
     throw std::runtime_error("Could not VerifyByteSig!");
   }
+  return true;
 }
 
 void BlockchainModule::start()
