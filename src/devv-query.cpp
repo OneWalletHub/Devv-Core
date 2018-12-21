@@ -410,14 +410,14 @@ Listens for FinalBlock messages and saves them to a file\n\
   return options;
 }
 
-bool hasShard(const std::string& shard, const std::string& working_dir) {
+bool HasShard(const std::string& shard, const std::string& working_dir) {
   std::string shard_dir(working_dir+fs::path::preferred_separator+shard);
   fs::path dir_path(shard_dir);
   if (is_directory(dir_path)) return true;
   return false;
 }
 
-bool hasBlock(const Blockchain& chain, const std::string& shard_name, size_t block, const std::string& working_dir) {
+bool HasBlock(const Blockchain& chain, const std::string& shard_name, size_t block, const std::string& working_dir) {
   auto block_path = GetStandardBlockPath(chain, shard_name, working_dir, block);
   if (fs::exists(block_path)) return true;
 
@@ -468,7 +468,7 @@ std::map<std::string, std::string> TraceTransactions(const std::string& shard
   return txs;
 }
 
-std::string getServiceArgument(std::map<std::string, std::string>& args, const std::string& key) {
+std::string GetServiceArgument(std::map<std::string, std::string>& args, const std::string& key) {
   auto it = args.find(key);
   if (it != args.end()) {
     return it->second;
@@ -487,13 +487,13 @@ ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const 
       response.message = "Missing arguments.";
       return std::make_unique<ServiceResponse>(response);
     }
-    std::string name = getServiceArgument(request->args, "shard-name");
-    std::string shard_id = getServiceArgument(request->args, "shard-id");
+    std::string name = GetServiceArgument(request->args, "shard-name");
+    std::string shard_id = GetServiceArgument(request->args, "shard-id");
     if (shard_name != name && shard_id != std::to_string(shard_index)) {
       response.return_code = 1050;
       response.message = "Shard '"+name+"' is not available.";
       return std::make_unique<ServiceResponse>(response);
-    } else if (name.empty() && !hasShard(shard_id, working_dir)) {
+    } else if (name.empty() && !HasShard(shard_id, working_dir)) {
       response.return_code = 1050;
       response.message = "Shard "+shard_id+" is not available.";
       return std::make_unique<ServiceResponse>(response);
@@ -505,7 +505,7 @@ ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const 
 	response.args.insert(std::make_pair("protocol-version", "0"));
 	response.args.insert(std::make_pair("shard-name", shard_name));
     if (SearchString(request->endpoint, "/block-info", true)) {
-      auto height = std::stoul(getServiceArgument(request->args, "block-height"));
+      auto height = std::stoul(GetServiceArgument(request->args, "block-height"));
       response.args.insert(std::make_pair("block-height", std::to_string(height)));
       if (height < chain.size() && shard_id == std::to_string(shard_index)) {
         std::vector<byte> block = chain.raw_at(height);
@@ -518,7 +518,7 @@ ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const 
         response.args.insert(std::make_pair("block-volume", std::to_string(one_block.getVolume())));
         response.args.insert(std::make_pair("Merkle", ToHex(one_block.getMerkleRoot())));
         response.args.insert(std::make_pair("previous-hash", ToHex(one_block.getPreviousHash())));
-	  } else if (hasBlock(chain, shard_name, height, working_dir)) {
+	  } else if (HasBlock(chain, shard_name, height, working_dir)) {
         std::vector<byte> block = ReadBlock(chain, shard_name, height, working_dir);
         InputBuffer buffer(block);
         ChainState state;
@@ -551,20 +551,20 @@ ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const 
           , std::to_string(chain.getAvgBlocktime())));
 	  }
     } else if (SearchString(request->endpoint, "/trace", true)) {
-      std::string start_str = getServiceArgument(request->args, "start-block");
+      std::string start_str = GetServiceArgument(request->args, "start-block");
       size_t start_block = 0;
       if (!start_str.empty()) {
         start_block = std::stoi(start_str);
         response.args.insert(std::make_pair("start-block", start_str));
       }
-      std::string end_str = getServiceArgument(request->args, "end-block");
+      std::string end_str = GetServiceArgument(request->args, "end-block");
       size_t end_block = UINT32_MAX;
       if (!end_str.empty()) {
         end_block = std::stoi(end_str);
         response.args.insert(std::make_pair("end-block", end_str));
       }
-      std::string sig = getServiceArgument(request->args, "signature");
-      std::string addr = getServiceArgument(request->args, "address");
+      std::string sig = GetServiceArgument(request->args, "signature");
+      std::string addr = GetServiceArgument(request->args, "address");
       if (sig.empty() && addr.empty()) {
         response.return_code = 1050;
         response.message = "An address or signature is required for a trace.";
@@ -584,9 +584,9 @@ ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const 
         response.args.insert(txs.begin(), txs.end());
 	  }
     } else if (SearchString(request->endpoint, "/tx-info", true)) {
-      size_t height = std::stoi(getServiceArgument(request->args, "block-height"));
+      size_t height = std::stoi(GetServiceArgument(request->args, "block-height"));
       response.args.insert(std::make_pair("block-height", std::to_string(height)));
-      std::string sig = getServiceArgument(request->args, "signature");
+      std::string sig = GetServiceArgument(request->args, "signature");
       response.args.insert(std::make_pair("signature", sig));
       Signature tx_id(Hex2Bin(sig));
       if (height < chain.size() && shard_id == std::to_string(shard_index)) {
@@ -606,7 +606,7 @@ ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const 
           response.return_code = 1050;
           response.message = "Transaction not found in block "+std::to_string(height)+".";
         }
-      } else if (hasBlock(chain, shard_name, height, working_dir)) {
+      } else if (HasBlock(chain, shard_name, height, working_dir)) {
         std::vector<byte> block = ReadBlock(chain, shard_name, height, working_dir);
         InputBuffer buffer(block);
         ChainState state;

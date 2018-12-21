@@ -18,9 +18,15 @@ const size_t kHASH_LENGTH = 32;
 
 typedef std::array<byte, kHASH_LENGTH> Hash;
 
+/**
+ * Tier1 or Tier2 mode
+ */
 enum eAppMode {
+  /// Tier1 mode
   T1 = 0,
+  /// Tier2 mode
   T2 = 1,
+  /// Scanning mode
   scan = 2
 };
 
