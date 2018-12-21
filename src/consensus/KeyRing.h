@@ -17,7 +17,14 @@ class KeyRing {
  public:
   KeyRing() : key_map_(), node_list_(), inn_addr_() {}
   KeyRing(const DevvContext& context);
-  virtual ~KeyRing() {};
+  virtual ~KeyRing() {
+    for (auto& pair : key_map_) {
+      EC_KEY_free(pair.second);
+    }
+  }
+
+  KeyRing& operator=(const KeyRing&) = delete;
+  KeyRing(const KeyRing&) = delete;
 
   /**
    * Add an address and EC key to this directory.
@@ -144,9 +151,6 @@ class KeyRing {
   std::vector<Address> getDesignatedWallets(int index) const;
 
  private:
-  KeyRing& operator=(const KeyRing&);
-  KeyRing(const KeyRing&);
-
   std::map<Address, EC_KEY*> key_map_;
   std::vector<Address> node_list_;
   std::vector<Address> wallet_list_;
