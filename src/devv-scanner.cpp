@@ -108,6 +108,10 @@ int main(int argc, char* argv[])
     size_t total_volume = 0;
 
     KeyRing keys;
+    ChainState priori;
+    ChainState posteri;
+    Hash prev_hash = DevvHash({'G', 'e', 'n', 'e', 's', 'i', 's'});
+    bpt::ptree block_array;
 
     fs::path p(options->working_dir);
     if (p.empty()) {
@@ -120,142 +124,146 @@ int main(int argc, char* argv[])
       return false;
     }
 
-    bpt::ptree block_array;
-    std::vector<std::string> files;
-    std::set<Signature> dupe_check;
-    for(auto& entry : boost::make_iterator_range(fs::directory_iterator(p), {})) {
-      files.push_back(entry.path().string());
+    std::vector<std::string> segments;
+    for (auto& entry : boost::make_iterator_range(fs::directory_iterator(p), {})) {
+      segments.push_back(entry.path().string());
     }
-    std::sort(files.begin(), files.end());
-
-    for  (auto const& file_name : files) {
-      LOG_DEBUG << "Reading " << file_name;
-      std::ifstream file(file_name, std::ios::binary);
-      file.unsetf(std::ios::skipws);
-      std::size_t file_size;
-      file.seekg(0, std::ios::end);
-      file_size = file.tellg();
-      file.seekg(0, std::ios::beg);
-
-      std::vector<byte> raw;
-      raw.reserve(file_size);
-      raw.insert(raw.begin(), std::istream_iterator<byte>(file), std::istream_iterator<byte>());
-      bool is_block = IsBlockData(raw);
-      bool is_transaction = IsTxData(raw);
-      if (is_block) { LOG_INFO << file_name << " has blocks."; }
-      if (is_transaction) { LOG_INFO << file_name << " has transactions."; }
-      if (!is_block && !is_transaction) {
-        LOG_WARNING << file_name << " contains unknown data.";
-      }
-      size_t file_blocks = 0;
-      size_t file_txs = 0;
-      size_t file_tfer = 0;
-      uint64_t start_time = 0;
-      uint64_t blocktime = 0;
-      uint64_t volume = 0;
-      uint64_t value = 0;
-
-      ChainState priori;
-      ChainState posteri;
-      Hash prev_hash = DevvHash({'G', 'e', 'n', 'e', 's', 'i', 's'});
-
-      InputBuffer buffer(raw);
-      while (buffer.getOffset() < static_cast<size_t>(file_size)) {
-        try {
-          if (is_transaction) {
-            Tier2Transaction tx(Tier2Transaction::Create(buffer, keys, true));
-            file_txs++;
-            file_tfer += tx.getTransfers().size();
-
-            add_to_tree(tx.getJSON(), block_array, block_counter);
-          } else if (is_block) {
-            FinalBlock one_block(buffer, priori, keys, options->mode);
-
-            if (one_block.getVersion() != options->version) {
-              LOG_WARNING << "Unexpected block version ("+std::to_string(one_block.getVersion())+") in " << file_name;
-            }
-            size_t txs_count = one_block.getNumTransactions();
-            size_t tfers = one_block.getNumTransfers();
-            uint64_t previous_time = blocktime;
-            blocktime = one_block.getBlockTime();
-            uint64_t duration = blocktime-previous_time;
-            priori = one_block.getChainState();
-            Hash p_hash = one_block.getPreviousHash();
-            if (!std::equal(std::begin(prev_hash), std::end(prev_hash), std::begin(p_hash))) {
-              LOG_WARNING << "CHAINBREAK: The previous hash referenced in this block does not match the previous block hash.";
-            }
-            prev_hash = DevvHash(one_block.getCanonical());
-
-            add_to_tree(GetJSON(one_block), block_array, block_counter);
-
-            LOG_INFO << std::to_string(txs_count)+" txs, transfers: "+std::to_string(tfers);
-            LOG_INFO << "Duration: "+std::to_string(duration)+" ms.";
-            if (duration != 0 && previous_time != 0) {
-              LOG_INFO << "Rate: "+std::to_string(txs_count*1000/duration)+" txs/sec";
-            } else if (previous_time == 0) {
-              start_time = blocktime;
-            }
-            uint64_t block_volume = one_block.getVolume();
-            volume += block_volume;
-            value += one_block.getValue();
-            LOG_INFO << "Volume: "+std::to_string(block_volume);
-            LOG_INFO << "Value: "+std::to_string(one_block.getValue());
-
-            Summary block_summary(Summary::Create());
-            std::vector<TransactionPtr> txs = one_block.CopyTransactions();
-            for (TransactionPtr& item : txs) {
-              if (!item->isValid(posteri, keys, block_summary)) {
-                LOG_WARNING << "A transaction is invalid. TX details: ";
-                LOG_WARNING << item->getJSON();
-              }
-              auto ret = dupe_check.insert(item->getSignature());
-              if (ret.second==false) {
-                LOG_WARNING << "DUPLICATE TRANSACTION detected: "+item->getSignature().getJSON();
-              }
-            }
-            if (block_summary.getCanonical() != one_block.getSummary().getCanonical()) {
-              LOG_WARNING << "A final block summary is invalid. Summary datails: ";
-              LOG_WARNING << GetJSON(one_block.getSummary());
-              LOG_WARNING << "Transaction details: ";
-              for (TransactionPtr& item : txs) {
-                LOG_WARNING << item->getJSON();
-              }
-            }
-
-            file_blocks++;
-            file_txs += txs_count;
-            file_tfer += tfers;
-          } else {
-            LOG_WARNING << "!is_block && !is_transaction";
-          }
-        } catch (const std::exception& e) {
-          LOG_ERROR << "Error scanning " << file_name << " skipping to next file.  Error details: "+FormatException(&e, "scanner");
-          LOG_ERROR << "Offset/Size: "+std::to_string(buffer.getOffset())+"/"+std::to_string(file_size);
-          break;
+    std::sort(segments.begin(), segments.end());
+    for (auto const& seg_num : segments) {
+      fs::path seg(working_dir + fs::path::preferred_separator + seg_num);
+      if (!seg.empty() && is_directory(seg)) {
+        std::vector<std::string> files;
+        std::set<Signature> dupe_check;
+        for(auto& entry : boost::make_iterator_range(fs::directory_iterator(p), {})) {
+          files.push_back(entry.path().string());
         }
-      }
+        std::sort(files.begin(), files.end());
 
-      if (posteri.getStateMap().empty()) {
-        LOG_DEBUG << "End with no chainstate.";
-	  } else {
-        LOG_DEBUG << "End chainstate: " + WriteChainStateMap(posteri.getStateMap());
-	  }
+        for  (auto const& file_name : files) {
+          LOG_DEBUG << "Reading " << file_name;
+          std::ifstream file(file_name, std::ios::binary);
+          file.unsetf(std::ios::skipws);
+          std::size_t file_size;
+          file.seekg(0, std::ios::end);
+          file_size = file.tellg();
+          file.seekg(0, std::ios::beg);
 
+          std::vector<byte> raw;
+          raw.reserve(file_size);
+          raw.insert(raw.begin(), std::istream_iterator<byte>(file), std::istream_iterator<byte>());
+          bool is_block = IsBlockData(raw);
+          bool is_transaction = IsTxData(raw);
+          if (is_block) { LOG_INFO << file_name << " has blocks."; }
+          if (is_transaction) { LOG_INFO << file_name << " has transactions."; }
+          if (!is_block && !is_transaction) {
+            LOG_WARNING << file_name << " contains unknown data.";
+          }
+          size_t file_blocks = 0;
+          size_t file_txs = 0;
+          size_t file_tfer = 0;
+          uint64_t start_time = 0;
+          uint64_t blocktime = 0;
+          uint64_t volume = 0;
+          uint64_t value = 0;
 
-      uint64_t duration = blocktime-start_time;
-      if (duration != 0 && start_time != 0) {
-        LOG_INFO << file_name << " overall rate: "+std::to_string(file_txs*1000/duration)+" txs/sec";
-      }
-      LOG_INFO << file_name << " has " << std::to_string(file_txs)
-              << " txs, " +std::to_string(file_tfer)+" tfers in "+std::to_string(file_blocks)+" blocks.";
-      LOG_INFO << file_name + " coin volume is "+std::to_string(volume);
+          InputBuffer buffer(raw);
+          while (buffer.getOffset() < static_cast<size_t>(file_size)) {
+            try {
+              if (is_transaction) {
+                Tier2Transaction tx(Tier2Transaction::Create(buffer, keys, true));
+                file_txs++;
+                file_tfer += tx.getTransfers().size();
 
-      block_counter += file_blocks;
-      tx_counter += file_txs;
-      tfer_count += file_tfer;
-      total_volume += volume;
-    }
-    LOG_INFO << "Dir has "+std::to_string(tx_counter)+" txs, "
+                add_to_tree(tx.getJSON(), block_array, block_counter);
+              } else if (is_block) {
+                FinalBlock one_block(buffer, priori, keys, options->mode);
+
+                if (one_block.getVersion() != options->version) {
+                  LOG_WARNING << "Unexpected block version ("+std::to_string(one_block.getVersion())+") in " << file_name;
+                }
+                size_t txs_count = one_block.getNumTransactions();
+                size_t tfers = one_block.getNumTransfers();
+                uint64_t previous_time = blocktime;
+                blocktime = one_block.getBlockTime();
+                uint64_t duration = blocktime-previous_time;
+                priori = one_block.getChainState();
+                Hash p_hash = one_block.getPreviousHash();
+                if (!std::equal(std::begin(prev_hash), std::end(prev_hash), std::begin(p_hash))) {
+                  LOG_WARNING << "CHAINBREAK: The previous hash referenced in this block does not match the previous block hash.";
+                }
+                prev_hash = DevvHash(one_block.getCanonical());
+
+                add_to_tree(GetJSON(one_block), block_array, block_counter);
+
+                LOG_INFO << std::to_string(txs_count)+" txs, transfers: "+std::to_string(tfers);
+                LOG_INFO << "Duration: "+std::to_string(duration)+" ms.";
+                if (duration != 0 && previous_time != 0) {
+                  LOG_INFO << "Rate: "+std::to_string(txs_count*1000/duration)+" txs/sec";
+                } else if (previous_time == 0) {
+                  start_time = blocktime;
+                }
+                uint64_t block_volume = one_block.getVolume();
+                volume += block_volume;
+                value += one_block.getValue();
+                LOG_INFO << "Volume: "+std::to_string(block_volume);
+                LOG_INFO << "Value: "+std::to_string(one_block.getValue());
+
+                Summary block_summary(Summary::Create());
+                std::vector<TransactionPtr> txs = one_block.CopyTransactions();
+                for (TransactionPtr& item : txs) {
+                  if (!item->isValid(posteri, keys, block_summary)) {
+                    LOG_WARNING << "A transaction is invalid. TX details: ";
+                    LOG_WARNING << item->getJSON();
+                  }
+                  auto ret = dupe_check.insert(item->getSignature());
+                  if (ret.second==false) {
+                    LOG_WARNING << "DUPLICATE TRANSACTION detected: "+item->getSignature().getJSON();
+                  }
+                }
+                if (block_summary.getCanonical() != one_block.getSummary().getCanonical()) {
+                  LOG_WARNING << "A final block summary is invalid. Summary datails: ";
+                  LOG_WARNING << GetJSON(one_block.getSummary());
+                  LOG_WARNING << "Transaction details: ";
+                  for (TransactionPtr& item : txs) {
+                    LOG_WARNING << item->getJSON();
+                  }
+                }
+
+                file_blocks++;
+                file_txs += txs_count;
+                file_tfer += tfers;
+              } else {
+                LOG_WARNING << "!is_block && !is_transaction";
+              }
+            } catch (const std::exception& e) {
+              LOG_ERROR << "Error scanning " << file_name << " skipping to next file.  Error details: "+FormatException(&e, "scanner");
+              LOG_ERROR << "Offset/Size: "+std::to_string(buffer.getOffset())+"/"+std::to_string(file_size);
+              break;
+            }
+          }  //end while loop
+
+          if (posteri.getStateMap().empty()) {
+            LOG_DEBUG << "End with no chainstate.";
+          } else {
+            LOG_DEBUG << "End chainstate: " + WriteChainStateMap(posteri.getStateMap());
+          }
+
+          uint64_t duration = blocktime-start_time;
+          if (duration != 0 && start_time != 0) {
+            LOG_INFO << file_name << " overall rate: "+std::to_string(file_txs*1000/duration)+" txs/sec";
+          }
+          LOG_INFO << file_name << " has " << std::to_string(file_txs)
+                  << " txs, " +std::to_string(file_tfer)+" tfers in "+std::to_string(file_blocks)+" blocks.";
+          LOG_INFO << file_name + " coin volume is "+std::to_string(volume);
+
+          block_counter += file_blocks;
+          tx_counter += file_txs;
+          tfer_count += file_tfer;
+          total_volume += volume;
+        }  //end file loop
+      }  //endif not empty segment
+    }  //end segment loop
+    LOG_INFO << "Chain has "+std::to_string(tx_counter)+" txs, "
       +std::to_string(tfer_count)+" tfers in "+std::to_string(block_counter)+" blocks.";
     LOG_INFO << "Grand total coin volume is "+std::to_string(total_volume);
 
