@@ -6,6 +6,8 @@
  */
 #include "block_tools.h"
 
+#include <sstream>
+#include <iomanip>
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
@@ -106,16 +108,16 @@ boost::filesystem::path GetStandardBlockPath(const Blockchain& chain,
                                              const std::string& shard_name,
                                              const boost::filesystem::path& working_dir,
                                              size_t block_index) {
+  // Set the segment number
+  std::stringstream ss;
+  ss << std::setw(kMAX_LEFTPADDED_ZER0S) << std::setfill('0') << chain.getSegmentIndexAt(block_index);
+  auto segment_num_str = ss.str();
+  // and the block number within the segment
+  std::stringstream blk_strm;
+  blk_strm << std::setw(kMAX_LEFTPADDED_ZER0S) << std::setfill('0') << chain.getSegmentHeightAt(block_index);
+  auto block_num_str = blk_strm.str();
 
-  std::string segment_num_str = std::to_string(chain.getSegmentIndexAt(block_index));
-  std::string block_num_str = std::to_string(chain.getSegmentHeightAt(block_index));
-  if (segment_num_str.length() < kMAX_LEFTPADDED_ZEORS) {
-    segment_num_str = std::string(kMAX_LEFTPADDED_ZEORS - segment_num_str.length(), '0')+segment_num_str;
-  }
-  if (block_num_str.length() < kMAX_LEFTPADDED_ZEORS) {
-    block_num_str = std::string(kMAX_LEFTPADDED_ZEORS - block_num_str.length(), '0')+block_num_str;
-  }
-  fs::path block_path(working_dir / shard_name / segment_num_str / block_num_str / kBLOCK_SUFFIX);
+  fs::path block_path(working_dir / shard_name / segment_num_str / (block_num_str + kBLOCK_SUFFIX));
 
   return block_path;
 }
@@ -134,10 +136,12 @@ void BlockIOFS::writeBlock(FinalBlockSharedPtr block) {
   fs::path seg_dir(base_path_ / shard_uri_
                           / std::to_string(chain_.getCurrentSegmentIndex()));
 
-  fs::path dir_path(seg_dir);
-  if (!is_directory(dir_path)) fs::create_directory(dir_path);
-  fs::path out_file = GetStandardBlockPath(chain_, shard_uri_, base_path_, chain_.size());
+  //fs::path dir_path(seg_dir);
+  //if (!is_directory(dir_path)) fs::create_directory(dir_path);
+  auto out_file = GetStandardBlockPath(chain_, shard_uri_, base_path_, chain_.size());
   std::ofstream block_file(out_file.string(), std::ios::out | std::ios::binary);
+  if (!is_directory(out_file)) fs::create_directory(out_file.branch_path());
+
   if (block_file.is_open()) {
     auto canonical = block->getCanonical();
     block_file.write(reinterpret_cast<char*>(canonical.data()), canonical.size());
@@ -146,7 +150,6 @@ void BlockIOFS::writeBlock(FinalBlockSharedPtr block) {
   } else {
     LOG_ERROR << "Failed to open output file '" << out_file << "'.";
   }
-
 }
 
 } // namespace Devv

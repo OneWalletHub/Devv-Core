@@ -410,7 +410,7 @@ Listens for FinalBlock messages and saves them to a file\n\
   return options;
 }
 
-bool hasShard(std::string shard, const std::string& working_dir) {
+bool hasShard(const std::string& shard, const std::string& working_dir) {
   std::string shard_dir(working_dir+fs::path::preferred_separator+shard);
   fs::path dir_path(shard_dir);
   if (is_directory(dir_path)) return true;
@@ -418,15 +418,15 @@ bool hasShard(std::string shard, const std::string& working_dir) {
 }
 
 bool hasBlock(const Blockchain& chain, const std::string& shard_name, size_t block, const std::string& working_dir) {
-  std::string block_path = GetStandardBlockPath(chain, shard_name, working_dir, block);
-  if (boost::filesystem::exists(block_path)) return true;
+  auto block_path = GetStandardBlockPath(chain, shard_name, working_dir, block);
+  if (fs::exists(block_path)) return true;
   return false;
 }
 
 std::vector<byte> ReadBlock(const Blockchain& chain, const std::string& shard_name, size_t block, const std::string& working_dir) {
   std::vector<byte> out;
-  std::string block_path = GetStandardBlockPath(chain, shard_name, working_dir, block);
-  std::ifstream block_file(block_path, std::ios::in | std::ios::binary);
+  auto block_path = GetStandardBlockPath(chain, shard_name, working_dir, block);
+  std::ifstream block_file(block_path.string(), std::ios::in | std::ios::binary);
   block_file.unsetf(std::ios::skipws);
 
   std::streampos block_size;
@@ -466,7 +466,7 @@ std::map<std::string, std::string> TraceTransactions(const std::string& shard
   return txs;
 }
 
-std::string getServiceArgument(std::map<std::string, std::string>& args, std::string key) {
+std::string getServiceArgument(std::map<std::string, std::string>& args, const std::string& key) {
   auto it = args.find(key);
   if (it != args.end()) {
     return it->second;
@@ -503,7 +503,7 @@ ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const 
 	response.args.insert(std::make_pair("protocol-version", "0"));
 	response.args.insert(std::make_pair("shard-name", shard_name));
     if (SearchString(request->endpoint, "/block-info", true)) {
-      size_t height = std::stoi(getServiceArgument(request->args, "block-height"));
+      auto height = std::stoul(getServiceArgument(request->args, "block-height"));
       response.args.insert(std::make_pair("block-height", std::to_string(height)));
       if (height < chain.size() && shard_id == std::to_string(shard_index)) {
         std::vector<byte> block = chain.raw_at(height);
@@ -532,7 +532,7 @@ ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const 
         response.message = "Block "+std::to_string(height)+" is not available.";
 	  }
     } else if (SearchString(request->endpoint, "/shard-info", true)) {
-      uint32_t highest = chain.size();
+      auto highest = chain.size();
       response.args.insert(std::make_pair("current-block", std::to_string(highest)));
       if (highest > 0) {
         std::shared_ptr<const FinalBlock> top_block = chain.back();
