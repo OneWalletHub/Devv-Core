@@ -79,7 +79,7 @@ ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const 
  * @param message - an error message to include with the response
  * @return RepeaterResponsePtr - a smart pointer to the response
  */
-ServiceResponsePtr GenerateBadSyntaxResponse(std::string message) {
+ServiceResponsePtr GenerateBadSyntaxResponse(const std::string& message) {
   ServiceResponse response;
   response.return_code = 1010;
   response.message = message;
@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
     //@todo(nick@devv.io): read pre-existing chain
     Blockchain chain(options->shard_name);
 
-    BlockIOFS blockfs(<#initializer#>, <#initializer#>, <#initializer#>)
+    BlockIOFS blockfs(chain.getName(), options->working_dir, shard_name);
     auto peer_listener = io::CreateTransactionClient(options->host_vector, zmq_context);
     peer_listener->attachCallback([&](DevvMessageUniquePtr p) {
       if (p->message_type == eMessageType::FINAL_BLOCK) {
@@ -127,26 +127,13 @@ int main(int argc, char* argv[]) {
           auto top_block = std::make_shared<FinalBlock>(buffer, prior
                                                        , keys, options->mode);
           chain.push_back(top_block);
+          //write final chain to file
+          blockfs.writeBlock(top_block);
 	    } catch (const std::exception& e) {
           std::exception_ptr p = std::current_exception();
           std::string err("");
           err += (p ? p.__cxa_exception_type()->name() : "null");
           LOG_WARNING << "Error: " + err << std::endl;
-        }
-        //write final chain to file
-        std::string seg_dir(options->working_dir+fs::path::preferred_separator
-           +this_context.get_shard_uri()+fs::path::preferred_separator
-           +std::to_string(chain.getCurrentSegmentIndex()));
-        fs::path dir_path(seg_dir);
-        if (!is_directory(dir_path)) fs::create_directory(dir_path);
-        std::string out_file = GetStandardBlockPath(chain, shard_name, options->working_dir, chain.size());
-        std::ofstream block_file(out_file, std::ios::out | std::ios::binary);
-        if (block_file.is_open()) {
-          block_file.write((const char*) &p->data[0], p->data.size());
-          block_file.close();
-          LOG_DEBUG << "Wrote to " << out_file << "'.";
-        } else {
-          LOG_ERROR << "Failed to open output file '" << out_file << "'.";
         }
       }
     });
@@ -162,7 +149,7 @@ int main(int argc, char* argv[]) {
     while (true) {
       /* Should we shutdown? */
       if (fs::exists(options->stop_file)) {
-        LOG_INFO << "Shutdown file exists. Stopping repeater...";
+        LOG_INFO << "Shutdown file exists. Stopping devv-query...";
         break;
       }
 

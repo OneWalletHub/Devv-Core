@@ -139,7 +139,6 @@ void BlockIOFS::writeBlock(FinalBlockSharedPtr block) {
   fs::path out_file = GetStandardBlockPath(chain_, shard_uri_, base_path_, chain_.size());
   std::ofstream block_file(out_file.string(), std::ios::out | std::ios::binary);
   if (block_file.is_open()) {
-    //block_file.write((const char*) &p->data[0], p->data.size());
     auto canonical = block->getCanonical();
     block_file.write(reinterpret_cast<char*>(canonical.data()), canonical.size());
     block_file.close();
