@@ -135,8 +135,8 @@ int main(int argc, char* argv[])
       if (!seg.empty() && is_directory(seg)) {
         std::vector<std::string> files;
 
-        for(auto& entry : boost::make_iterator_range(fs::directory_iterator(seg), {})) {
-          files.push_back(entry.path().string());
+        for(auto& seg_entry : boost::make_iterator_range(fs::directory_iterator(seg), {})) {
+          files.push_back(seg_entry.path().string());
         }
         std::sort(files.begin(), files.end());
 
