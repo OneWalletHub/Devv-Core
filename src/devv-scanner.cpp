@@ -130,7 +130,7 @@ int main(int argc, char* argv[])
     }
     std::sort(segments.begin(), segments.end());
     for (auto const& seg_num : segments) {
-      fs::path seg(working_dir + fs::path::preferred_separator + seg_num);
+      fs::path seg(options->working_dir + fs::path::preferred_separator + seg_num);
       if (!seg.empty() && is_directory(seg)) {
         std::vector<std::string> files;
         std::set<Signature> dupe_check;
@@ -190,6 +190,8 @@ int main(int argc, char* argv[])
                 Hash p_hash = one_block.getPreviousHash();
                 if (!std::equal(std::begin(prev_hash), std::end(prev_hash), std::begin(p_hash))) {
                   LOG_WARNING << "CHAINBREAK: The previous hash referenced in this block does not match the previous block hash.";
+                  LOG_WARNING << "Expected Hash: " << ToHex(prev_hash);
+                  LOG_WARNING << "Found Hash: " << ToHex(p_hash);
                 }
                 prev_hash = DevvHash(one_block.getCanonical());
 
