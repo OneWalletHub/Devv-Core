@@ -61,7 +61,7 @@ bool AddToDelayedMap(uint64_t coin, const DelayedItem &item, DelayedMap &existin
  * @return true, if the delayed coins were removed
  * @return false, otherwise
  */
-bool RemoveFromDelayedMap(uint64_t coin, const DelayedItem &item, DelayedMap &existing);
+bool RemoveFromDelayedMap(uint64_t coin, int64_t delta, DelayedMap &existing);
 
 /**
  * Add a coin to the existing map
