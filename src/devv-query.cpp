@@ -103,7 +103,10 @@ std::string GetStandardBlockPath(
   std::string segment_num_str = std::to_string(chain.getSegmentIndexAt(block_index));
   std::string block_num_str = std::to_string(chain.getSegmentHeightAt(block_index));
   if (segment_num_str.length() < kMAX_LEFTPADDED_ZEORS) {
-    block_num_str = std::string(kMAX_LEFTPADDED_ZEORS - segment_num_str.length(), '0')+segment_num_str;
+    segment_num_str = std::string(kMAX_LEFTPADDED_ZEORS - segment_num_str.length(), '0')+segment_num_str;
+  }
+  if (block_num_str.length() < kMAX_LEFTPADDED_ZEORS) {
+      block_num_str = std::string(kMAX_LEFTPADDED_ZEORS - block_num_str.length(), '0')+block_num_str;
   }
   std::string block_path(
           working_dir + separator +
