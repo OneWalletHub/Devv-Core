@@ -21,6 +21,7 @@
 #include "common/devv_context.h"
 #include "common/devv_uri.h"
 #include "consensus/blockchain.h"
+#include "primitives/block_tools.h"
 #include "io/message_service.h"
 #include "modules/BlockchainModule.h"
 #include "pbuf/devv_pbuf.h"
@@ -85,37 +86,6 @@ ServiceResponsePtr GenerateBadSyntaxResponse(std::string message) {
   return std::make_unique<ServiceResponse>(response);
 }
 
-/**
- * @param shard - the name of the directory for this shard
- * @param block - the height of the block to generate a path for
- * @param working_dir - the working directory to create a path from
- * @param separator - the preferred path separator for this file system
- * @return a standard path where a particular block would be stored relative to the working directory.
- */
-std::string GetStandardBlockPath(
-    const Blockchain& chain,
-    const std::string shard_name,
-    size_t block_index,
-    const std::string& working_dir) {
-
-  auto separator = fs::path::preferred_separator;
-
-  std::string segment_num_str = std::to_string(chain.getSegmentIndexAt(block_index));
-  std::string block_num_str = std::to_string(chain.getSegmentHeightAt(block_index));
-  if (segment_num_str.length() < kMAX_LEFTPADDED_ZEORS) {
-    segment_num_str = std::string(kMAX_LEFTPADDED_ZEORS - segment_num_str.length(), '0')+segment_num_str;
-  }
-  if (block_num_str.length() < kMAX_LEFTPADDED_ZEORS) {
-      block_num_str = std::string(kMAX_LEFTPADDED_ZEORS - block_num_str.length(), '0')+block_num_str;
-  }
-  std::string block_path(
-          working_dir + separator +
-          shard_name + separator +
-          segment_num_str + separator +
-          block_num_str + kBLOCK_SUFFIX);
-  return block_path;
-}
-
 int main(int argc, char* argv[]) {
   init_log();
 
@@ -147,6 +117,7 @@ int main(int argc, char* argv[]) {
     //@todo(nick@devv.io): read pre-existing chain
     Blockchain chain(options->shard_name);
 
+    BlockIOFS blockfs(<#initializer#>, <#initializer#>, <#initializer#>)
     auto peer_listener = io::CreateTransactionClient(options->host_vector, zmq_context);
     peer_listener->attachCallback([&](DevvMessageUniquePtr p) {
       if (p->message_type == eMessageType::FINAL_BLOCK) {
@@ -168,7 +139,7 @@ int main(int argc, char* argv[]) {
            +std::to_string(chain.getCurrentSegmentIndex()));
         fs::path dir_path(seg_dir);
         if (!is_directory(dir_path)) fs::create_directory(dir_path);
-        std::string out_file = GetStandardBlockPath(chain, shard_name, chain.size(), options->working_dir);
+        std::string out_file = GetStandardBlockPath(chain, shard_name, options->working_dir, chain.size());
         std::ofstream block_file(out_file, std::ios::out | std::ios::binary);
         if (block_file.is_open()) {
           block_file.write((const char*) &p->data[0], p->data.size());
@@ -460,14 +431,14 @@ bool hasShard(std::string shard, const std::string& working_dir) {
 }
 
 bool hasBlock(const Blockchain& chain, const std::string& shard_name, size_t block, const std::string& working_dir) {
-  std::string block_path = GetStandardBlockPath(chain, shard_name, block, working_dir);
+  std::string block_path = GetStandardBlockPath(chain, shard_name, working_dir, block);
   if (boost::filesystem::exists(block_path)) return true;
   return false;
 }
 
 std::vector<byte> ReadBlock(const Blockchain& chain, const std::string& shard_name, size_t block, const std::string& working_dir) {
   std::vector<byte> out;
-  std::string block_path = GetStandardBlockPath(chain, shard_name, block, working_dir);
+  std::string block_path = GetStandardBlockPath(chain, shard_name, working_dir, block);
   std::ifstream block_file(block_path, std::ios::in | std::ios::binary);
   block_file.unsetf(std::ios::skipws);
 
