@@ -13,6 +13,8 @@ import argparse
 import subprocess
 import time
 from devv import devv
+from google.protobuf.json_format import MessageToJson
+import json
 
 sleep_time = 0.001
 
@@ -39,63 +41,20 @@ def get_sig(env, pkeyfile, key_pass, filename=None):
 
     return sig
 
-
-def handle_pbuf_file(args):
-    tx = devv.DevvTransaction(args.operation, args.nonce)
-    env = devv.get_envelope(tx)
-    sig = get_sig(env, args.private_keyfile, args.key_pass, filename=args.pbuf_file)
-    env.txs[0].sig = bytes.fromhex(sig)
-    print(env)
-
-    devv.send_envelope(env, args.announcer_uri)
-
-    print("Done")
-
-    pass
-
-
-def handle_transfer_string(args):
-    print("")
-    print("-- devv   : {}".format(0.1))
-    print("transfer  : {}".format(args.transfer))
-    print("")
-
-    tx = devv.DevvTransaction(args.operation, args.nonce)
-
-    if (args.transfer):
-        for transfer in args.transfer:
-            tx.add_transfer(transfer_string=transfer)
-
-    env = devv.get_envelope(tx)
-    sig = get_sig(env, args.private_keyfile, args.key_pass)
-    env.txs[0].sig = bytes.fromhex(sig)
-    print(env)
-
-    if args.to_json:
-        from google.protobuf.json_format import MessageToJson
-        with open(args.to_json, 'w') as json_file:
-            json_file.write(MessageToJson(env))
-
-    if args.announcer_uri:
-        devv.send_envelope(env, args.announcer_uri)
-
-    print("Done")
-
-
 def handle_transaction(args):
     print("")
-    print("-- devv-cli : {}".format(0.1))
-    print("action      : {}".format(args.devv_action))
-    print("tx_type     : {}".format(args.operation.upper() if args.operation is None else args.operation))
-    print("pbuf_file   : {}".format(args.pbuf_file))
-    print("from        : {}".format(args.source_address))
-    print("to          : {}".format(args.dest_address))
-    print("amount      : {}".format(args.amount))
-    print("coin_id     : {}".format(args.coin_index))
-    print("delay       : {}".format(args.transfer_delay))
-    print("p_key       : {}".format(args.private_keyfile))
-    print("keypass     : {}".format(args.key_pass))
-    print("transfer    : {}".format(args.transfer))
+    print("gen-json-txs : {}".format(0.1))
+    print("action       : {}".format(args.devv_action))
+    print("tx_type      : {}".format(args.operation.upper() if args.operation is None else args.operation))
+    print("from         : {}".format(args.source_address))
+    print("to           : {}".format(args.dest_address))
+    print("amount       : {}".format(args.amount))
+    print("coin_id      : {}".format(args.coin_index))
+    print("delay        : {}".format(args.transfer_delay))
+    print("p_key        : {}".format(args.private_keyfile))
+    print("keypass      : {}".format(args.key_pass))
+    print("transfer     : {}".format(args.transfer))
+    print("num_txes     : {}".format(args.num_transactions))
     print("")
 
     if (args.source_address):
@@ -107,22 +66,22 @@ def handle_transaction(args):
         tx.add_transfer(args.source_address, args.coin_index, -args.amount, args.transfer_delay)
         tx.add_transfer(args.dest_address, args.coin_index, args.amount, args.transfer_delay)
 
-    env = devv.get_envelope(tx)
-    sig = get_sig(env, args.private_keyfile, args.key_pass)
-    print("sig: {}", sig)
-    env.txs[0].sig = bytes.fromhex(sig)
-    print(env)
+    json_envs = []
+    for i in range(args.num_transactions):
+        env = devv.get_envelope(tx)
+        sig = get_sig(env, args.private_keyfile, args.key_pass)
+        print("sig: {}", sig)
+        env.txs[0].sig = bytes.fromhex(sig)
+        print(env)
+
+        json_envs.append(MessageToJson(env))
 
     if args.to_json:
-        from google.protobuf.json_format import MessageToJson
         with open(args.to_json, 'w') as json_file:
-            json_file.write(MessageToJson(env))
-
-    if args.announcer_uri:
-        devv.send_envelope(env, args.announcer_uri)
+            #json_file.write(json_envs)
+            json.dump(json_envs, json_file)
 
     print("Done")
-
 
 
 if __name__ == '__main__':
@@ -134,9 +93,6 @@ Exit status:\n\
 
     parser.add_argument('devv_action', action='store',
                         help='Action to perform - create')
-    parser.add_argument('--pbuf-file', action='store', dest='pbuf_file',
-                        help='Read proposals and transactions from a protobuf file (default: %(default)s)',
-                        default=None, required=False)
     parser.add_argument('--from', action='store', dest='source_address',
                         help='Wallet to transfer coins from (default: %(default)s)',
                         default=None, required=False)
@@ -167,32 +123,14 @@ Exit status:\n\
     parser.add_argument('--to-json', action='store', dest='to_json',
                         help='Write transaction envelope to JSON file',
                         default=None, required=False)
+    parser.add_argument('--num-transactions', action='store', dest='num_transactions',
+                        help='Number of transactions to generate', type=int)
 
     sysgroup = parser.add_argument_group(title='System and networking options')
     sysgroup.add_argument('--tmp-dir', action='store', dest='tmp_dir',
                           help='Directory to hold the temporary transaction protobuf file (default: %(default)s)',
                           default='/tmp')
-    sysgroup.add_argument('--announcer-uri', action='store', dest='announcer_uri',
-                          help='The ZeroMQ URI of the announcer (default: %(default)s)',
-                          default=None, required=False)
 
     args = parser.parse_args()
 
-    functions = []
-    if args.pbuf_file:
-        functions.append(handle_pbuf_file)
-    if args.transfer:
-        functions.append(handle_transfer_string)
-    if args.source_address:
-        functions.append(handle_transaction)
-
-
-    print("n_functions: {}".format(len(functions)))
-
-    for func in functions:
-        func(args)
-
-    print("time.sleep("+str(sleep_time)+")")
-    time.sleep(sleep_time)
-
-    print("Done.")
+    handle_transaction(args)
