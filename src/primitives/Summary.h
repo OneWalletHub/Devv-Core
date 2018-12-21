@@ -31,8 +31,8 @@ struct DelayedItem {
 
   /// The delay of this item
   uint64_t delay = 0;
-  /// The coin/transfer price (change)
-  uint64_t delta = 0;
+  /// The coin/transfer amount (change)
+  int64_t delta = 0;
 };
 
 static const std::string kADDR_SIZE_TAG = "addr_size";
