@@ -418,15 +418,15 @@ bool hasShard(std::string shard, const std::string& working_dir) {
 }
 
 bool hasBlock(const Blockchain& chain, const std::string& shard_name, size_t block, const std::string& working_dir) {
-  std::string block_path = GetStandardBlockPath(chain, shard_name, working_dir, block);
+  fs::path block_path = GetStandardBlockPath(chain, shard_name, working_dir, block);
   if (boost::filesystem::exists(block_path)) return true;
   return false;
 }
 
 std::vector<byte> ReadBlock(const Blockchain& chain, const std::string& shard_name, size_t block, const std::string& working_dir) {
   std::vector<byte> out;
-  std::string block_path = GetStandardBlockPath(chain, shard_name, working_dir, block);
-  std::ifstream block_file(block_path, std::ios::in | std::ios::binary);
+  fs::path block_path = GetStandardBlockPath(chain, shard_name, working_dir, block);
+  std::ifstream block_file(block_path.string(), std::ios::in | std::ios::binary);
   block_file.unsetf(std::ios::skipws);
 
   std::streampos block_size;
