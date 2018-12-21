@@ -111,6 +111,7 @@ int main(int argc, char* argv[])
     ChainState priori;
     ChainState posteri;
     Hash prev_hash = DevvHash({'G', 'e', 'n', 'e', 's', 'i', 's'});
+    std::set<Signature> dupe_check;
     bpt::ptree block_array;
 
     fs::path p(options->working_dir);
@@ -133,8 +134,8 @@ int main(int argc, char* argv[])
       fs::path seg(options->working_dir + fs::path::preferred_separator + seg_num);
       if (!seg.empty() && is_directory(seg)) {
         std::vector<std::string> files;
-        std::set<Signature> dupe_check;
-        for(auto& entry : boost::make_iterator_range(fs::directory_iterator(p), {})) {
+
+        for(auto& entry : boost::make_iterator_range(fs::directory_iterator(seg), {})) {
           files.push_back(entry.path().string());
         }
         std::sort(files.begin(), files.end());
