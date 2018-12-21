@@ -21,11 +21,10 @@ bool AddToDelayedMap(uint64_t coin, const DelayedItem& item, DelayedMap& existin
   return true;
 }
 
-bool RemoveFromDelayedMap(uint64_t coin, const DelayedItem& item, DelayedMap& existing) {
+bool RemoveFromDelayedMap(uint64_t coin, int64_t delta, DelayedMap& existing) {
   if (existing.count(coin) > 0) {
     DelayedItem the_item = existing.at(coin);
-    the_item.delta += item.delta;
-    the_item.delay = std::max(the_item.delay, item.delay);
+    the_item.delta += delta;
     existing.at(coin) = the_item;
     if (the_item.delta < 0) {
       LOG_WARNING << "Reverted more coins than were pending!";

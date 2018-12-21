@@ -86,7 +86,7 @@ class vote : public oracleInterface {
     return ("WARNING: This oracle is a stub.");
   }
 
-  uint64_t getMaxDepth(const Blockchain& context) override {
+  uint64_t getMaxDepth() override {
     return kDEFAULT_MAX_DEPTH;
   }
 

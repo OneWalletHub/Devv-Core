@@ -123,7 +123,7 @@ class data : public oracleInterface {
     return (0);
   }
 
-  uint64_t getMaxDepth(const Blockchain& context) override {
+  uint64_t getMaxDepth() override {
     return kDEFAULT_MAX_DEPTH;
   }
 

@@ -413,15 +413,6 @@ class Tier2Transaction : public Transaction {
     }
   }
 
-  bool handleRevert(ChainState& state, const KeyRing& keys, Summary& summary
-                   , std::vector<TransferPtr>& xfers) const {
-    for (auto& it : xfers) {
-      int64_t amount = it->getAmount();
-      uint64_t coin = it->getCoin();
-      Address addr = it->getAddress();
-	}
-  }
-
   /**
    * Compute whether or not this Transaction is valid
    * @param state
@@ -436,7 +427,6 @@ class Tier2Transaction : public Transaction {
       }
       byte oper = getOperation();
       std::vector<TransferPtr> xfers = getTransfers();
-      if (oper == eOpType::Revert) return handleRevert(state, keys, summary, xfers);
       for (auto& it : xfers) {
         int64_t amount = it->getAmount();
         uint64_t coin = it->getCoin();
@@ -446,7 +436,7 @@ class Tier2Transaction : public Transaction {
           if (amount < 0) {
             //remove pending from ChainState
             SmartCoin next_flow(addr, coin, amount);
-            if (!summary.removePending(next_flow)) return false;
+            if (!summary.removePending(addr, coin, amount)) return false;
             LOG_INFO << "Cancel pending coins to wallet address: " << addr.getHexString()
                    << "; coin: " << coin << "; balance: " << state.getAmount(coin, addr);
           } else {

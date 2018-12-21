@@ -178,6 +178,16 @@ class Summary {
     return addItem(addr, coin_type, item);
   }
 
+  bool removePending(const Address& addr, uint64_t coin_type, int64_t delta) {
+    if (summary_.count(addr) > 0) {
+      SummaryPair existing(summary_.at(addr));
+      DelayedMap delayed(existing.first);
+      return RemoveFromDelayedMap(coin_type, delta, delayed);
+	} else {
+      return false;
+	}
+  }
+
   /**
    * Adds a transfer
    * @param[in] transfer the transfer to add
