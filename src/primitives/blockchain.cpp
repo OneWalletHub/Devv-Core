@@ -4,7 +4,7 @@
  *
  * @copywrite  2018 Devvio Inc
  */
-#include "consensus/blockchain.h"
+#include "primitives/blockchain.h"
 
 namespace Devv {
 

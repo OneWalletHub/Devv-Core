@@ -20,7 +20,7 @@
 #include "common/logger.h"
 #include "common/devv_context.h"
 #include "common/devv_uri.h"
-#include "consensus/blockchain.h"
+#include "primitives/blockchain.h"
 #include "primitives/block_tools.h"
 #include "io/message_service.h"
 #include "modules/BlockchainModule.h"

@@ -8,7 +8,7 @@
 
 #include <boost/filesystem/path.hpp>
 #include "primitives/FinalBlock.h"
-#include "consensus/blockchain.h"
+#include "primitives/blockchain.h"
 
 namespace Devv {
 

@@ -6,7 +6,7 @@
 
 #include "gtest/gtest.h"
 
-#include "consensus/blockchain.h"
+#include "primitives/blockchain.h"
 
 namespace Devv {
 namespace {

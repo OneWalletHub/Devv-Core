@@ -11,7 +11,7 @@
 #include "oracles/dnerowallet.h"
 #include "oracles/oracleInterface.h"
 #include "common/logger.h"
-#include "consensus/blockchain.h"
+#include "primitives/blockchain.h"
 
 namespace Devv {
 

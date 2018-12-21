@@ -11,7 +11,7 @@
 
 #include "consensus/KeyRing.h"
 #include "consensus/UnrecordedTransactionPool.h"
-#include "consensus/blockchain.h"
+#include "primitives/blockchain.h"
 #include "consensus/chainstate.h"
 #include "io/message_service.h"
 

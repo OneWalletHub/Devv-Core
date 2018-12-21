@@ -10,7 +10,7 @@
 #include <exception>
 #include <typeinfo>
 
-#include "consensus/blockchain.h"
+#include "primitives/blockchain.h"
 #include "primitives/Tier2Transaction.h"
 #include "oracles/api.h"
 #include "oracles/coin_request.h"

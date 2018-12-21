@@ -17,7 +17,7 @@
 #include <string>
 
 #include "common/binary_converters.h"
-#include "consensus/blockchain.h"
+#include "primitives/blockchain.h"
 #include "primitives/Tier2Transaction.h"
 #include "devv.pb.h"
 

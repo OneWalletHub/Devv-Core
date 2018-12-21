@@ -16,7 +16,7 @@
 
 #include "primitives/Transaction.h"
 #include "primitives/FinalBlock.h"
-#include "consensus/blockchain.h"
+#include "primitives/blockchain.h"
 
 namespace Devv {
 
