@@ -130,8 +130,9 @@ int main(int argc, char* argv[])
       segments.push_back(entry.path().string());
     }
     std::sort(segments.begin(), segments.end());
-    for (auto const& seg_num : segments) {
-      fs::path seg(options->working_dir + fs::path::preferred_separator + seg_num);
+    for (auto const& seg_path : segments) {
+      LOG_DEBUG << "Enter segment: " << seg_path;
+      fs::path seg(seg_path);
       if (!seg.empty() && is_directory(seg)) {
         std::vector<std::string> files;
 
