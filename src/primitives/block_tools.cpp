@@ -136,11 +136,9 @@ void BlockIOFS::writeBlock(FinalBlockSharedPtr block) {
   fs::path seg_dir(base_path_ / shard_uri_
                           / std::to_string(chain_.getCurrentSegmentIndex()));
 
-  //fs::path dir_path(seg_dir);
-  //if (!is_directory(dir_path)) fs::create_directory(dir_path);
   auto out_file = GetStandardBlockPath(chain_, shard_uri_, base_path_, chain_.size());
-  std::ofstream block_file(out_file.string(), std::ios::out | std::ios::binary);
   if (!is_directory(out_file)) fs::create_directory(out_file.branch_path());
+  std::ofstream block_file(out_file.string(), std::ios::out | std::ios::binary);
 
   if (block_file.is_open()) {
     auto canonical = block->getCanonical();
@@ -150,6 +148,7 @@ void BlockIOFS::writeBlock(FinalBlockSharedPtr block) {
   } else {
     LOG_ERROR << "Failed to open output file '" << out_file << "'.";
   }
+  chain_.push_back(block);
 }
 
 } // namespace Devv
