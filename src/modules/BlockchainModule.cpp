@@ -223,8 +223,8 @@ void BlockchainModule::loadHistoricChain(const std::string& working_dir) {
       segments.push_back(entry.path().string());
     }
     std::sort(segments.begin(), segments.end());
-    for (auto const& seg_num : segments) {
-      fs::path seg(working_dir + fs::path::preferred_separator + seg_num);
+    for (auto const& seg_path : segments) {
+      fs::path seg(seg_path);
       if (!seg.empty() && is_directory(seg)) {
         std::vector<std::string> files;
         for (auto& seg_entry : boost::make_iterator_range(fs::directory_iterator(seg), {})) {
@@ -268,7 +268,7 @@ void BlockchainModule::loadHistoricChain(const std::string& working_dir) {
           }
         }  //end file for loop
       } else {
-        LOG_INFO << "Empty segment " << seg_num;
+        LOG_INFO << "Empty segment " << seg_path;
       }
     } //end segment for loop
   } else {
