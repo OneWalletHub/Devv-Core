@@ -151,13 +151,19 @@ add_library(primitives
 add_library(modules modules/BlockchainModule.cpp)
 add_dependencies(modules devvpbuf)
 
-set(devv_core_libs modules common concurrency consensus io primitives devvpbuf)
+set(devv_core_libs modules common concurrency consensus io primitives consensus devvpbuf)
 
 option(WITH_THREAD_TESTING "Enable thread testing" OFF)
 
 if(WITH_THREAD_TESTING)
   add_definitions(-DTEST_THREADS)
 endif()
+
+# Prevent gcc from mangling
+# See:
+#   https://stackoverflow.com/questions/41854840/var-create-unable-to-create-variable-object
+#  https://youtrack.jetbrains.com/issue/CPP-8693
+#add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 
 # Find OpenSSL and setup variables
 find_package (OpenSSL REQUIRED)
