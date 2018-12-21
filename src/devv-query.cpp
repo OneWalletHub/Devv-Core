@@ -103,7 +103,10 @@ std::string GetStandardBlockPath(
   std::string segment_num_str = std::to_string(chain.getSegmentIndexAt(block_index));
   std::string block_num_str = std::to_string(chain.getSegmentHeightAt(block_index));
   if (segment_num_str.length() < kMAX_LEFTPADDED_ZEORS) {
-    block_num_str = std::string(kMAX_LEFTPADDED_ZEORS - segment_num_str.length(), '0')+segment_num_str;
+    segment_num_str = std::string(kMAX_LEFTPADDED_ZEORS - segment_num_str.length(), '0')+segment_num_str;
+  }
+  if (block_num_str.length() < kMAX_LEFTPADDED_ZEORS) {
+      block_num_str = std::string(kMAX_LEFTPADDED_ZEORS - block_num_str.length(), '0')+block_num_str;
   }
   std::string block_path(
           working_dir + separator +
@@ -143,14 +146,15 @@ int main(int argc, char* argv[]) {
 
     //@todo(nick@devv.io): read pre-existing chain
     Blockchain chain(options->shard_name);
-    ChainState state;
 
     auto peer_listener = io::CreateTransactionClient(options->host_vector, zmq_context);
     peer_listener->attachCallback([&](DevvMessageUniquePtr p) {
       if (p->message_type == eMessageType::FINAL_BLOCK) {
         try {
+          ChainState prior = chain.getHighestChainState();
           InputBuffer buffer(p->data);
-          auto top_block = std::make_shared<FinalBlock>(FinalBlock::Create(buffer, state));
+          auto top_block = std::make_shared<FinalBlock>(buffer, prior
+                                                       , keys, options->mode);
           chain.push_back(top_block);
 	    } catch (const std::exception& e) {
           std::exception_ptr p = std::current_exception();
