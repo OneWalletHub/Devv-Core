@@ -87,6 +87,10 @@ class dnerowallet : public oracleInterface {
     return (0);
   }
 
+  uint64_t getMaxDepth(const Blockchain& context) override {
+    return kDEFAULT_MAX_DEPTH;
+  }
+
   std::map<uint64_t, std::vector<Tier2Transaction>>
   getNextTransactions(const Blockchain& context, const KeyRing& keys) override {
     std::map<uint64_t, std::vector<Tier2Transaction>> out;
@@ -129,7 +133,16 @@ class dnerowallet : public oracleInterface {
     return "";
   }
 
-  std::vector<byte> Sign() override {
+  std::vector<byte> getProposal() override {
+    return getCanonical();
+  }
+
+  Signature getRootSignature() override {
+    Signature sig;
+    return sig;
+  }
+
+  std::vector<byte> getInitialState() override {
     return getCanonical();
   }
 

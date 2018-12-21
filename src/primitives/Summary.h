@@ -54,6 +54,16 @@ typedef std::map<Address, SummaryPair> SummaryMap;
 bool AddToDelayedMap(uint64_t coin, const DelayedItem &item, DelayedMap &existing);
 
 /**
+ * Remove a coin from the existing map
+ * @param[in] coin The coin to remove
+ * @param[in] item
+ * @param[in,out] existing
+ * @return true, if the delayed coins were removed
+ * @return false, otherwise
+ */
+bool RemoveFromDelayedMap(uint64_t coin, const DelayedItem &item, DelayedMap &existing);
+
+/**
  * Add a coin to the existing map
  * @param[in] coin The coin to add to
  * @param[in] item
