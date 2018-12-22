@@ -108,16 +108,25 @@ boost::filesystem::path GetStandardBlockPath(const Blockchain& chain,
                                              const std::string& shard_name,
                                              const boost::filesystem::path& working_dir,
                                              size_t block_index) {
+  fs::path shard_path(working_dir / shard_name);
+  return GetBlockPath(shard_path,
+                      chain.getSegmentIndexAt(block_index),
+                      chain.getSegmentHeightAt(block_index));
+}
+
+boost::filesystem::path GetBlockPath(const fs::path& shard_path,
+                                     size_t segment_index,
+                                     size_t segment_height) {
   // Set the segment number
   std::stringstream ss;
-  ss << std::setw(kMAX_LEFTPADDED_ZER0S) << std::setfill('0') << chain.getSegmentIndexAt(block_index);
+  ss << std::setw(kMAX_LEFTPADDED_ZER0S) << std::setfill('0') << segment_index;
   auto segment_num_str = ss.str();
   // and the block number within the segment
   std::stringstream blk_strm;
-  blk_strm << std::setw(kMAX_LEFTPADDED_ZER0S) << std::setfill('0') << chain.getSegmentHeightAt(block_index);
+  blk_strm << std::setw(kMAX_LEFTPADDED_ZER0S) << std::setfill('0') << segment_height;
   auto block_num_str = blk_strm.str();
 
-  fs::path block_path(working_dir / shard_name / segment_num_str / (block_num_str + kBLOCK_SUFFIX));
+  fs::path block_path(shard_path / segment_num_str / (block_num_str + kBLOCK_SUFFIX));
 
   return block_path;
 }

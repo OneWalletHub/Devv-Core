@@ -135,23 +135,25 @@ add_library(consensus ${consensus_SRC})
 file(GLOB io_SRC
     "io/*.cpp"
 )
-add_library(io
-  ${io_SRC}
-  )
+add_library(io ${io_SRC})
+
+# Build the pbuf module objects
+file(GLOB pbuf_SRC
+        "pbuf/*.cpp"
+)
+add_library(pbuf ${pbuf_SRC})
 
 # Build the primitives module objects
 file(GLOB primitives_SRC
     "primitives/*.cpp"
 )
-add_library(primitives
-  ${primitives_SRC}
-  )
+add_library(primitives ${primitives_SRC})
 
 # Add BlockchainModule.cpp
 add_library(modules modules/BlockchainModule.cpp)
 add_dependencies(modules devvpbuf)
 
-set(devv_core_libs modules common concurrency consensus io primitives consensus devvpbuf)
+set(devv_core_libs modules common concurrency consensus io pbuf primitives devvpbuf)
 
 option(WITH_THREAD_TESTING "Enable thread testing" OFF)
 
