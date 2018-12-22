@@ -501,7 +501,9 @@ ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const 
       //TODO(nick@devv.io): devv-query should be able to track multiple shards,
       //but to do that it needs a map shard_name->shard_index/id
       shard_id = std::to_string(shard_index);
-	}
+      LOG_DEBUG << "shard_id empty, setting to: " << shard_index;
+    }
+    LOG_DEBUG << "HandleServiceRequest: shard_name: " << shard_name << " id: " << shard_id << " name: " << name;
 	response.args.insert(std::make_pair("protocol-version", "0"));
 	response.args.insert(std::make_pair("shard-name", shard_name));
     if (SearchString(request->endpoint, "/block-info", true)) {
@@ -513,7 +515,8 @@ ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const 
         ChainState state;
         FinalBlock one_block(FinalBlock::Create(buffer, state));
         response.args.insert(std::make_pair("block-time", std::to_string(one_block.getBlockTime())));
-        response.args.insert(std::make_pair("transactions", std::to_string(one_block.getSizeofTransactions())));
+        response.args.insert(std::make_pair("tx-size", std::to_string(one_block.getSizeofTransactions())));
+        response.args.insert(std::make_pair("num-txs", std::to_string(one_block.getNumTransactions())));
         response.args.insert(std::make_pair("block-size", std::to_string(one_block.getNumBytes())));
         response.args.insert(std::make_pair("block-volume", std::to_string(one_block.getVolume())));
         response.args.insert(std::make_pair("Merkle", ToHex(one_block.getMerkleRoot())));
@@ -524,7 +527,8 @@ ServiceResponsePtr HandleServiceRequest(const ServiceRequestPtr& request, const 
         ChainState state;
         FinalBlock one_block(FinalBlock::Create(buffer, state));
         response.args.insert(std::make_pair("block-time", std::to_string(one_block.getBlockTime())));
-        response.args.insert(std::make_pair("transactions", std::to_string(one_block.getNumTransactions())));
+        response.args.insert(std::make_pair("tx-size", std::to_string(one_block.getSizeofTransactions())));
+        response.args.insert(std::make_pair("num-txs", std::to_string(one_block.getNumTransactions())));
         response.args.insert(std::make_pair("block-size", std::to_string(one_block.getNumBytes())));
         response.args.insert(std::make_pair("block-volume", std::to_string(one_block.getVolume())));
         response.args.insert(std::make_pair("Merkle", ToHex(one_block.getMerkleRoot())));
