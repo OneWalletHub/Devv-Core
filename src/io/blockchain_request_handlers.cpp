@@ -96,14 +96,15 @@ ServiceResponsePtr ServiceRequestEventHandler::dispatchRequest(const Blockchain&
   auto response_ptr = std::make_unique<ServiceResponse>(response);
   auto request_ptr = std::make_unique<ServiceRequest>(request);
 
+  LOG_DEBUG << "dipatchRequest(): handling " << request.endpoint;
   if (SearchString(request.endpoint, "/block-info", true)) {
-    auto new_response = handleBlockInfoRequest(chain, std::move(request_ptr), std::move(response_ptr));
+    response_ptr = handleBlockInfoRequest(chain, std::move(request_ptr), std::move(response_ptr));
   } else if (SearchString(request.endpoint, "/shard-info", true)) {
-    auto new_response = handleShardInfoRequest(chain, std::move(request_ptr), std::move(response_ptr));
+    response_ptr = handleShardInfoRequest(chain, std::move(request_ptr), std::move(response_ptr));
   } else if (SearchString(request.endpoint, "/trace", true)) {
-    auto new_response = handleTraceRequest(chain, std::move(request_ptr), std::move(response_ptr));
+    response_ptr = handleTraceRequest(chain, std::move(request_ptr), std::move(response_ptr));
   } else if (SearchString(request.endpoint, "/tx-info", true)) {
-    auto new_response = handleTxInfoRequest(chain, std::move(request_ptr), std::move(response_ptr));
+    response_ptr = handleTxInfoRequest(chain, std::move(request_ptr), std::move(response_ptr));
   }
   return response_ptr;
 }
@@ -112,6 +113,7 @@ ServiceResponsePtr ServiceRequestEventHandler::handleBlockInfoRequest(const Bloc
                                           ServiceRequestPtr request,
                                           ServiceResponsePtr response) {
   auto height = std::stoul(GetServiceArgument(request->args, "block-height"));
+  LOG_DEBUG << "handleBlockInfoRequest(): " << height;
   response->args.insert(std::make_pair("block-height", std::to_string(height)));
   if (height < chain.size()) {
     std::vector<byte> block = chain.raw_at(height);
@@ -148,6 +150,7 @@ ServiceResponsePtr ServiceRequestEventHandler::handleShardInfoRequest(const Bloc
                                           ServiceRequestPtr request,
                                           ServiceResponsePtr response) {
   auto highest = chain.size();
+  LOG_DEBUG << "handleShardInfoRequest(): " << highest;
   response->args.insert(std::make_pair("current-block", std::to_string(highest)));
   if (highest > 0) {
     std::shared_ptr<const FinalBlock> top_block = chain.back();
@@ -170,6 +173,7 @@ ServiceResponsePtr ServiceRequestEventHandler::handleTraceRequest(const Blockcha
                                       ServiceRequestPtr request,
                                       ServiceResponsePtr response) {
   std::string start_str = GetServiceArgument(request->args, "start-block");
+  LOG_DEBUG << "handleTraceRequest(): " << start_str;
   size_t start_block = 0;
   if (!start_str.empty()) {
     start_block = std::stoi(start_str);
@@ -208,6 +212,7 @@ ServiceResponsePtr ServiceRequestEventHandler::handleTxInfoRequest(const Blockch
                                        ServiceRequestPtr request,
                                        ServiceResponsePtr response) {
   size_t height = std::stoi(GetServiceArgument(request->args, "block-height"));
+  LOG_DEBUG << "handleTxInfoRequest(): " << height;
   response->args.insert(std::make_pair("block-height", std::to_string(height)));
   std::string sig = GetServiceArgument(request->args, "signature");
   response->args.insert(std::make_pair("signature", sig));
