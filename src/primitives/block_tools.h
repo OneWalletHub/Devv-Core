@@ -71,6 +71,10 @@ boost::filesystem::path GetStandardBlockPath(const Blockchain& chain,
                                              const boost::filesystem::path& working_dir,
                                              size_t block_index);
 
+boost::filesystem::path GetBlockPath(const boost::filesystem::path& shard_path,
+                                     size_t segment_index,
+                                     size_t segment_height);
+
 /**
  * Interfaces with standard POSIX filesystems
  */
