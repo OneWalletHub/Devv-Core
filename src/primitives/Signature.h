@@ -38,6 +38,7 @@ class Signature {
   /**
    *
    * @param vec
+   * @return a constructed signature, if invalid isNull() == true
    */
   Signature(const std::vector<byte>& vec)
       : canonical_(vec) {
@@ -51,7 +52,7 @@ class Signature {
         std::string err = "Invalid Signature - size == " +
             std::to_string(kWALLET_SIG_BUF_SIZE) + " but byte(0) != " +
             std::to_string(kWALLET_SIG_SIZE);
-        throw std::runtime_error(err);
+        LOG_WARNING << "Signature error: "+err;
       }
     } else if (vec.size() == kNODE_SIG_SIZE) {
       // prepend type
@@ -63,13 +64,12 @@ class Signature {
         std::string err = "Invalid Signature - size == " +
             std::to_string(kNODE_SIG_BUF_SIZE) + " but byte(0) != " +
             std::to_string(kNODE_SIG_SIZE);
-        throw std::runtime_error(err);
+        LOG_WARNING << "Signature error: "+err;
       }
     } else {
-      /// @todo (mckenney) Don't throw from constructor
       std::string err = "Invalid Signature size: "
                         + std::to_string(vec.size()) + " : " + Bin2Str(vec);
-      throw std::runtime_error(err);
+      LOG_WARNING << "Signature error: "+err;
     }
   }
 

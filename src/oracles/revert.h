@@ -1,5 +1,5 @@
 /*
- * dnero.h is an oracle to validate reversible dnero transactions.
+ * revert.h is an oracle to reverse transactions.
  *
  * @copywrite  2018 Devvio Inc
  *
@@ -16,11 +16,11 @@
 
 namespace Devv {
 
-class dnero : public oracleInterface {
+class revert : public oracleInterface {
 
  public:
 
-  dnero(std::string data) : oracleInterface(data) {};
+  revert(std::string data) : oracleInterface(data) {};
 
   const long kDEFAULT_DELAY = 604800; //1 week in seconds
 
@@ -28,21 +28,21 @@ class dnero : public oracleInterface {
  *  @return the string name that invokes this oracle
  */
   virtual std::string getOracleName() override {
-    return (dnero::GetOracleName());
+    return (revert::GetOracleName());
   }
 
 /**
  *  @return the string name that invokes this oracle
  */
   static std::string GetOracleName() {
-    return ("io.devv.dnero");
+    return ("revert");
   }
 
   /**
  *  @return the shard used by this oracle
  */
   static uint64_t getShardIndex() {
-    return (0);
+    return (1);
   }
 
 /**
@@ -59,14 +59,11 @@ class dnero : public oracleInterface {
  * @return false otherwise
  */
   bool isSound() override {
-    InputBuffer buffer(Str2Bin(raw_data_));
-    Tier2Transaction tx = Tier2Transaction::QuickCreate(buffer);
-    for (const TransferPtr& xfer : tx.getTransfers()) {
-      if (xfer->getDelay() < 1) {
-        error_msg_ = "Dnero transactions must have a delay.";
-        return false;
-      }
-    }
+    Signature sig(Str2Bin(raw_data_));
+    if (sig.isNull()) {
+      error_msg_ = "Unsound signature.";
+      return false;
+	}
     return true;
   }
 
@@ -78,21 +75,10 @@ class dnero : public oracleInterface {
  */
   bool isValid(const Blockchain& context) override {
     if (!isSound()) return false;
-    InputBuffer buffer(Str2Bin(raw_data_));
-    Tier2Transaction tx = Tier2Transaction::QuickCreate(buffer);
-    ChainState last_state = context.getHighestChainState();
-    for (const TransferPtr& xfer : tx.getTransfers()) {
-      if (xfer->getAmount() < 0) {
-        Address addr = xfer->getAddress();
-        if (last_state.getAmount(dnerowallet::getCoinIndex(), addr) < 1
-            && last_state.getAmount(dneroavailable::getCoinIndex(), addr) < 1) {
-          error_msg_ = "Error: Dnerowallets or dneroavailable required.";
-          return false;
-        }
-        break;
-      }
-    }
-    return true;
+    Signature sig(Str2Bin(raw_data_));
+    //look up prior transaction with same signature
+    //if not found, return false
+    return false;
   }
 
 /**
@@ -109,20 +95,24 @@ class dnero : public oracleInterface {
   }
 
   uint64_t getCurrentDepth(const Blockchain& context) override {
-    //@TODO(nick) scan pre-existing chain for this oracle instance.
-    return (0);
+    return 1;
+  }
+
+  uint64_t getMaxDepth() override {
+    return 1;
   }
 
   std::map<uint64_t, std::vector<Tier2Transaction>>
   getNextTransactions(const Blockchain& context, const KeyRing& keys) override {
     std::map<uint64_t, std::vector<Tier2Transaction>> out;
     if (!isValid(context)) return out;
-    InputBuffer buffer(Str2Bin(raw_data_));
+    //construct revert matching transaction
+    /*InputBuffer buffer(Str2Bin(raw_data_));
     Tier2Transaction tx = Tier2Transaction::QuickCreate(buffer);
     std::vector<Tier2Transaction> txs;
     txs.push_back(std::move(tx));
     std::pair<uint64_t, std::vector<Tier2Transaction>> p(getShardIndex(), std::move(txs));
-    out.insert(std::move(p));
+    out.insert(std::move(p));*/
     return out;
   }
 
@@ -159,12 +149,20 @@ class dnero : public oracleInterface {
  * @return the internal state of this oracle in JSON.
  */
   std::string getJSON() override {
-    InputBuffer buffer(Str2Bin(raw_data_));
-    Tier2Transaction tx = Tier2Transaction::QuickCreate(buffer);
-    return tx.getJSON();
+    Signature sig(Str2Bin(raw_data_));
+    return sig.getJSON();
   }
 
-  std::vector<byte> Sign() override {
+  std::vector<byte> getProposal() override {
+    return getCanonical();
+  }
+
+  Signature getRootSignature() override {
+    Signature sig(Str2Bin(raw_data_));
+    return sig;
+  }
+
+  std::vector<byte> getInitialState() override {
     return getCanonical();
   }
 

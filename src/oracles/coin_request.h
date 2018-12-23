@@ -105,7 +105,11 @@ CoinRequest(std::string data) : oracleInterface(data) {};
 
   uint64_t getCurrentDepth(const Blockchain& context) override {
     //@TODO(nick) scan pre-existing chain for this oracle instance.
-    return(0);
+    return 0;
+  }
+
+  uint64_t getMaxDepth() override {
+    return kDEFAULT_MAX_DEPTH;
   }
 
   std::map<uint64_t, std::vector<Tier2Transaction>>
@@ -156,12 +160,17 @@ CoinRequest(std::string data) : oracleInterface(data) {};
     return out;
   }
 
-/** Generate the appropriate signature(s) for this proposal.
- *
- * Oracle data to sign.
- */
-  std::vector<byte> Sign() override {
-    return Str2Bin(raw_data_);
+  std::vector<byte> getProposal() override {
+    return getCanonical();
+  }
+
+  Signature getRootSignature() override {
+    Signature sig;
+    return sig;
+  }
+
+  std::vector<byte> getInitialState() override {
+    return getCanonical();
   }
 
 /**
