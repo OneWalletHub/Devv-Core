@@ -1,5 +1,5 @@
 /*
- * dnero.h is an oracle to validate reversible dnero transactions.
+ * devvprotect.h is an oracle to validate reversible transactions.
  *
  * @copywrite  2018 Devvio Inc
  *
@@ -16,11 +16,11 @@
 
 namespace Devv {
 
-class dnero : public oracleInterface {
+class devvprotect : public oracleInterface {
 
  public:
 
-  dnero(std::string data) : oracleInterface(data) {};
+  devvprotect(std::string data) : oracleInterface(data) {};
 
   const long kDEFAULT_DELAY = 604800; //1 week in seconds
 
@@ -28,21 +28,21 @@ class dnero : public oracleInterface {
  *  @return the string name that invokes this oracle
  */
   virtual std::string getOracleName() override {
-    return (dnero::GetOracleName());
+    return (devvprotect::GetOracleName());
   }
 
 /**
  *  @return the string name that invokes this oracle
  */
   static std::string GetOracleName() {
-    return ("io.devv.dnero");
+    return ("devvprotect");
   }
 
   /**
  *  @return the shard used by this oracle
  */
   static uint64_t getShardIndex() {
-    return (0);
+    return (1);
   }
 
 /**
@@ -63,7 +63,7 @@ class dnero : public oracleInterface {
     Tier2Transaction tx = Tier2Transaction::QuickCreate(buffer);
     for (const TransferPtr& xfer : tx.getTransfers()) {
       if (xfer->getDelay() < 1) {
-        error_msg_ = "Dnero transactions must have a delay.";
+        error_msg_ = "DevvProtect transactions must have a delay.";
         return false;
       }
     }
@@ -84,11 +84,16 @@ class dnero : public oracleInterface {
     for (const TransferPtr& xfer : tx.getTransfers()) {
       if (xfer->getAmount() < 0) {
         Address addr = xfer->getAddress();
-        if (last_state.getAmount(dnerowallet::getCoinIndex(), addr) < 1
+        if (last_state.getAmount(xfer->getCoin(), addr) < xfer->getAmount()*-1) {
+          error_msg_ = "Error: Not enough coins available to DevvProtect.";
+          return false;
+		}
+        //TODO (nick@devv.io) restrict DevvProtect usage based on business logic
+        /*if (last_state.getAmount(dnerowallet::getCoinIndex(), addr) < 1
             && last_state.getAmount(dneroavailable::getCoinIndex(), addr) < 1) {
           error_msg_ = "Error: Dnerowallets or dneroavailable required.";
           return false;
-        }
+        }*/
         break;
       }
     }
@@ -109,12 +114,11 @@ class dnero : public oracleInterface {
   }
 
   uint64_t getCurrentDepth(const Blockchain& context) override {
-    //@TODO(nick) scan pre-existing chain for this oracle instance.
-    return (0);
+    return 0;
   }
 
   uint64_t getMaxDepth() override {
-    return kDEFAULT_MAX_DEPTH;
+    return 0;
   }
 
   std::map<uint64_t, std::vector<Tier2Transaction>>
@@ -174,7 +178,10 @@ class dnero : public oracleInterface {
 
   Signature getRootSignature() override {
     Signature sig;
-    return sig;
+    if (!isValid(context)) return sig;
+    InputBuffer buffer(Str2Bin(raw_data_));
+    Tier2Transaction tx = Tier2Transaction::QuickCreate(buffer);
+    return tx.getSignature();
   }
 
   std::vector<byte> getInitialState() override {
