@@ -76,10 +76,8 @@ class revert : public oracleInterface {
   bool isValid(const Blockchain& context) override {
     if (!isSound()) return false;
     Signature sig(Str2Bin(raw_data_));
-    Tier2Transaction tx = Tier2Transaction::QuickCreate(buffer);
     //look up prior transaction with same signature
     //if not found, return false
-    //if found, construct revert matching transaction
     return false;
   }
 
@@ -97,23 +95,24 @@ class revert : public oracleInterface {
   }
 
   uint64_t getCurrentDepth(const Blockchain& context) override {
-    return 0;
+    return 1;
   }
 
   uint64_t getMaxDepth() override {
-    return 0;
+    return 1;
   }
 
   std::map<uint64_t, std::vector<Tier2Transaction>>
   getNextTransactions(const Blockchain& context, const KeyRing& keys) override {
     std::map<uint64_t, std::vector<Tier2Transaction>> out;
     if (!isValid(context)) return out;
-    InputBuffer buffer(Str2Bin(raw_data_));
+    //construct revert matching transaction
+    /*InputBuffer buffer(Str2Bin(raw_data_));
     Tier2Transaction tx = Tier2Transaction::QuickCreate(buffer);
     std::vector<Tier2Transaction> txs;
     txs.push_back(std::move(tx));
     std::pair<uint64_t, std::vector<Tier2Transaction>> p(getShardIndex(), std::move(txs));
-    out.insert(std::move(p));
+    out.insert(std::move(p));*/
     return out;
   }
 
@@ -150,9 +149,8 @@ class revert : public oracleInterface {
  * @return the internal state of this oracle in JSON.
  */
   std::string getJSON() override {
-    InputBuffer buffer(Str2Bin(raw_data_));
-    Tier2Transaction tx = Tier2Transaction::QuickCreate(buffer);
-    return tx.getJSON();
+    Signature sig(Str2Bin(raw_data_));
+    return sig.getJSON();
   }
 
   std::vector<byte> getProposal() override {
@@ -161,10 +159,9 @@ class revert : public oracleInterface {
 
   Signature getRootSignature() override {
     Signature sig;
-    if (!isValid(context)) return sig;
-    InputBuffer buffer(Str2Bin(raw_data_));
-    Tier2Transaction tx = Tier2Transaction::QuickCreate(buffer);
-    return tx.getSignature();
+    if (!isSound()) return sig;
+    Signature sig(Str2Bin(raw_data_));
+    return sig;
   }
 
   std::vector<byte> getInitialState() override {

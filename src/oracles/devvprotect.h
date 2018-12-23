@@ -178,7 +178,7 @@ class devvprotect : public oracleInterface {
 
   Signature getRootSignature() override {
     Signature sig;
-    if (!isValid(context)) return sig;
+    if (!isSound()) return sig;
     InputBuffer buffer(Str2Bin(raw_data_));
     Tier2Transaction tx = Tier2Transaction::QuickCreate(buffer);
     return tx.getSignature();
