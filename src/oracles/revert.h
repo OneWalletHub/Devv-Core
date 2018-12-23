@@ -158,8 +158,6 @@ class revert : public oracleInterface {
   }
 
   Signature getRootSignature() override {
-    Signature sig;
-    if (!isSound()) return sig;
     Signature sig(Str2Bin(raw_data_));
     return sig;
   }
