@@ -74,6 +74,7 @@ struct ServiceRequest {
   std::map<std::string, std::string> args;
 };
 typedef std::unique_ptr<ServiceRequest> ServiceRequestPtr;
+typedef std::unique_ptr<const ServiceRequest> ConstServiceRequestPtr;
 
 struct ServiceResponse {
   int64_t request_timestamp = 0;
@@ -83,6 +84,7 @@ struct ServiceResponse {
   std::map<std::string, std::string> args;
 };
 typedef std::unique_ptr<ServiceResponse> ServiceResponsePtr;
+typedef std::unique_ptr<const ServiceResponse> ConstServiceResponsePtr;
 
 TransactionPtr CreateTransaction(const devv::proto::Transaction& transaction,
                                  const KeyRing& keys,
@@ -108,7 +110,9 @@ devv::proto::RepeaterResponse SerializeRepeaterResponse(const RepeaterResponsePt
 
 ServiceRequestPtr DeserializeServiceRequest(const std::string& pb_request);
 
-devv::proto::ServiceResponse SerializeServiceResponse(const ServiceResponsePtr& response_ptr);
+devv::proto::ServiceRequest SerializeServiceRequest(ConstServiceRequestPtr request_ptr);
+
+devv::proto::ServiceResponse SerializeServiceResponse(ConstServiceResponsePtr response_ptr);
 
 devv::proto::Transaction SerializeTransaction(const Tier2Transaction& one_tx, devv::proto::Transaction& tx);
 

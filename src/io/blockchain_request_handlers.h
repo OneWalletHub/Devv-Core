@@ -174,6 +174,18 @@ class ServiceRequestEventHandler {
                                          ServiceRequestPtr request,
                                          ServiceResponsePtr response);
 
+  /**
+   * Handle requests for raw block data
+   *
+   * @param chain
+   * @param request
+   * @param response
+   * @return
+   */
+  ServiceResponsePtr handleBlockQueryRequest(const Blockchain& chain,
+                                             ServiceRequestPtr request,
+                                             ServiceResponsePtr response);
+
  private:
   /// The working directory containing the blockchain
   const boost::filesystem::path working_dir_;

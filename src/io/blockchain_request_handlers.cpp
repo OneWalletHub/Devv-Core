@@ -89,6 +89,13 @@ std::map<std::string, std::string> TraceTransactions(const std::string& shard_na
   return txs;
 }
 
+ServiceRequestEventHandler::ServiceRequestEventHandler(const fs::path& working_dir,
+                                                       const std::string& shard_name)
+    : working_dir_(working_dir)
+    , shard_name_(shard_name)
+{
+}
+
 ServiceResponsePtr ServiceRequestEventHandler::dispatchRequest(const Blockchain& chain,
                                                                const ServiceRequest& request,
                                                                const ServiceResponse& response) {
@@ -105,6 +112,8 @@ ServiceResponsePtr ServiceRequestEventHandler::dispatchRequest(const Blockchain&
     response_ptr = handleTraceRequest(chain, std::move(request_ptr), std::move(response_ptr));
   } else if (SearchString(request.endpoint, "/tx-info", true)) {
     response_ptr = handleTxInfoRequest(chain, std::move(request_ptr), std::move(response_ptr));
+  } else if (SearchString(request.endpoint, "/block-query", true)) {
+    response_ptr = handleBlockQueryRequest(chain, std::move(request_ptr), std::move(response_ptr));
   }
   return response_ptr;
 }
@@ -258,13 +267,34 @@ ServiceResponsePtr ServiceRequestEventHandler::handleTxInfoRequest(const Blockch
   return response;
 }
 
-ServiceRequestEventHandler::ServiceRequestEventHandler(const fs::path& working_dir,
-                                                       const std::string& shard_name)
-    : working_dir_(working_dir)
-    , shard_name_(shard_name)
-{
+ServiceResponsePtr ServiceRequestEventHandler::handleBlockQueryRequest(const Blockchain& chain,
+                                                                      ServiceRequestPtr request,
+                                                                      ServiceResponsePtr response) {
+  auto height = std::stoul(GetServiceArgument(request->args, "block-height"));
+  LOG_DEBUG << "handleBlockQueryRequest(): " << height;
+  response->args.insert(std::make_pair("block-height", std::to_string(height)));
+  if (height < chain.size()) {
+    std::vector<byte> block = chain.raw_at(height);
+    InputBuffer buffer(block);
+    ChainState state;
+    FinalBlock one_block(FinalBlock::Create(buffer, state));
+    response->args.insert(std::make_pair("block-time", std::to_string(one_block.getBlockTime())));
+    response->args.insert(std::make_pair("block-size", std::to_string(one_block.getNumBytes())));
+    response->args.insert(std::make_pair("block-data", ToHex(block)));
+  } else if (HasBlock(chain, shard_name_, height, working_dir_)) {
+    std::vector<byte> block = ReadBlock(chain, shard_name_, height, working_dir_);
+    InputBuffer buffer(block);
+    ChainState state;
+    FinalBlock one_block(FinalBlock::Create(buffer, state));
+    response->args.insert(std::make_pair("block-time", std::to_string(one_block.getBlockTime())));
+    response->args.insert(std::make_pair("block-size", std::to_string(one_block.getNumBytes())));
+    response->args.insert(std::make_pair("block-data", ToHex(block)));
+  } else {
+    response->return_code = 1050;
+    response->message = "Block "+std::to_string(height)+" is not available.";
+  }
+  return response;
 }
-
 
 ServiceResponsePtr HandleServiceRequest(ServiceRequestEventHandler& event_handler,
                                         const ServiceRequestPtr request,

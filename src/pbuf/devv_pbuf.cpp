@@ -251,7 +251,19 @@ ServiceRequestPtr DeserializeServiceRequest(const std::string& pb_request) {
   return std::make_unique<ServiceRequest>(request);
 }
 
-devv::proto::ServiceResponse SerializeServiceResponse(const ServiceResponsePtr& response_ptr) {
+devv::proto::ServiceRequest SerializeServiceRequest(ConstServiceRequestPtr request_ptr) {
+  devv::proto::ServiceRequest request;
+  request.set_timestamp(request_ptr->timestamp);
+  request.set_endpoint(request_ptr->endpoint);
+  for (auto const& arg : request_ptr->args) {
+    devv::proto::KeyValuePair* pb_arg = request.add_args();
+    pb_arg->set_key(arg.first);
+    pb_arg->set_value(arg.second);
+  }
+  return request;
+}
+
+devv::proto::ServiceResponse SerializeServiceResponse(ConstServiceResponsePtr response_ptr) {
   devv::proto::ServiceResponse response;
   response.set_request_timestamp(response_ptr->request_timestamp);
   response.set_endpoint(response_ptr->endpoint);

@@ -36,6 +36,10 @@ target_link_libraries(pbuf_test ${GTEST_BOTH_LIBRARIES} ${devv_all_libs})
 add_executable(blockchain_test gtest/blockchain_test.cpp)
 target_link_libraries(blockchain_test ${GTEST_BOTH_LIBRARIES} ${devv_all_libs})
 
+# blockc tests
+add_executable(blockservice_test gtest/blockservice_test.cpp)
+target_link_libraries(blockservice_test ${GTEST_BOTH_LIBRARIES} ${devv_all_libs})
+
 # blockchainmodule tests
 add_executable(blockchainmodule_test gtest/blockchainmodule_test.cpp)
 target_link_libraries(blockchainmodule_test ${GTEST_BOTH_LIBRARIES} ${devv_all_libs})
@@ -47,3 +51,4 @@ add_test(NAME ossladapter_test COMMAND ossladapter_test)
 #add_test(NAME pbuf_test COMMAND pbuf_test)
 add_test(NAME blockchain_test COMMAND blockchain_test)
 add_test(NAME blockchainmodule_test COMMAND blockchainmodule_test)
+add_test(NAME blockservice_test COMMAND blockservice_test)
