@@ -41,6 +41,7 @@ void ParallelPush(std::mutex& m, std::vector<std::vector<byte>>& array
  * Holds command-line options
  */
 struct announcer_options {
+  std::vector<std::string> host_vector{};
   std::string bind_endpoint;
   std::string protobuf_endpoint;
   eAppMode mode;
@@ -101,7 +102,7 @@ int main(int argc, char* argv[]) {
     chain.Fill(options->working_dir, keys, options->mode);
 
     //listen for FinalBlocks
-    auto peer_listener = io::CreateTransactionClient(options->bind_endpoint, context);
+    auto peer_listener = io::CreateTransactionClient(options->host_vector, context);
     peer_listener->attachCallback([&](DevvMessageUniquePtr p) {
       if (p->message_type == eMessageType::FINAL_BLOCK) {
         try {
@@ -141,7 +142,7 @@ int main(int argc, char* argv[]) {
       std::string response;
       std::vector<TransactionPtr> ptrs;
       try {
-        ptrs = DeserializeEnvelopeProtobufString(tx_string, keys);
+        ptrs = DeserializeEnvelopeProtobufString(tx_string, keys, chain);
       } catch (std::runtime_error& e) {
         response = "Deserialization error: " + std::string(e.what());
         LOG_ERROR << response;
@@ -233,6 +234,8 @@ annouonces them to nodes provided by the host-list arguments.\n\
         ("start-delay", po::value<unsigned int>(), "Sleep time before starting (millis)")
         ("separate-ops", po::value<bool>(), "Separate transactions with different operations into distinct batches?")
         ("working-dir", po::value<std::string>(), "Directory containing blockchain(s)")
+        ("host-list,host", po::value<std::vector<std::string>>(),
+         "Client URI (i.e. tcp://192.168.10.1:5005). Option can be repeated to connect to multiple nodes.")
         ;
 
     po::options_description all_options;
@@ -379,6 +382,14 @@ annouonces them to nodes provided by the host-list arguments.\n\
       LOG_INFO << "Working dir: " << options->working_dir;
     } else {
       LOG_INFO << "Working dir was not set.";
+    }
+
+    if (vm.count("host-list")) {
+      options->host_vector = vm["host-list"].as<std::vector<std::string>>();
+      LOG_INFO << "Node URIs:";
+      for (auto i : options->host_vector) {
+        LOG_INFO << "  " << i;
+      }
     }
 
   }
