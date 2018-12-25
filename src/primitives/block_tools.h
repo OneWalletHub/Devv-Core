@@ -7,24 +7,10 @@
 #pragma once
 
 #include <boost/filesystem/path.hpp>
-#include "primitives/FinalBlock.h"
+#include "primitives/binary_tools.h"
 #include "primitives/blockchain.h"
 
 namespace Devv {
-
-/** Checks if binary is encoding a block
- * @note this function is pretty heuristic, do not use in critical cases
- * @return true if this data encodes a block
- * @return false otherwise
- */
-bool IsBlockData(const std::vector<byte>& raw);
-
-/** Checks if binary is encoding Transactions
- * @note this function is pretty heuristic, do not use in critical cases
- * @return true if this data encodes Transactions
- * @return false otherwise
- */
-bool IsTxData(const std::vector<byte>& raw);
 
 /** Checks if two chain state maps contain the same state
  * @return true if the maps have the same state

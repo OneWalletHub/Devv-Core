@@ -5,6 +5,7 @@
  * @copywrite  2018 Devvio Inc
  */
 #include "primitives/blockchain.h"
+#include "primitives/binary_tools.h"
 
 #include <boost/filesystem.hpp>
 
