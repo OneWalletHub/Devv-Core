@@ -84,4 +84,35 @@ bool Blockchain::prune() {
   return false;
 }
 
+  std::map<std::vector<byte>, std::vector<byte>> Blockchain::TraceTransactions(
+                                                 const std::vector<byte>& target) {
+    std::map<std::vector<byte>, std::vector<byte>> txs;
+    size_t highest = std::min(end_block, size());
+    if (highest < start_blk) return txs;
+
+    size_t start_seg = getSegmentIndexAt(segment_capacity_);
+    //skips any blocks that have been pruned from memory
+    if (size() > 0 && start_seg >= prune_cursor_) {
+      size_t start_block = start_blk % segment_capacity_;
+      for (auto i = start_seg; i < getCurrentSegmentIndex(); i++) {
+        for (auto j = start_block; j < chain_.at(i).size(); j++) {
+          std::vector<byte> canonical = chain_.at(i).at(j)->getCanonical();
+          InputBuffer buffer(cannonical);
+          ChainState state;
+          FinalBlock one_block(FinalBlock::Create(buffer, state));
+          for (const auto& raw_tx : one_block.getRawTransactions()) {
+            if(std::search(std::begin(raw_tx), std::end(raw_tx)
+                , std::begin(target), std::end(target)) != std::end(raw_tx)) {
+              InputBuffer t2_buffer(raw_tx);
+              Tier2Transaction t2tx = Tier2Transaction::QuickCreate(t2_buffer);
+              txs.insert(std::make_pair(t2tx.getSignature().getCanonical(), raw_tx));
+            }
+          }
+        }
+        start_block = 0;
+      }
+    }
+    return txs;
+  }
+
 } // namespace Devv

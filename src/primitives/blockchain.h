@@ -187,6 +187,16 @@ class Blockchain {
   }
 
   /**
+   * Search transactions in this chain for a specific bytestring, such as a signature.
+   *
+   * @param target - the bytestring needle to search for in the chain
+   * @return a map of signatures to transactions containing the target bytestring
+   * @return if the target is not found, the returned map is empty
+   */
+  std::map<std::vector<byte>, std::vector<byte>> TraceTransactions(
+                                                 const std::vector<byte>& target);
+
+  /**
    * @return a binary representation of this entire chain.
    */
   std::vector<byte> dumpChainInBinary() const;

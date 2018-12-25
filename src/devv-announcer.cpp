@@ -54,6 +54,7 @@ struct announcer_options {
   unsigned int batch_size;
   unsigned int start_delay;
   bool distinct_ops;
+  std::string working_dir;
 };
 
 /**
@@ -94,6 +95,28 @@ int main(int argc, char* argv[]) {
 
     zmq::socket_t socket (context, ZMQ_REP);
     socket.bind (options->protobuf_endpoint);
+
+    std::string shard_name = "shard-"+std::to_string(options->shard_index);
+    Blockchain chain = ReadChain(shard_name, options->working_dir);
+
+    //listen for FinalBlocks
+    auto peer_listener = io::CreateTransactionClient(options->bind_endpoint, context);
+    peer_listener->attachCallback([&](DevvMessageUniquePtr p) {
+      if (p->message_type == eMessageType::FINAL_BLOCK) {
+        try {
+          ChainState prior = chain.getHighestChainState();
+          InputBuffer buffer(p->data);
+          auto top_block = std::make_shared<FinalBlock>(buffer, prior
+                                                       , keys, options->mode);
+          chain.push_back(top_block);
+	    } catch (const std::exception& e) {
+          std::exception_ptr p = std::current_exception();
+          std::string err("");
+          err += (p ? p.__cxa_exception_type()->name() : "null");
+          LOG_WARNING << "Error: " + err << std::endl;
+        }
+      }
+    });
 
     if (options->start_delay > 0) sleep(options->start_delay);
 
@@ -208,6 +231,7 @@ annouonces them to nodes provided by the host-list arguments.\n\
         ("stop-file", po::value<std::string>(), "When this file exists it indicates that this announcer should stop.")
         ("start-delay", po::value<unsigned int>(), "Sleep time before starting (millis)")
         ("separate-ops", po::value<bool>(), "Separate transactions with different operations into distinct batches?")
+        ("working-dir", po::value<std::string>(), "Directory containing blockchain(s)")
         ;
 
     po::options_description all_options;
@@ -347,6 +371,13 @@ annouonces them to nodes provided by the host-list arguments.\n\
     } else {
       LOG_INFO << "Separate ops was not set (default to no separation).";
       options->distinct_ops = false;
+    }
+
+    if (vm.count("working-dir")) {
+      options->working_dir = vm["working-dir"].as<std::string>();
+      LOG_INFO << "Working dir: " << options->working_dir;
+    } else {
+      LOG_INFO << "Working dir was not set.";
     }
 
   }

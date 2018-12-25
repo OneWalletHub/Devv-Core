@@ -97,7 +97,9 @@ Tier2TransactionPtr CreateTransaction(const devv::proto::Transaction& transactio
   return t2tx_ptr;
 }
 
-std::vector<TransactionPtr> ValidateOracle(oracleInterface& oracle, const Blockchain& chain, const KeyRing& keys) {
+std::vector<TransactionPtr> ValidateOracle(oracleInterface& oracle
+                                    , const KeyRing& keys
+                                    , const boost::filesystem::path& shards_dir) {
   std::vector<TransactionPtr> out;
   if (oracle.isValid(chain)) {
     std::map<uint64_t, std::vector<Tier2Transaction>> oracle_actions =
@@ -169,7 +171,10 @@ std::vector<TransactionPtr> DecomposeProposal(const devv::proto::Proposal& propo
   return ptrs;
 }
 
-std::vector<TransactionPtr> DeserializeEnvelopeProtobufString(const std::string& pb_envelope, const KeyRing& keys) {
+std::vector<TransactionPtr> DeserializeEnvelopeProtobufString(
+                              const std::string& pb_envelope
+                            , const KeyRing& keys
+                            , const Blockchain context) {
   devv::proto::Envelope envelope;
   envelope.ParseFromString(pb_envelope);
 
@@ -180,11 +185,9 @@ std::vector<TransactionPtr> DeserializeEnvelopeProtobufString(const std::string&
     ptrs.push_back(CreateTransaction(transaction, keys));
   }
 
-  //TODO (nick): use the latest blockchain of this shard from the repeater
-  Blockchain chain("test-shard");
   auto pb_proposals = envelope.proposals();
   for (auto const& proposal : pb_proposals) {
-    std::vector<TransactionPtr> actions = DecomposeProposal(proposal, chain, keys);
+    std::vector<TransactionPtr> actions = DecomposeProposal(proposal, context, keys, working_dir);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin())
         , std::make_move_iterator(actions.end()));
   }

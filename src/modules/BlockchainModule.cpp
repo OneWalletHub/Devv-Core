@@ -20,6 +20,7 @@
 
 #include "consensus/chainstate.h"
 #include "consensus/tier2_message_handlers.h"
+#include "io/blockchain_request_handlers.h"
 #include "io/zhelpers.hpp"
 #include "oracles/api.h"
 #include "oracles/data.h"
@@ -215,66 +216,7 @@ void BlockchainModule::init()
 }
 
 void BlockchainModule::loadHistoricChain(const std::string& working_dir) {
-  LOG_DEBUG << "Looking for prior blockchain at: " << working_dir;
-  Hash prev_hash = DevvHash({'G', 'e', 'n', 'e', 's', 'i', 's'});
-  fs::path p(working_dir);
-  if (!p.empty() && is_directory(p)) {
-    std::vector<std::string> segments;
-    for (auto& entry : boost::make_iterator_range(fs::directory_iterator(p), {})) {
-      segments.push_back(entry.path().string());
-    }
-    std::sort(segments.begin(), segments.end());
-    for (auto const& seg_path : segments) {
-      fs::path seg(seg_path);
-      if (!seg.empty() && is_directory(seg)) {
-        std::vector<std::string> files;
-        for (auto& seg_entry : boost::make_iterator_range(fs::directory_iterator(seg), {})) {
-          files.push_back(seg_entry.path().string());
-        }
-        std::sort(files.begin(), files.end());
-        for (auto const& file_name : files) {
-          LOG_DEBUG << "Reading " << file_name;
-          std::ifstream file(file_name, std::ios::binary);
-          file.unsetf(std::ios::skipws);
-          std::size_t file_size;
-          file.seekg(0, std::ios::end);
-          file_size = file.tellg();
-          file.seekg(0, std::ios::beg);
-          std::vector<byte> raw;
-          raw.reserve(file_size);
-          raw.insert(raw.begin(), std::istream_iterator<byte>(file), std::istream_iterator<byte>());
-          if (IsBlockData(raw)) {
-            InputBuffer buffer(raw);
-            while (buffer.getOffset() < static_cast<size_t>(file_size)) {
-              try {
-                ChainState prior = final_chain_.getHighestChainState();
-                auto new_block = std::make_shared<FinalBlock>(buffer, prior, keys_, mode_);
-                Hash p_hash = new_block->getPreviousHash();
-                if (!std::equal(std::begin(prev_hash), std::end(prev_hash), std::begin(p_hash))) {
-                  LOG_FATAL
-                    << "CHAINBREAK: The previous hash referenced in this block does not match the expected hash.";
-                  break;
-                } else {
-                  prev_hash = DevvHash(new_block->getCanonical());
-                  final_chain_.push_back(new_block);
-                }
-              } catch (const std::exception& e) {
-                LOG_ERROR << "Error scanning " << file_name
-                          << " skipping to next file.  Error details: " + FormatException(&e, "validator.init");
-                break;
-              }
-            }
-          } else {
-            LOG_WARNING << "Working directory contained non-block binary data at: " << file_name;
-          }
-        }  //end file for loop
-      } else {
-        LOG_INFO << "Empty segment " << seg_path;
-      }
-    } //end segment for loop
-  } else {
-    LOG_INFO << "No historic blocks found, starting from Genesis.";
-  }
+  ReadIntoChain(working_dir, final_chain_);
 }
 
 bool BlockchainModule::performSanityChecks()

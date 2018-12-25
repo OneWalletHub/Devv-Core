@@ -14,6 +14,23 @@
 namespace Devv {
 
 /**
+ * Read a persisted chain
+ *
+ * @param working_dir where the segmented blockchain is written
+ * @return the blockchain memory accessor
+ */
+Blockchain ReadChain(const std::string& working_dir);
+
+/**
+ * Read a persisted chain
+ *
+ * @param working_dir
+ * @param (in/out) appends the chain from file system onto this chain object
+ * @return the same chain param
+ */
+Blockchain ReadIntoChain(const std::string& working_dir, Blockchain& chain);
+
+/**
  * Read a persisted block
  *
  * @param chain
@@ -88,6 +105,24 @@ bool HasBlock(const boost::filesystem::path& shard_path, size_t segment_index, s
  * @return
  */
 std::map<std::string, std::string> TraceTransactions(const std::string& shard_name,
+                                                     uint32_t start_block,
+                                                     uint32_t end_block,
+                                                     const std::vector<byte>& target,
+                                                     const boost::filesystem::path& working_dir,
+                                                     const Blockchain& chain);
+
+/**
+ *
+ * @param shard_name
+ * @param start_block
+ * @param end_block
+ * @param target
+ * @param working_dir
+ * @param chain
+ * @return
+ */
+std::map<std::vector<byte>, std::vector<byte>> TraceTransactions_Binary(
+                                                     const std::string& shard_name,
                                                      uint32_t start_block,
                                                      uint32_t end_block,
                                                      const std::vector<byte>& target,

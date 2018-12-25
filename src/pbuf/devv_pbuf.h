@@ -22,6 +22,7 @@
 #include "oracles/id.h"
 #include "oracles/revert.h"
 #include "oracles/vote.h"
+#include "io/blockchain_request_handlers.h"
 
 #include "devv.pb.h"
 
@@ -97,7 +98,10 @@ std::vector<TransactionPtr> DecomposeProposal(const devv::proto::Proposal& propo
                                               const Blockchain& chain,
                                               const KeyRing& keys);
 
-std::vector<TransactionPtr> DeserializeEnvelopeProtobufString(const std::string& pb_envelope, const KeyRing& keys);
+std::vector<TransactionPtr> DeserializeEnvelopeProtobufString(
+                                              const std::string& pb_envelope,
+                                              const KeyRing& keys,
+                                              const Blockchain& context);
 
 TransactionPtr DeserializeTxProtobufString(const std::string& pb_tx, const KeyRing& keys, bool do_sign = false);
 

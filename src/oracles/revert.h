@@ -75,9 +75,11 @@ class revert : public oracleInterface {
  */
   bool isValid(const Blockchain& context) override {
     if (!isSound()) return false;
-    Signature sig(Str2Bin(raw_data_));
-    //look up prior transaction with same signature
-    //if not found, return false
+    std::map<std::vector<byte>, std::vector<byte>> hits = context.TraceTransactions(raw_data_);
+    if (hits.empty()) return false;
+    for (auto the_pair : hits) {
+      if (the_pair.first == raw_data_) return true;
+    }
     return false;
   }
 
@@ -105,14 +107,27 @@ class revert : public oracleInterface {
   std::map<uint64_t, std::vector<Tier2Transaction>>
   getNextTransactions(const Blockchain& context, const KeyRing& keys) override {
     std::map<uint64_t, std::vector<Tier2Transaction>> out;
-    if (!isValid(context)) return out;
-    //construct revert matching transaction
-    /*InputBuffer buffer(Str2Bin(raw_data_));
-    Tier2Transaction tx = Tier2Transaction::QuickCreate(buffer);
-    std::vector<Tier2Transaction> txs;
-    txs.push_back(std::move(tx));
-    std::pair<uint64_t, std::vector<Tier2Transaction>> p(getShardIndex(), std::move(txs));
-    out.insert(std::move(p));*/
+    if (!isSound()) return out;
+    std::map<std::vector<byte>, std::vector<byte>> hits = context.TraceTransactions(raw_data_);
+    if (hits.empty()) return out;
+    for (auto the_pair : hits) {
+      if (the_pair.first == raw_data_) {
+        InputBuffer buffer(the_pair.second);
+        Tier2Transaction to_revert = Tier2Transaction::QuickCreate(buffer);
+
+        //construct revert matching transaction
+        std::vector<Transfer> xfers;
+        for (auto xfer : to_revert.getTransfers()) {
+          if (xfer->getDelay() > 0) {
+            Transfer inverse(xfer->getAddress(), xfer->getCoin(), -1*xfer->getAmount(), 0);
+            xfers.push_back(inverse);
+          }
+        }
+        Tier2Transaction revert_tx(eOpType::Revert, xfers, raw_data_,
+              keys.getKey(keys.getInnAddr()), keys);
+        out.push_back(revert_tx);
+	  }
+    }
     return out;
   }
 
