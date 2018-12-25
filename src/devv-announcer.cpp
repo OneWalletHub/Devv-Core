@@ -97,7 +97,7 @@ int main(int argc, char* argv[]) {
     socket.bind (options->protobuf_endpoint);
 
     std::string shard_name = "shard-"+std::to_string(options->shard_index);
-    Blockchain chain = ReadChain(shard_name, options->working_dir);
+    Blockchain chain = ReadChain(shard_name, options->working_dir, keys, options->mode);
 
     //listen for FinalBlocks
     auto peer_listener = io::CreateTransactionClient(options->bind_endpoint, context);

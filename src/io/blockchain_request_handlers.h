@@ -19,16 +19,18 @@ namespace Devv {
  * @param working_dir where the segmented blockchain is written
  * @return the blockchain memory accessor
  */
-Blockchain ReadChain(const std::string& working_dir);
+Blockchain ReadChain(const std::string& working_dir, const KeyRing& keys, eAppMode mode);
 
 /**
  * Read a persisted chain
  *
  * @param working_dir
  * @param (in/out) appends the chain from file system onto this chain object
+ * @param keys - the keyring crypto context for this blockchain
+ * @param mode - the mode of this blockchain
  * @return the same chain param
  */
-Blockchain ReadIntoChain(const std::string& working_dir, Blockchain& chain);
+Blockchain ReadIntoChain(const std::string& working_dir, Blockchain& chain, const KeyRing& keys, eAppMode mode);
 
 /**
  * Read a persisted block

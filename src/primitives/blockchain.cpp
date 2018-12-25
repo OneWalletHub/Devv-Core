@@ -87,13 +87,11 @@ bool Blockchain::prune() {
   std::map<std::vector<byte>, std::vector<byte>> Blockchain::TraceTransactions(
                                                  const std::vector<byte>& target) {
     std::map<std::vector<byte>, std::vector<byte>> txs;
-    size_t highest = std::min(end_block, size());
-    if (highest < start_blk) return txs;
 
     size_t start_seg = getSegmentIndexAt(segment_capacity_);
     //skips any blocks that have been pruned from memory
     if (size() > 0 && start_seg >= prune_cursor_) {
-      size_t start_block = start_blk % segment_capacity_;
+      size_t start_block = 0;
       for (auto i = start_seg; i < getCurrentSegmentIndex(); i++) {
         for (auto j = start_block; j < chain_.at(i).size(); j++) {
           std::vector<byte> canonical = chain_.at(i).at(j)->getCanonical();

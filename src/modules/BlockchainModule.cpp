@@ -216,7 +216,7 @@ void BlockchainModule::init()
 }
 
 void BlockchainModule::loadHistoricChain(const std::string& working_dir) {
-  ReadIntoChain(working_dir, final_chain_);
+  ReadIntoChain(working_dir, final_chain_, keys_, mode_);
 }
 
 bool BlockchainModule::performSanityChecks()

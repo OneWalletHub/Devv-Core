@@ -9,12 +9,14 @@ namespace Devv {
 
 namespace fs = boost::filesystem;
 
-Blockchain ReadChain(const std::string chain_name, const std::string& working_dir) {
+Blockchain ReadChain(const std::string chain_name, const std::string& working_dir
+                    , const KeyRing& keys, eAppMode mode) {
   Blockchain new_chain(chain_name);
-  return ReadIntoChain(working_dir, new_chain);
+  return ReadIntoChain(working_dir, std::move(new_chain), keys, mode);
 }
 
-Blockchain ReadIntoChain(const std::string& working_dir, Blockchain& chain) {
+Blockchain ReadIntoChain(const std::string& working_dir, Blockchain& chain
+                        , const KeyRing& keys, eAppMode mode) {
   LOG_DEBUG << "Looking for blockchain at: " << working_dir;
   Hash prev_hash = DevvHash({'G', 'e', 'n', 'e', 's', 'i', 's'});
   fs::path p(working_dir);
@@ -47,8 +49,8 @@ Blockchain ReadIntoChain(const std::string& working_dir, Blockchain& chain) {
             InputBuffer buffer(raw);
             while (buffer.getOffset() < static_cast<size_t>(file_size)) {
               try {
-                ChainState prior = final_chain_.getHighestChainState();
-                auto new_block = std::make_shared<FinalBlock>(buffer, prior, keys_, mode_);
+                ChainState prior = chain.getHighestChainState();
+                auto new_block = std::make_shared<FinalBlock>(buffer, prior, keys, mode);
                 Hash p_hash = new_block->getPreviousHash();
                 if (!std::equal(std::begin(prev_hash), std::end(prev_hash), std::begin(p_hash))) {
                   LOG_FATAL
@@ -132,8 +134,8 @@ bool HasBlock(const fs::path& shard_path, size_t segment_index, size_t segment_h
 }
 
 std::map<std::string, std::string> TraceTransactions(const std::string& shard_name,
-                                                     uint32_t start_block,
-                                                     uint32_t end_block,
+                                                     size_t start_block,
+                                                     size_t end_block,
                                                      const std::vector<byte>& target,
                                                      const boost::filesystem::path& working_dir,
                                                      const Blockchain& chain) {
