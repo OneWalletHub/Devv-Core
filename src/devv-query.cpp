@@ -102,7 +102,8 @@ int main(int argc, char* argv[]) {
     }
 
     std::string shard_name = "shard-"+std::to_string(options->shard_index);
-    Blockchain chain = ReadChain(shard_name, options->working_dir, keys, options->mode);
+    Blockchain chain(shard_name);
+    chain.Fill(options->working_dir, keys, options->mode);
 
     BlockIOFS blockfs(chain.getName(), options->working_dir, shard_name);
     auto peer_listener = io::CreateTransactionClient(options->host_vector, zmq_context);

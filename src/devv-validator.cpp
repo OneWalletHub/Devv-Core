@@ -79,8 +79,11 @@ int main(int argc, char* argv[])
 
     {
       LOG_NOTICE << "Creating the BlockchainModule";
-      auto bcm = BlockchainModule::Create(*server, *peer_client, *loopback_client, options->working_dir
+      auto bcm = BlockchainModule::Create(*server, *peer_client, *loopback_client
                  , keys, prior, options->mode, devv_context, options->batch_size);
+
+      LOG_NOTICE << "BlockchainModule: check for prior chain.";
+      bcm->loadHistoricChain(options->working_dir);
 
       LOG_NOTICE << "Starting the BlockchainModule";
       bcm->start();

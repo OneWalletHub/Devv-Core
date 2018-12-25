@@ -65,7 +65,6 @@ BlockchainModule::BlockchainModule(_constructor_tag,
                                    io::TransactionServer& server,
                                    io::TransactionClient& client,
                                    io::TransactionClient& loopback_client,
-                                   const std::string& working_dir,
                                    const KeyRing& keys,
                                    const ChainState &prior,
                                    eAppMode mode,
@@ -78,7 +77,7 @@ BlockchainModule::BlockchainModule(_constructor_tag,
       prior_(prior),
       mode_(mode),
       app_context_(context),
-      final_chain_(ReadChain("final_chain_", working_dir, keys_, mode_)),
+      final_chain_("final_chain_"),
       utx_pool_(prior, mode, max_tx_per_block),
       consensus_controller_(keys_, app_context_, prior_, final_chain_, utx_pool_, mode_),
       internetwork_controller_(keys_, app_context_, prior_, final_chain_, utx_pool_, mode_),
@@ -214,6 +213,10 @@ void BlockchainModule::init()
 
   /// Initialize OpenSSL
   InitCrypto();
+}
+
+void BlockchainModule::loadHistoricChain(const std::string& working_dir) {
+  final_chain_.Fill(working_dir, keys_, mode_);
 }
 
 bool BlockchainModule::performSanityChecks()

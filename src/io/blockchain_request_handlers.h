@@ -14,19 +14,6 @@
 namespace Devv {
 
 /**
- * Read a persisted chain
- *
- * @param chain_name - a name for this chain
- * @param working_dir
- * @param (in/out) appends the chain from file system onto this chain object
- * @param keys - the keyring crypto context for this blockchain
- * @param mode - the mode of this blockchain
- * @return the same chain param
- */
- */
-Blockchain ReadChain(const std::string chain_name, const std::string& working_dir, const KeyRing& keys, eAppMode mode);
-
-/**
  * Read a persisted block
  *
  * @param chain
