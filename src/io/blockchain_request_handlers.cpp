@@ -12,7 +12,7 @@ namespace fs = boost::filesystem;
 Blockchain ReadChain(const std::string chain_name, const std::string& working_dir
                     , const KeyRing& keys, eAppMode mode) {
   Blockchain new_chain(chain_name);
-  return ReadIntoChain(working_dir, std::move(new_chain), keys, mode);
+  return ReadIntoChain(working_dir, new_chain, keys, mode);
 }
 
 Blockchain ReadIntoChain(const std::string& working_dir, Blockchain& chain
@@ -162,8 +162,8 @@ std::map<std::string, std::string> TraceTransactions(const std::string& shard_na
 
 std::map<std::vector<byte>, std::vector<byte>> TraceTransactions_Binary(
                                                      const std::string& shard_name,
-                                                     uint32_t start_block,
-                                                     uint32_t end_block,
+                                                     size_t start_block,
+                                                     size_t end_block,
                                                      const std::vector<byte>& target,
                                                      const boost::filesystem::path& working_dir,
                                                      const Blockchain& chain) {

@@ -194,7 +194,7 @@ class Blockchain {
    * @return if the target is not found, the returned map is empty
    */
   std::map<std::vector<byte>, std::vector<byte>> TraceTransactions(
-                                                 const std::vector<byte>& target);
+                                                 const std::vector<byte>& target) const;
 
   /**
    * @return a binary representation of this entire chain.

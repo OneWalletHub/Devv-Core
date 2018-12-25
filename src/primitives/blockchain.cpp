@@ -85,7 +85,7 @@ bool Blockchain::prune() {
 }
 
   std::map<std::vector<byte>, std::vector<byte>> Blockchain::TraceTransactions(
-                                                 const std::vector<byte>& target) {
+                                                 const std::vector<byte>& target) const {
     std::map<std::vector<byte>, std::vector<byte>> txs;
 
     size_t start_seg = getSegmentIndexAt(segment_capacity_);
@@ -95,7 +95,7 @@ bool Blockchain::prune() {
       for (auto i = start_seg; i < getCurrentSegmentIndex(); i++) {
         for (auto j = start_block; j < chain_.at(i).size(); j++) {
           std::vector<byte> canonical = chain_.at(i).at(j)->getCanonical();
-          InputBuffer buffer(cannonical);
+          InputBuffer buffer(canonical);
           ChainState state;
           FinalBlock one_block(FinalBlock::Create(buffer, state));
           for (const auto& raw_tx : one_block.getRawTransactions()) {

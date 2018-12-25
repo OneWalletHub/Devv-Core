@@ -120,7 +120,7 @@ class revert : public oracleInterface {
 
         //construct revert matching transaction
         std::vector<Transfer> xfers;
-        for (const auto xfer : to_revert.getTransfers()) {
+        for (auto const& xfer : to_revert.getTransfers()) {
           if (xfer->getDelay() > 0) {
             Transfer inverse(xfer->getAddress(), xfer->getCoin(), -1*xfer->getAmount(), 0);
             xfers.push_back(inverse);
@@ -128,7 +128,7 @@ class revert : public oracleInterface {
         }
         Tier2Transaction revert_tx(eOpType::Revert, xfers, raw,
               keys.getKey(keys.getInnAddr()), keys);
-        txs.push_back(std::move(tx));
+        txs.push_back(std::move(revert_tx));
 	  }
     }
     std::pair<uint64_t, std::vector<Tier2Transaction>> p(getShardIndex(), std::move(txs));

@@ -98,8 +98,8 @@ Tier2TransactionPtr CreateTransaction(const devv::proto::Transaction& transactio
 }
 
 std::vector<TransactionPtr> ValidateOracle(oracleInterface& oracle
-                                    , const KeyRing& keys
-                                    , const boost::filesystem::path& shards_dir) {
+                                    , const Blockchain& chain
+                                    , const KeyRing& keys) {
   std::vector<TransactionPtr> out;
   if (oracle.isValid(chain)) {
     std::map<uint64_t, std::vector<Tier2Transaction>> oracle_actions =
