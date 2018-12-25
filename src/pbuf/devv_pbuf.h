@@ -22,7 +22,6 @@
 #include "oracles/id.h"
 #include "oracles/revert.h"
 #include "oracles/vote.h"
-#include "io/blockchain_request_handlers.h"
 
 #include "devv.pb.h"
 

@@ -4,6 +4,7 @@
  * @copywrite  2018 Devvio Inc
  */
 #include "pbuf/devv_pbuf.h"
+#include "io/blockchain_request_handlers.h"
 
 namespace Devv {
 
@@ -187,7 +188,7 @@ std::vector<TransactionPtr> DeserializeEnvelopeProtobufString(
 
   auto pb_proposals = envelope.proposals();
   for (auto const& proposal : pb_proposals) {
-    std::vector<TransactionPtr> actions = DecomposeProposal(proposal, context, keys, working_dir);
+    std::vector<TransactionPtr> actions = DecomposeProposal(proposal, context, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin())
         , std::make_move_iterator(actions.end()));
   }
