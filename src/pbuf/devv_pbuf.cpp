@@ -175,7 +175,7 @@ std::vector<TransactionPtr> DecomposeProposal(const devv::proto::Proposal& propo
 std::vector<TransactionPtr> DeserializeEnvelopeProtobufString(
                               const std::string& pb_envelope
                             , const KeyRing& keys
-                            , const Blockchain context) {
+                            , const Blockchain& context) {
   devv::proto::Envelope envelope;
   envelope.ParseFromString(pb_envelope);
 
