@@ -36,6 +36,7 @@ class BlockchainModule : public ModuleInterface {
                    io::TransactionServer &server,
                    io::TransactionClient &client,
                    io::TransactionClient &loopback_client,
+                   const std::string& working_dir,
                    const KeyRing &keys,
                    const ChainState &prior,
                    eAppMode mode,
@@ -75,11 +76,6 @@ class BlockchainModule : public ModuleInterface {
    *  @param working_dir a directory to check for a pre-existing blockchain
    */
   void init() final;
-
-  /** Load chain history into memory.
-   *  @param working_dir a directory to check for a pre-existing blockchain
-   */
-  void loadHistoricChain(const std::string& working_dir);
 
   /**
    * Initialization sanity checks: ecc init, sanity checks, dir lock.

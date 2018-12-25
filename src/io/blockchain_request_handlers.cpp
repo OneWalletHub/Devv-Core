@@ -12,11 +12,6 @@ namespace fs = boost::filesystem;
 Blockchain ReadChain(const std::string chain_name, const std::string& working_dir
                     , const KeyRing& keys, eAppMode mode) {
   Blockchain new_chain(chain_name);
-  return ReadIntoChain(working_dir, new_chain, keys, mode);
-}
-
-Blockchain ReadIntoChain(const std::string& working_dir, Blockchain& chain
-                        , const KeyRing& keys, eAppMode mode) {
   LOG_DEBUG << "Looking for blockchain at: " << working_dir;
   Hash prev_hash = DevvHash({'G', 'e', 'n', 'e', 's', 'i', 's'});
   fs::path p(working_dir);
@@ -58,7 +53,7 @@ Blockchain ReadIntoChain(const std::string& working_dir, Blockchain& chain
                   break;
                 } else {
                   prev_hash = DevvHash(new_block->getCanonical());
-                  chain.push_back(new_block);
+                  new_chain.push_back(new_block);
                 }
               } catch (const std::exception& e) {
                 LOG_ERROR << "Error scanning " << file_name
@@ -77,7 +72,7 @@ Blockchain ReadIntoChain(const std::string& working_dir, Blockchain& chain
   } else {
     LOG_INFO << "No existing blocks found, starting from Genesis.";
   }
-  return chain;
+  return new_chain;
 }
 
 std::vector<byte> ReadBlock(const Blockchain& chain,
