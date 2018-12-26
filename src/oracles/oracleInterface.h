@@ -19,7 +19,6 @@
 #include "common/binary_converters.h"
 #include "primitives/blockchain.h"
 #include "primitives/Tier2Transaction.h"
-#include "devv.pb.h"
 
 namespace Devv
 {
