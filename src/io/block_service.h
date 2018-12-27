@@ -31,7 +31,7 @@ class BlockReaderInterface {
   virtual void open() = 0;
 
   virtual void close() = 0;
-  virtual FinalBlockUniquePtr getBlockAt(size_t block_number) = 0;
+  virtual FinalBlockUniquePtr getBlockAt(const ChainState& prior, const KeyRing& keys, size_t block_number) = 0;
 
  private:
 
@@ -57,17 +57,7 @@ class DevvQueryBlockReader : public BlockReaderInterface {
 
   void open();
 
-  FinalBlockUniquePtr getBlockAt(size_t block_number) {
-
-    FinalBlockUniquePtr block;
-
-    ServiceRequestPtr request;
-    request->timestamp = GetMillisecondsSinceEpoch();
-
-    auto pbuf_request = SerializeServiceRequest(std::move(request));
-
-    return block;
-  }
+  FinalBlockUniquePtr getBlockAt(const ChainState& prior, const KeyRing& keys, size_t block_number);
 
   std::string getURI() const { return query_uri_;}
  private:
@@ -76,6 +66,8 @@ class DevvQueryBlockReader : public BlockReaderInterface {
 
   std::string query_uri_;
   std::string shard_name_;
+
+  eAppMode mode_;
 };
 
 } // namespace Devv
