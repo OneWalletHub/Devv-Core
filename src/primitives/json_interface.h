@@ -10,7 +10,7 @@
 #include "primitives/ProposedBlock.h"
 #include "primitives/Validation.h"
 #include "primitives/FinalBlock.h"
-#include "consensus/blockchain.h"
+#include "primitives/blockchain.h"
 
 namespace Devv {
 

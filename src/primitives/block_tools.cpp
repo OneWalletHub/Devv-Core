@@ -6,42 +6,14 @@
  */
 #include "block_tools.h"
 
+#include <sstream>
+#include <iomanip>
+#include <boost/filesystem.hpp>
+#include <boost/program_options.hpp>
+
 namespace Devv {
 
-bool IsBlockData(const std::vector<byte>& raw) {
-  //check if big enough
-  if (raw.size() < FinalBlock::MinSize()) { return false; }
-  //check version
-  if (raw[0] != 0x00) { return false; }
-  size_t offset = 9;
-  uint64_t block_time = BinToUint64(raw, offset);
-  // check blocktime is from 2018 or newer.
-  if (block_time < 1514764800) { return false; }
-  // check blocktime is in past
-  if (block_time > GetMillisecondsSinceEpoch()) { return false; }
-  return true;
-}
-
-bool IsTxData(const std::vector<byte>& raw) {
-  // check if big enough
-  if (raw.size() < Transaction::MinSize()) {
-    LOG_WARNING << "raw.size()(" << raw.size() << ") < Transaction::MinSize()(" << Transaction::MinSize() << ")";
-    return false;
-  }
-  // check transfer count
-  uint64_t xfer_size = BinToUint64(raw, 0);
-  size_t tx_size = Transaction::MinSize() + xfer_size;
-  if (raw.size() < tx_size) {
-    LOG_WARNING << "raw.size()(" << raw.size() << ") < tx_size(" << tx_size << ")";
-    return false;
-  }
-  // check operation
-  if (raw[16] >= 4) {
-    LOG_WARNING << "raw[8](" << int(raw[16]) << ") >= 4";
-    return false;
-  }
-  return true;
-}
+namespace fs = boost::filesystem;
 
 bool CompareChainStateMaps(const std::map<Address, std::map<uint64_t, int64_t>>& first,
                            const std::map<Address, std::map<uint64_t, int64_t>>& second) {
@@ -95,6 +67,58 @@ Signature SignSummary(const Summary& summary, const KeyRing& keys) {
   auto node_sig = SignBinary(keys.getNodeKey(0),
                              DevvHash(summary.getCanonical()));
   return(node_sig);
+}
+
+boost::filesystem::path GetStandardBlockPath(const Blockchain& chain,
+                                             const std::string& shard_name,
+                                             const boost::filesystem::path& working_dir,
+                                             size_t block_index) {
+  fs::path shard_path(working_dir / shard_name);
+  return GetBlockPath(shard_path,
+                      chain.getSegmentIndexAt(block_index),
+                      chain.getSegmentHeightAt(block_index));
+}
+
+boost::filesystem::path GetBlockPath(const fs::path& shard_path,
+                                     size_t segment_index,
+                                     size_t segment_height) {
+  // Set the segment number
+  std::stringstream ss;
+  ss << std::setw(kMAX_LEFTPADDED_ZER0S) << std::setfill('0') << segment_index;
+  auto segment_num_str = ss.str();
+  // and the block number within the segment
+  std::stringstream blk_strm;
+  blk_strm << std::setw(kMAX_LEFTPADDED_ZER0S) << std::setfill('0') << segment_height;
+  auto block_num_str = blk_strm.str();
+
+  fs::path block_path(shard_path / segment_num_str / (block_num_str + kBLOCK_SUFFIX));
+
+  return block_path;
+}
+
+BlockIOFS::BlockIOFS(const Blockchain& chain,
+                     const std::string& base_path,
+                     const std::string& shard_uri)
+: chain_(chain)
+, base_path_(base_path)
+, shard_uri_(shard_uri)
+{
+
+}
+
+void BlockIOFS::writeBlock(size_t block_index) {
+  auto out_file = GetStandardBlockPath(chain_, shard_uri_, base_path_, block_index);
+  if (!is_directory(out_file)) fs::create_directory(out_file.branch_path());
+  std::ofstream block_file(out_file.string(), std::ios::out | std::ios::binary);
+
+  if (block_file.is_open()) {
+    auto canonical = chain_.at(block_index)->getCanonical();
+    block_file.write(reinterpret_cast<char*>(canonical.data()), canonical.size());
+    block_file.close();
+    LOG_DEBUG << "Wrote to " << out_file << "'.";
+  } else {
+    LOG_ERROR << "Failed to open output file '" << out_file << "'.";
+  }
 }
 
 } // namespace Devv

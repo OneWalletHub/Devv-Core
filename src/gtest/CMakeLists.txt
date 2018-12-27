@@ -31,10 +31,15 @@ target_link_libraries(ossladapter_test ${GTEST_BOTH_LIBRARIES} ${devv_all_libs})
 # protocol buffer tests
 add_executable(pbuf_test gtest/pbuf_test.cpp)
 target_link_libraries(pbuf_test ${GTEST_BOTH_LIBRARIES} ${devv_all_libs})
+add_dependencies(pbuf_test devvpbuf)
 
 # blockchain tests
 add_executable(blockchain_test gtest/blockchain_test.cpp)
 target_link_libraries(blockchain_test ${GTEST_BOTH_LIBRARIES} ${devv_all_libs})
+
+# blockchainmodule tests
+add_executable(blockchainmodule_test gtest/blockchainmodule_test.cpp)
+target_link_libraries(blockchainmodule_test ${GTEST_BOTH_LIBRARIES} ${devv_all_libs})
 
 add_test(NAME primitives_test COMMAND primitives_test)
 add_test(NAME concurrency_test COMMAND concurrency_test)
@@ -42,3 +47,4 @@ add_test(NAME consensus_test COMMAND consensus_test)
 add_test(NAME ossladapter_test COMMAND ossladapter_test)
 #add_test(NAME pbuf_test COMMAND pbuf_test)
 add_test(NAME blockchain_test COMMAND blockchain_test)
+add_test(NAME blockchainmodule_test COMMAND blockchainmodule_test)

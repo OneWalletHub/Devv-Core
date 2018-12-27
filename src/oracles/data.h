@@ -123,6 +123,10 @@ class data : public oracleInterface {
     return (0);
   }
 
+  uint64_t getMaxDepth() override {
+    return kDEFAULT_MAX_DEPTH;
+  }
+
   std::map<uint64_t, std::vector<Tier2Transaction>>
   getNextTransactions(const Blockchain& context, const KeyRing& keys) override {
     std::map<uint64_t, std::vector<Tier2Transaction>> out;
@@ -176,7 +180,16 @@ class data : public oracleInterface {
     return out;
   }
 
-  std::vector<byte> Sign() override {
+  std::vector<byte> getProposal() override {
+    return getCanonical();
+  }
+
+  Signature getRootSignature() override {
+    Signature sig;
+    return sig;
+  }
+
+  std::vector<byte> getInitialState() override {
     return getCanonical();
   }
 

@@ -41,6 +41,7 @@ void ParallelPush(std::mutex& m, std::vector<std::vector<byte>>& array
  * Holds command-line options
  */
 struct announcer_options {
+  std::vector<std::string> host_vector{};
   std::string bind_endpoint;
   std::string protobuf_endpoint;
   eAppMode mode;
@@ -54,6 +55,7 @@ struct announcer_options {
   unsigned int batch_size;
   unsigned int start_delay;
   bool distinct_ops;
+  std::string working_dir;
 };
 
 /**
@@ -95,10 +97,38 @@ int main(int argc, char* argv[]) {
     zmq::socket_t socket (context, ZMQ_REP);
     socket.bind (options->protobuf_endpoint);
 
+    std::string shard_name = "shard-"+std::to_string(options->shard_index);
+    boost::filesystem::path shard_path(options->working_dir);
+    shard_path /= shard_name;
+
+    Blockchain chain(shard_name);
+    chain.Fill(shard_path, keys, options->mode);
+
+    //listen for FinalBlocks
+    auto peer_listener = io::CreateTransactionClient(options->host_vector, context);
+    peer_listener->attachCallback([&](DevvMessageUniquePtr p) {
+      if (p->message_type == eMessageType::FINAL_BLOCK) {
+        try {
+          ChainState prior = chain.getHighestChainState();
+          InputBuffer buffer(p->data);
+          auto top_block = std::make_shared<FinalBlock>(buffer, prior
+                                                       , keys, options->mode);
+          chain.push_back(top_block);
+	    } catch (const std::exception& e) {
+          std::exception_ptr p = std::current_exception();
+          std::string err("");
+          err += (p ? p.__cxa_exception_type()->name() : "null");
+          LOG_WARNING << "Error: " + err << std::endl;
+        }
+      }
+    });
+
     if (options->start_delay > 0) sleep(options->start_delay);
 
     bool keep_running = true;
-    unsigned int processed_total = 0;
+    unsigned int processed_since_restart = 0;
+    unsigned int processed_total = chain.size();
+
     while (keep_running) {
       zmq::message_t transaction_message;
       //  Wait for next request from client
@@ -117,7 +147,7 @@ int main(int argc, char* argv[]) {
       std::string response;
       std::vector<TransactionPtr> ptrs;
       try {
-        ptrs = DeserializeEnvelopeProtobufString(tx_string, keys);
+        ptrs = DeserializeEnvelopeProtobufString(tx_string, keys, chain);
       } catch (std::runtime_error& e) {
         response = "Deserialization error: " + std::string(e.what());
         LOG_ERROR << response;
@@ -147,9 +177,11 @@ int main(int argc, char* argv[]) {
           keep_running = false;
         }
       }
+      processed_since_restart += processed;
       processed_total += processed;
-      LOG_DEBUG << "Finished publishing transactions (processed/total) (" +
+      LOG_DEBUG << "Finished publishing transactions (processed/since restart/total) (" +
             std::to_string(processed) + "/" +
+            std::to_string(processed_since_restart) + "/" +
             std::to_string(processed_total) + ")";
 
       response = "Successfully published " + std::to_string(processed) + " transactions.";
@@ -208,6 +240,9 @@ annouonces them to nodes provided by the host-list arguments.\n\
         ("stop-file", po::value<std::string>(), "When this file exists it indicates that this announcer should stop.")
         ("start-delay", po::value<unsigned int>(), "Sleep time before starting (millis)")
         ("separate-ops", po::value<bool>(), "Separate transactions with different operations into distinct batches?")
+        ("working-dir", po::value<std::string>(), "Directory containing blockchain(s)")
+        ("host-list,host", po::value<std::vector<std::string>>(),
+         "Client URI (i.e. tcp://192.168.10.1:5005). Option can be repeated to connect to multiple nodes.")
         ;
 
     po::options_description all_options;
@@ -347,6 +382,21 @@ annouonces them to nodes provided by the host-list arguments.\n\
     } else {
       LOG_INFO << "Separate ops was not set (default to no separation).";
       options->distinct_ops = false;
+    }
+
+    if (vm.count("working-dir")) {
+      options->working_dir = vm["working-dir"].as<std::string>();
+      LOG_INFO << "Working dir: " << options->working_dir;
+    } else {
+      LOG_INFO << "Working dir was not set.";
+    }
+
+    if (vm.count("host-list")) {
+      options->host_vector = vm["host-list"].as<std::vector<std::string>>();
+      LOG_INFO << "Node URIs:";
+      for (auto i : options->host_vector) {
+        LOG_INFO << "  " << i;
+      }
     }
 
   }

@@ -35,7 +35,8 @@ KeyRing::KeyRing(const DevvContext& context)
     }
     if (!inn_keys.empty()) {
       size_t size = inn_keys.size();
-      if (size%(kFILE_NODEKEY_SIZE+(kNODE_ADDR_SIZE*2)) == 0) {
+      auto expected_size = kFILE_NODEKEY_SIZE+(kNODE_ADDR_SIZE*2);
+      if (size%(expected_size) == 0) {
         size_t counter = 0;
         while (counter < (size-1)) {
           std::string addr = inn_keys.substr(counter, kNODE_ADDR_SIZE*2);
@@ -49,7 +50,8 @@ KeyRing::KeyRing(const DevvContext& context)
           }
         }
       } else {
-        LOG_FATAL << "Invalid INN key file size ("+std::to_string(size)+")";
+        LOG_FATAL << "Invalid INN key file size, (actual/expected) - "
+                     "(" + std::to_string(size) << "/" << expected_size << ")";
         return;
       }
     }

@@ -8,6 +8,9 @@
 
 #include <string>
 #include <vector>
+#include <memory>
+
+#include "boost/filesystem/path.hpp"
 
 #include "concurrency/ConsensusController.h"
 #include "concurrency/InternetworkController.h"
@@ -16,7 +19,7 @@
 #include "io/message_service.h"
 #include "modules/ParallelExecutor.h"
 #include "modules/ModuleInterface.h"
-#include "io/message_service.h"
+#include "primitives/block_tools.h"
 
 namespace Devv {
 
@@ -28,15 +31,17 @@ class BlockchainModule : public ModuleInterface {
   typedef std::unique_ptr<ParallelExecutor<InternetworkController>> ThreadedInternetworkPtr;
   typedef std::unique_ptr<ParallelExecutor<ValidatorController>> ThreadedValidatorPtr;
 
+  struct _constructor_tag { explicit _constructor_tag() = default; };
+
  public:
-  BlockchainModule(io::TransactionServer &server,
-                  io::TransactionClient &client,
-                  io::TransactionClient &loopback_client,
-                  const KeyRing &keys,
-                  const ChainState &prior,
-                  eAppMode mode,
-                  DevvContext &context,
-                  size_t max_tx_per_block);
+  BlockchainModule(_constructor_tag,
+                   io::TransactionServer &server,
+                   io::TransactionClient &client,
+                   const KeyRing &keys,
+                   const ChainState &prior,
+                   eAppMode mode,
+                   DevvContext &context,
+                   size_t max_tx_per_block);
 
   /**
    * Move constructor
@@ -58,25 +63,30 @@ class BlockchainModule : public ModuleInterface {
    */
   static std::unique_ptr<BlockchainModule> Create(io::TransactionServer &server,
                                 io::TransactionClient &client,
-                                io::TransactionClient &loopback_client,
                                 const KeyRing &keys,
                                 const ChainState &prior,
                                 eAppMode mode,
                                 DevvContext &context,
                                 size_t max_tx_per_block);
 
-  /** Initialize devcoin core: Basic context setup.
+  /** Initialize core: Basic context setup.
    *  @note Do not call Shutdown() if this function fails.
    *  @pre Parameters should be parsed and config file should be read.
+   *  @param working_dir a directory to check for a pre-existing blockchain
    */
-  void init() override;
+  void init() final;
+
+  /** Load chain history into memory.
+   *  @param working_dir a directory to check for a pre-existing blockchain
+   */
+  void loadHistoricChain(const boost::filesystem::path& working_dir);
 
   /**
    * Initialization sanity checks: ecc init, sanity checks, dir lock.
    * @note Do not call Shutdown() if this function fails.
    * @pre Parameters should be parsed and config file should be read.
    */
-  void performSanityChecks() override;
+  bool performSanityChecks() final;
 
   /**
    * Stop any running threads and shutdown the module
@@ -102,8 +112,6 @@ class BlockchainModule : public ModuleInterface {
  private:
   io::TransactionServer &server_;
   io::TransactionClient &client_;
-
-  io::TransactionClient &loopback_client_;
 
   const KeyRing &keys_;
   const ChainState &prior_;

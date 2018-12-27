@@ -6,23 +6,11 @@
  */
 #pragma once
 
-#include "primitives/FinalBlock.h"
+#include <boost/filesystem/path.hpp>
+#include "primitives/binary_tools.h"
+#include "primitives/blockchain.h"
 
 namespace Devv {
-
-/** Checks if binary is encoding a block
- * @note this function is pretty heuristic, do not use in critical cases
- * @return true if this data encodes a block
- * @return false otherwise
- */
-bool IsBlockData(const std::vector<byte>& raw);
-
-/** Checks if binary is encoding Transactions
- * @note this function is pretty heuristic, do not use in critical cases
- * @return true if this data encodes Transactions
- * @return false otherwise
- */
-bool IsTxData(const std::vector<byte>& raw);
 
 /** Checks if two chain state maps contain the same state
  * @return true if the maps have the same state
@@ -55,5 +43,44 @@ Tier1TransactionPtr CreateTier1Transaction(const FinalBlock& block, const KeyRin
  * @return Signature
  */
 Signature SignSummary(const Summary& summary, const KeyRing& keys);
+
+
+/**
+ * @param shard - the name of the directory for this shard
+ * @param block - the height of the block to generate a path for
+ * @param working_dir - the working directory to create a path from
+ * @param separator - the preferred path separator for this file system
+ * @return a standard path where a particular block would be stored relative to the working directory.
+ */
+boost::filesystem::path GetStandardBlockPath(const Blockchain& chain,
+                                             const std::string& shard_name,
+                                             const boost::filesystem::path& working_dir,
+                                             size_t block_index);
+
+boost::filesystem::path GetBlockPath(const boost::filesystem::path& shard_path,
+                                     size_t segment_index,
+                                     size_t segment_height);
+
+/**
+ * Interfaces with standard POSIX filesystems
+ */
+class BlockIOFS {
+ public:
+  BlockIOFS(const Blockchain& chain,
+            const std::string& base_path,
+            const std::string& shard_uri);
+
+  virtual ~BlockIOFS() = default;
+
+  void writeBlock(size_t block_index);
+
+ private:
+  // Holds the blockchain
+  const Blockchain& chain_;
+  // Location of blocks
+  boost::filesystem::path base_path_;
+  // The name of this shard
+  std::string shard_uri_;
+};
 
 } // namespace Devv

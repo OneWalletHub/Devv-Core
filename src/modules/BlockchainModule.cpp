@@ -5,7 +5,7 @@
  * @copywrite  2018 Devvio Inc
  */
 
-#include "BlockchainModule.h"
+#include "modules/BlockchainModule.h"
 
 #include <atomic>
 #include <functional>
@@ -20,18 +20,24 @@
 
 #include "consensus/chainstate.h"
 #include "consensus/tier2_message_handlers.h"
+#include "io/blockchain_request_handlers.h"
 #include "io/zhelpers.hpp"
 #include "oracles/api.h"
 #include "oracles/data.h"
 #include "oracles/dcash.h"
-#include "oracles/dnero.h"
+#include "oracles/devvprotect.h"
 #include "oracles/dneroavailable.h"
 #include "oracles/dnerowallet.h"
 #include "oracles/id.h"
+#include "oracles/revert.h"
 #include "oracles/vote.h"
 #include "primitives/Transaction.h"
 #include "types/DevvMessage.h"
 #include "common/devv_exceptions.h"
+
+#include <boost/filesystem.hpp>
+
+namespace fs = boost::filesystem;
 
 namespace Devv
 {
@@ -55,17 +61,16 @@ bool InitCrypto()
   return(false);
 }
 
-BlockchainModule::BlockchainModule(io::TransactionServer& server,
-                                 io::TransactionClient& client,
-                                 io::TransactionClient& loopback_client,
-                                 const KeyRing& keys,
-                                 const ChainState &prior,
-                                 eAppMode mode,
-                                 DevvContext &context,
-                                 size_t max_tx_per_block)
+BlockchainModule::BlockchainModule(_constructor_tag,
+                                   io::TransactionServer& server,
+                                   io::TransactionClient& client,
+                                   const KeyRing& keys,
+                                   const ChainState &prior,
+                                   eAppMode mode,
+                                   DevvContext &context,
+                                   size_t max_tx_per_block)
     : server_(server),
       client_(client),
-      loopback_client_(loopback_client),
       keys_(keys),
       prior_(prior),
       mode_(mode),
@@ -81,7 +86,6 @@ BlockchainModule::BlockchainModule(io::TransactionServer& server,
 
 std::unique_ptr<BlockchainModule> BlockchainModule::Create(io::TransactionServer &server,
                                         io::TransactionClient &client,
-                                        io::TransactionClient &loopback_client,
                                         const KeyRing &keys,
                                         const ChainState &prior,
                                         eAppMode mode,
@@ -89,14 +93,14 @@ std::unique_ptr<BlockchainModule> BlockchainModule::Create(io::TransactionServer
                                         size_t max_tx_per_block) {
 
   /// Create the ValidatorModule which holds all of the controllers
-  auto blockchain_module_ptr = std::make_unique<BlockchainModule>(server,
-                                     client,
-                                     loopback_client,
-                                     keys,
-                                     prior,
-                                     mode,
-                                     context,
-                                     max_tx_per_block);
+  auto blockchain_module_ptr = std::make_unique<BlockchainModule>(_constructor_tag{},
+                                                                  server,
+                                                                  client,
+                                                                  keys,
+                                                                  prior,
+                                                                  mode,
+                                                                  context,
+                                                                  max_tx_per_block);
 
   /// Register the outgoing callback to send over zmq
   auto outgoing_callback =
@@ -194,20 +198,19 @@ void BlockchainModule::init()
   client_.listenTo(app_context_.get_shard_uri());
   client_.listenTo(app_context_.get_uri());
 
-  loopback_client_.attachCallback([&](DevvMessageUniquePtr p) {
-    this->handleMessage(std::move(p));
-  });
-  loopback_client_.listenTo(app_context_.get_uri());
-
   server_.startServer();
   client_.startClient();
-  loopback_client_.startClient();
 
   /// Initialize OpenSSL
   InitCrypto();
 }
 
-void BlockchainModule::performSanityChecks()
+void BlockchainModule::loadHistoricChain(const fs::path& chain_path) {
+  final_chain_.Fill(chain_path, keys_, mode_);
+  utx_pool_.initialize(final_chain_);
+}
+
+bool BlockchainModule::performSanityChecks()
 {
   if (!isCryptoInit) { InitCrypto(); }
   EVP_MD_CTX *ctx;
@@ -220,13 +223,14 @@ void BlockchainModule::performSanityChecks()
 
   EC_KEY *loadkey = LoadEcKey(kADDRs[1],
                               kADDR_KEYs[1],
-                              "password");
+                              app_context_.get_key_password());
 
   Signature sig = SignBinary(loadkey, test_hash);
 
   if (!VerifyByteSig(loadkey, test_hash, sig)) {
     throw std::runtime_error("Could not VerifyByteSig!");
   }
+  return true;
 }
 
 void BlockchainModule::start()
@@ -265,7 +269,6 @@ void BlockchainModule::shutdown()
 
   client_.stopClient();
   server_.stopServer();
-  loopback_client_.stopClient();
 
   LOG_INFO << "Shutting down Devv";
 

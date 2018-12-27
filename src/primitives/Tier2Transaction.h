@@ -432,21 +432,37 @@ class Tier2Transaction : public Transaction {
         uint64_t coin = it->getCoin();
         Address addr = it->getAddress();
         //LOG_DEBUG << "STATE (amt/coin/tot/address): " << amount << "/" << coin << "/" << state.getAmount(coin, addr)<< "/"<< addr.getHexString();
-        if (amount < 0) {
-          if ((oper == eOpType::Exchange) && (std::abs(amount) > state.getAmount(coin, addr))) {
-            LOG_WARNING << "Coins not available at addr: amount(" << amount
-                        << "), state.getAmount()(" << state.getAmount(coin, addr) << ")";
-            return false;
+        if (oper == eOpType::Revert) {
+          if (amount < 0) {
+            //remove pending from ChainState
+            SmartCoin next_flow(addr, coin, amount);
+            if (!summary.removePending(addr, coin, amount)) return false;
+            LOG_INFO << "Cancel pending coins to wallet address: " << addr.getHexString()
+                   << "; coin: " << coin << "; balance: " << state.getAmount(coin, addr);
           } else {
-            LOG_INFO << "eOpType(" << int(oper) << "): addr(" << addr.getHexString() << "): amount: " << amount
-                     << " state.getAmount(): " << state.getAmount(coin, addr);
+            SmartCoin next_flow(addr, coin, amount);
+            state.addCoin(next_flow);
+            summary.addItem(addr, coin, amount, it->getDelay());
+            LOG_INFO << "Revert coins to wallet address: " << addr.getHexString()
+                   << "; coin: " << coin << "; balance: " << state.getAmount(coin, addr);
           }
-        }
-        SmartCoin next_flow(addr, coin, amount);
-        state.addCoin(next_flow);
-        summary.addItem(addr, coin, amount, it->getDelay());
-        LOG_INFO << "New balance: wallet address: " << addr.getHexString()
-                 << "; coin: " << coin << "; balance: " << state.getAmount(coin, addr);
+        } else {
+          if (amount < 0) {
+            if ((oper == eOpType::Exchange) && (std::abs(amount) > state.getAmount(coin, addr))) {
+              LOG_WARNING << "Coins not available at addr: amount(" << amount
+                          << "), state.getAmount()(" << state.getAmount(coin, addr) << ")";
+              return false;
+            } else {
+              LOG_INFO << "eOpType(" << int(oper) << "): addr(" << addr.getHexString() << "): amount: " << amount
+                       << " state.getAmount(): " << state.getAmount(coin, addr);
+            }
+          }
+          SmartCoin next_flow(addr, coin, amount);
+          state.addCoin(next_flow);
+          summary.addItem(addr, coin, amount, it->getDelay());
+          LOG_INFO << "New balance: wallet address: " << addr.getHexString()
+                   << "; coin: " << coin << "; balance: " << state.getAmount(coin, addr);
+        }  //end not Revert op
       }
       return true;
     } catch (const std::exception& e) {

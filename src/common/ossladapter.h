@@ -10,6 +10,7 @@
 #include <openssl/err.h>
 #include <openssl/pem.h>
 #include <openssl/crypto.h>
+#include <openssl/evp.h>
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -241,6 +242,9 @@ static EC_KEY* LoadEcKey(const std::string& publicKey
       throw std::runtime_error("PEM_read_bio_PrivateKey returned nullptr: " + err);
     }
     eckey = EVP_PKEY_get1_EC_KEY(pkey);
+    EVP_PKEY_free(pkey);
+    EC_GROUP_free(ecGroup);
+
     if (eckey == nullptr) {
       throw std::runtime_error("PEM_rPKEY_get_EC_KEY returned nullptr");
     }

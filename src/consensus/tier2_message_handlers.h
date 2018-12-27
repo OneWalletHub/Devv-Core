@@ -7,7 +7,7 @@
 #include "common/devv_context.h"
 #include "common/logger.h"
 #include "common/util.h"
-#include "consensus/blockchain.h"
+#include "primitives/blockchain.h"
 #include "consensus/UnrecordedTransactionPool.h"
 
 namespace Devv {

@@ -49,6 +49,19 @@ class Blockchain {
   {
   }
 
+/**
+ * Attempts to read a persisted chain.
+ *
+ * @param chain_name - a name for this chain
+ * @param working_dir
+ * @param (in/out) appends the chain from file system onto this chain object
+ * @param keys - the keyring crypto context for this blockchain
+ * @param mode - the mode of this blockchain
+ */
+ void Fill(const boost::filesystem::path& working_dir,
+           const KeyRing& keys,
+           eAppMode mode);
+
   /**
    * Default destructor
    */
@@ -185,6 +198,16 @@ class Blockchain {
       return back()->getChainState();
     }
   }
+
+  /**
+   * Search transactions in this chain for a specific bytestring, such as a signature.
+   *
+   * @param target - the bytestring needle to search for in the chain
+   * @return a map of signatures to transactions containing the target bytestring
+   * @return if the target is not found, the returned map is empty
+   */
+  std::map<std::vector<byte>, std::vector<byte>> TraceTransactions(
+                                                 const std::vector<byte>& target) const;
 
   /**
    * @return a binary representation of this entire chain.

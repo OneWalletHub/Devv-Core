@@ -9,7 +9,7 @@
 #include <mutex>
 
 #include "types/DevvMessage.h"
-#include "consensus/blockchain.h"
+#include "primitives/blockchain.h"
 #include "consensus/UnrecordedTransactionPool.h"
 #include "consensus/chainstate.h"
 
