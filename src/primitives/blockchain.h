@@ -58,7 +58,7 @@ class Blockchain {
  * @param keys - the keyring crypto context for this blockchain
  * @param mode - the mode of this blockchain
  */
- void Fill(const std::string& working_dir,
+ void Fill(const boost::filesystem::path& working_dir,
            const KeyRing& keys,
            eAppMode mode);
 

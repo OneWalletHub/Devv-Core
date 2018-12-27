@@ -118,7 +118,7 @@ bool Blockchain::prune() {
     return txs;
   }
 
- void Blockchain::Fill(const std::string& working_dir,
+ void Blockchain::Fill(const boost::filesystem::path& working_dir,
            const KeyRing& keys,
            eAppMode mode) {
     LOG_DEBUG << "Looking for blockchain at: " << working_dir;
@@ -162,7 +162,7 @@ bool Blockchain::prune() {
                     break;
                   } else {
                     prev_hash = DevvHash(new_block->getCanonical());
-                  push_back(new_block);
+                    push_back(new_block);
                   }
                 } catch (const std::exception& e) {
                   LOG_ERROR << "Error scanning " << file_name

@@ -96,33 +96,29 @@ boost::filesystem::path GetBlockPath(const fs::path& shard_path,
   return block_path;
 }
 
-BlockIOFS::BlockIOFS(const std::string& chain_name,
+BlockIOFS::BlockIOFS(const Blockchain& chain,
                      const std::string& base_path,
                      const std::string& shard_uri)
-: chain_(chain_name)
+: chain_(chain)
 , base_path_(base_path)
 , shard_uri_(shard_uri)
 {
 
 }
 
-void BlockIOFS::writeBlock(FinalBlockSharedPtr block) {
-  fs::path seg_dir(base_path_ / shard_uri_
-                          / std::to_string(chain_.getCurrentSegmentIndex()));
-
-  auto out_file = GetStandardBlockPath(chain_, shard_uri_, base_path_, chain_.size());
+void BlockIOFS::writeBlock(size_t block_index) {
+  auto out_file = GetStandardBlockPath(chain_, shard_uri_, base_path_, block_index);
   if (!is_directory(out_file)) fs::create_directory(out_file.branch_path());
   std::ofstream block_file(out_file.string(), std::ios::out | std::ios::binary);
 
   if (block_file.is_open()) {
-    auto canonical = block->getCanonical();
+    auto canonical = chain_.at(block_index)->getCanonical();
     block_file.write(reinterpret_cast<char*>(canonical.data()), canonical.size());
     block_file.close();
     LOG_DEBUG << "Wrote to " << out_file << "'.";
   } else {
     LOG_ERROR << "Failed to open output file '" << out_file << "'.";
   }
-  chain_.push_back(block);
 }
 
 } // namespace Devv

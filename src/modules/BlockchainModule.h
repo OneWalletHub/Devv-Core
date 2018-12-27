@@ -10,6 +10,8 @@
 #include <vector>
 #include <memory>
 
+#include "boost/filesystem/path.hpp"
+
 #include "concurrency/ConsensusController.h"
 #include "concurrency/InternetworkController.h"
 #include "concurrency/ValidatorController.h"
@@ -77,7 +79,7 @@ class BlockchainModule : public ModuleInterface {
   /** Load chain history into memory.
    *  @param working_dir a directory to check for a pre-existing blockchain
    */
-  void loadHistoricChain(const std::string& working_dir);
+  void loadHistoricChain(const boost::filesystem::path& working_dir);
 
   /**
    * Initialization sanity checks: ecc init, sanity checks, dir lock.

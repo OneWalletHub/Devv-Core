@@ -98,8 +98,11 @@ int main(int argc, char* argv[]) {
     socket.bind (options->protobuf_endpoint);
 
     std::string shard_name = "shard-"+std::to_string(options->shard_index);
+    boost::filesystem::path shard_path(options->working_dir);
+    shard_path /= shard_name;
+
     Blockchain chain(shard_name);
-    chain.Fill(options->working_dir, keys, options->mode);
+    chain.Fill(shard_path, keys, options->mode);
 
     //listen for FinalBlocks
     auto peer_listener = io::CreateTransactionClient(options->host_vector, context);
@@ -123,7 +126,9 @@ int main(int argc, char* argv[]) {
     if (options->start_delay > 0) sleep(options->start_delay);
 
     bool keep_running = true;
-    unsigned int processed_total = 0;
+    unsigned int processed_since_restart = 0;
+    unsigned int processed_total = chain.size();
+
     while (keep_running) {
       zmq::message_t transaction_message;
       //  Wait for next request from client
@@ -172,9 +177,11 @@ int main(int argc, char* argv[]) {
           keep_running = false;
         }
       }
+      processed_since_restart += processed;
       processed_total += processed;
-      LOG_DEBUG << "Finished publishing transactions (processed/total) (" +
+      LOG_DEBUG << "Finished publishing transactions (processed/since restart/total) (" +
             std::to_string(processed) + "/" +
+            std::to_string(processed_since_restart) + "/" +
             std::to_string(processed_total) + ")";
 
       response = "Successfully published " + std::to_string(processed) + " transactions.";

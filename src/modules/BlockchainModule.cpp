@@ -205,8 +205,9 @@ void BlockchainModule::init()
   InitCrypto();
 }
 
-void BlockchainModule::loadHistoricChain(const std::string& working_dir) {
-  final_chain_.Fill(working_dir, keys_, mode_);
+void BlockchainModule::loadHistoricChain(const fs::path& chain_path) {
+  final_chain_.Fill(chain_path, keys_, mode_);
+  utx_pool_.initialize(final_chain_);
 }
 
 bool BlockchainModule::performSanityChecks()

@@ -66,17 +66,17 @@ boost::filesystem::path GetBlockPath(const boost::filesystem::path& shard_path,
  */
 class BlockIOFS {
  public:
-  BlockIOFS(const std::string& chain_name,
+  BlockIOFS(const Blockchain& chain,
             const std::string& base_path,
             const std::string& shard_uri);
 
   virtual ~BlockIOFS() = default;
 
-  void writeBlock(FinalBlockSharedPtr block);
+  void writeBlock(size_t block_index);
 
  private:
   // Holds the blockchain
-  Blockchain chain_;
+  const Blockchain& chain_;
   // Location of blocks
   boost::filesystem::path base_path_;
   // The name of this shard

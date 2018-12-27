@@ -16,6 +16,8 @@
 #include "concurrency/thread_tools.h"
 
 #include "primitives/FinalBlock.h"
+#include "primitives/blockchain.h"
+
 #include "primitives/factories.h"
 #include "common/logger.h"
 
@@ -108,6 +110,20 @@ class UnrecordedTransactionPool {
    * @return true, iff this pool has pending Transactions
    */
   bool hasPendingTransactions() const;
+
+  /**
+   * Initialize UTXPool with an existing chain.
+   *
+   * @param existing_chain
+   */
+  void initialize(const Blockchain& existing_chain) {
+    for (size_t i = 0; i < existing_chain.size(); i++) {
+      auto block = existing_chain.at(i);
+      for (auto&  tx : block->getTransactions()) {
+        recent_txs_.insert(std::pair<Signature, uint64_t>(tx->getSignature(), GetMillisecondsSinceEpoch()));
+      }
+    }
+  }
 
   /**
    * Returns the number of pending transactions

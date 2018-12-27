@@ -69,8 +69,12 @@ int main(int argc, char* argv[])
       auto bcm = BlockchainModule::Create(*server, *peer_client,
           keys, prior, options->mode, devv_context, options->batch_size);
 
-      LOG_NOTICE << "BlockchainModule: check for prior chain.";
-      bcm->loadHistoricChain(options->working_dir);
+      std::string shard_name = "shard-"+std::to_string(options->shard_index);
+      boost::filesystem::path shard_path(options->working_dir);
+      shard_path /= shard_name;
+
+      LOG_NOTICE << "BlockchainModule: check for prior chain at " << shard_path;
+      bcm->loadHistoricChain(shard_path);
 
       LOG_NOTICE << "Starting the BlockchainModule";
       bcm->start();
