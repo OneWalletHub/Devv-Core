@@ -136,12 +136,14 @@ file(GLOB io_SRC
     "io/*.cpp"
 )
 add_library(io ${io_SRC})
+add_dependencies(io devvpbuf)
 
 # Build the pbuf module objects
 file(GLOB pbuf_SRC
         "pbuf/*.cpp"
 )
 add_library(pbuf ${pbuf_SRC})
+add_dependencies(pbuf devvpbuf)
 
 # Build the primitives module objects
 file(GLOB primitives_SRC
