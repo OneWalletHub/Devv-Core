@@ -64,7 +64,6 @@ bool InitCrypto()
 BlockchainModule::BlockchainModule(_constructor_tag,
                                    io::TransactionServer& server,
                                    io::TransactionClient& client,
-                                   io::TransactionClient& loopback_client,
                                    const KeyRing& keys,
                                    const ChainState &prior,
                                    eAppMode mode,
@@ -72,7 +71,6 @@ BlockchainModule::BlockchainModule(_constructor_tag,
                                    size_t max_tx_per_block)
     : server_(server),
       client_(client),
-      loopback_client_(loopback_client),
       keys_(keys),
       prior_(prior),
       mode_(mode),
@@ -88,7 +86,6 @@ BlockchainModule::BlockchainModule(_constructor_tag,
 
 std::unique_ptr<BlockchainModule> BlockchainModule::Create(io::TransactionServer &server,
                                         io::TransactionClient &client,
-                                        io::TransactionClient &loopback_client,
                                         const KeyRing &keys,
                                         const ChainState &prior,
                                         eAppMode mode,
@@ -99,7 +96,6 @@ std::unique_ptr<BlockchainModule> BlockchainModule::Create(io::TransactionServer
   auto blockchain_module_ptr = std::make_unique<BlockchainModule>(_constructor_tag{},
                                                                   server,
                                                                   client,
-                                                                  loopback_client,
                                                                   keys,
                                                                   prior,
                                                                   mode,
@@ -202,14 +198,8 @@ void BlockchainModule::init()
   client_.listenTo(app_context_.get_shard_uri());
   client_.listenTo(app_context_.get_uri());
 
-  loopback_client_.attachCallback([&](DevvMessageUniquePtr p) {
-    this->handleMessage(std::move(p));
-  });
-  loopback_client_.listenTo(app_context_.get_uri());
-
   server_.startServer();
   client_.startClient();
-  loopback_client_.startClient();
 
   /// Initialize OpenSSL
   InitCrypto();
@@ -278,7 +268,6 @@ void BlockchainModule::shutdown()
 
   client_.stopClient();
   server_.stopServer();
-  loopback_client_.stopClient();
 
   LOG_INFO << "Shutting down Devv";
 

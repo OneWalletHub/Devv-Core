@@ -35,7 +35,6 @@ class BlockchainModule : public ModuleInterface {
   BlockchainModule(_constructor_tag,
                    io::TransactionServer &server,
                    io::TransactionClient &client,
-                   io::TransactionClient &loopback_client,
                    const KeyRing &keys,
                    const ChainState &prior,
                    eAppMode mode,
@@ -62,7 +61,6 @@ class BlockchainModule : public ModuleInterface {
    */
   static std::unique_ptr<BlockchainModule> Create(io::TransactionServer &server,
                                 io::TransactionClient &client,
-                                io::TransactionClient &loopback_client,
                                 const KeyRing &keys,
                                 const ChainState &prior,
                                 eAppMode mode,
@@ -112,8 +110,6 @@ class BlockchainModule : public ModuleInterface {
  private:
   io::TransactionServer &server_;
   io::TransactionClient &client_;
-
-  io::TransactionClient &loopback_client_;
 
   const KeyRing &keys_;
   const ChainState &prior_;
