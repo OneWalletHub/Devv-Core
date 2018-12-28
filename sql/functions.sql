@@ -105,7 +105,7 @@ begin
         DELETE FROM pending_rx where sig = upper(next_sig);
       ELSE
         INSERT INTO rx_delayed (rx_delayed_id, pending_rx_id, settle_time) (SELECT devv_uuid(), pending_rx_row.pending_rx_id, delay+blocktime);
-        has_delays := 'true'
+        has_delays := 'true';
       END IF;
     END LOOP;
     IF NOT has_delays THEN
@@ -126,6 +126,7 @@ declare
   blocktime bigint;
   tx RECORD;
   rx RECORD;
+  check_rx RECORD;
 begin
   update_count := 0;
   settle_count := 0;
@@ -146,7 +147,10 @@ begin
     INSERT INTO rx (rx_id, shard_id, block_height, block_time, tx_wallet, rx_wallet, coin_id, amount, delay, comment, tx_id) (SELECT rx.pending_rx_id, rx.shard_id, height, blocktime, rx.tx_wallet, rx.rx_wallet, rx.coin_id, rx.amount, 0, rx.comment, rx.pending_tx_id);
     DELETE FROM rx_delayed where rx_delayed_id = rx.rx_delayed_id;
     DELETE FROM pending_rx where pending_rx_id = rx.pending_rx_id;
-    DELETE FROM pending_tx where pending_tx_id = rx.pending_tx_id;
+    SELECT * INTO check_rx from pending_rx where pending_tx_id = rx.pending_tx_id;
+    IF NOT FOUND THEN
+      DELETE FROM pending_tx where pending_tx_id = rx.pending_tx_id;
+    END IF;
   END LOOP;
   return update_count+settle_count;
 end;
