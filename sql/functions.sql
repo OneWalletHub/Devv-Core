@@ -88,7 +88,9 @@ declare
   pending_rx_row pending_rx%ROWTYPE;
   unixtime bigint;
   rx_delay bigint;
+  has_delays boolean;
 begin
+  has_delays := 'false';
   SELECT (extract(epoch from now()) * 1000) INTO unixtime;
   SELECT * INTO pending_tx_row from pending_tx where sig = upper(next_sig);
   IF FOUND THEN
@@ -97,15 +99,18 @@ begin
     FOR pending_rx_row IN SELECT * from pending_rx where sig = upper(next_sig)
     LOOP
       SELECT delay INTO rx_delay from pending_rx where sig = upper(next_sig);      
-      IF rx_delay < unixtime-blocktime THEN
+      IF rx_delay < unixtime-blocktime THEN 
         PERFORM add_balance(pending_rx_row.rx_wallet, pending_rx_row.coin_id, pending_rx_row.amount, height);        
         INSERT INTO rx (rx_id, shard_id, block_height, block_time, tx_wallet, rx_wallet, coin_id, amount, delay, comment, tx_id) (SELECT pending_rx_row.pending_rx_id, shard, height, blocktime, pending_tx_row.tx_wallet, pending_rx_row.rx_wallet, pending_rx_row.coin_id, pending_rx_row.amount, 0, pending_rx_row.comment, pending_tx_row.pending_tx_id);
         DELETE FROM pending_rx where sig = upper(next_sig);
       ELSE
-        INSERT INTO rx_delayed (rx_delayed_id, pending_rx_id, settle_time) (SELECT devv_uuid(), pending_rx_row.pending_rx_id, rx_delay+blocktime);
+        INSERT INTO rx_delayed (rx_delayed_id, pending_rx_id, settle_time) (SELECT devv_uuid(), pending_rx_row.pending_rx_id, delay+blocktime);
+        has_delays := 'true'
       END IF;
-    END LOOP;    
-    DELETE FROM pending_tx where sig = upper(next_sig);
+    END LOOP;
+    IF NOT has_delays THEN
+      DELETE FROM pending_tx where sig = upper(next_sig);
+    END IF;
     return 1;
   ELSE 
     raise notice 'Transaction not initialized.';
@@ -136,11 +141,12 @@ begin
     END IF;
   END LOOP;
   DELETE FROM fresh_tx where block_height = height;
-  FOR rx IN SELECT * from rx_delayed d, pending_rx p where blocktime > d.settle_time and p.pending_rx_id = d.pending_rx_id
+  FOR rx IN SELECT * from rx_delayed d, pending_rx p where d.blocktime > settle_time and p.pending_rx_id = d.pending_rx_id
   LOOP
     INSERT INTO rx (rx_id, shard_id, block_height, block_time, tx_wallet, rx_wallet, coin_id, amount, delay, comment, tx_id) (SELECT rx.pending_rx_id, rx.shard_id, height, blocktime, rx.tx_wallet, rx.rx_wallet, rx.coin_id, rx.amount, 0, rx.comment, rx.pending_tx_id);
     DELETE FROM rx_delayed where rx_delayed_id = rx.rx_delayed_id;
     DELETE FROM pending_rx where pending_rx_id = rx.pending_rx_id;
+    DELETE FROM pending_tx where pending_tx_id = rx.pending_tx_id;
   END LOOP;
   return update_count+settle_count;
 end;
