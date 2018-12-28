@@ -31,6 +31,7 @@ target_link_libraries(ossladapter_test ${GTEST_BOTH_LIBRARIES} ${devv_all_libs})
 # protocol buffer tests
 add_executable(pbuf_test gtest/pbuf_test.cpp)
 target_link_libraries(pbuf_test ${GTEST_BOTH_LIBRARIES} ${devv_all_libs})
+add_dependencies(pbuf_test devvpbuf)
 
 # blockchain tests
 add_executable(blockchain_test gtest/blockchain_test.cpp)

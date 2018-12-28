@@ -1,5 +1,5 @@
 /*
- * id.h is an oracle to track identities.
+ * devvprotect.h is an oracle to validate reversible transactions.
  *
  * @copywrite  2018 Devvio Inc
  *
@@ -8,47 +8,48 @@
 
 #include <string>
 
+#include "dneroavailable.h"
+#include "dnerowallet.h"
 #include "oracleInterface.h"
 #include "common/logger.h"
 #include "consensus/chainstate.h"
-#include "primitives/Transaction.h"
 
 namespace Devv {
 
-class id : public oracleInterface {
+class devvprotect : public oracleInterface {
 
  public:
 
-  const long kID_LIFETIME = 31449600; //1 year in seconds
+  devvprotect(std::string data) : oracleInterface(data) {};
 
-  id(std::string data) : oracleInterface(data) {};
+  const long kDEFAULT_DELAY = 604800; //1 week in seconds
 
 /**
  *  @return the string name that invokes this oracle
  */
   virtual std::string getOracleName() override {
-    return(id::GetOracleName());
+    return (devvprotect::GetOracleName());
   }
 
 /**
  *  @return the string name that invokes this oracle
  */
   static std::string GetOracleName() {
-    return("io.devv.id");
+    return ("devvprotect");
   }
 
   /**
  *  @return the shard used by this oracle
  */
   static uint64_t getShardIndex() {
-    return(3);
+    return (1);
   }
 
 /**
  *  @return the coin type used by this oracle
  */
   static uint64_t getCoinIndex() {
-    return(3);
+    return (0);
   }
 
 /** Checks if this proposal is objectively sound according to this oracle.
@@ -58,8 +59,15 @@ class id : public oracleInterface {
  * @return false otherwise
  */
   bool isSound() override {
-    //todo (nick) check ID key with INN
-    return false;
+    InputBuffer buffer(Str2Bin(raw_data_));
+    Tier2Transaction tx = Tier2Transaction::QuickCreate(buffer);
+    for (const TransferPtr& xfer : tx.getTransfers()) {
+      if (xfer->getDelay() < 1) {
+        error_msg_ = "DevvProtect transactions must have a delay.";
+        return false;
+      }
+    }
+    return true;
   }
 
 /** Checks if this proposal is valid according to this oracle
@@ -69,34 +77,60 @@ class id : public oracleInterface {
  * @return false otherwise
  */
   bool isValid(const Blockchain& context) override {
-    return isSound();
+    if (!isSound()) return false;
+    InputBuffer buffer(Str2Bin(raw_data_));
+    Tier2Transaction tx = Tier2Transaction::QuickCreate(buffer);
+    ChainState last_state = context.getHighestChainState();
+    for (const TransferPtr& xfer : tx.getTransfers()) {
+      if (xfer->getAmount() < 0) {
+        Address addr = xfer->getAddress();
+        if (last_state.getAmount(xfer->getCoin(), addr) < xfer->getAmount()*-1) {
+          error_msg_ = "Error: Not enough coins available to DevvProtect.";
+          return false;
+		}
+        //TODO (nick@devv.io) restrict DevvProtect usage based on business logic
+        /*if (last_state.getAmount(dnerowallet::getCoinIndex(), addr) < 1
+            && last_state.getAmount(dneroavailable::getCoinIndex(), addr) < 1) {
+          error_msg_ = "Error: Dnerowallets or dneroavailable required.";
+          return false;
+        }*/
+        break;
+      }
+    }
+    return true;
   }
 
 /**
  *  @return if not valid or not sound, return an error message
  */
   std::string getErrorMessage() override {
-    return("WARNING: This oracle is a stub.");
+    return (error_msg_);
   }
 
   std::map<uint64_t, std::vector<Tier2Transaction>>
-      getTrace(const Blockchain& context) override {
+  getTrace(const Blockchain& context) override {
     std::map<uint64_t, std::vector<Tier2Transaction>> out;
     return out;
   }
 
   uint64_t getCurrentDepth(const Blockchain& context) override {
-    //@TODO(nick) scan pre-existing chain for this oracle instance.
-    return(0);
+    return 0;
   }
 
   uint64_t getMaxDepth() override {
-    return kDEFAULT_MAX_DEPTH;
+    return 0;
   }
 
   std::map<uint64_t, std::vector<Tier2Transaction>>
-      getNextTransactions(const Blockchain& context, const KeyRing& keys) override {
+  getNextTransactions(const Blockchain& context, const KeyRing& keys) override {
     std::map<uint64_t, std::vector<Tier2Transaction>> out;
+    if (!isValid(context)) return out;
+    InputBuffer buffer(Str2Bin(raw_data_));
+    Tier2Transaction tx = Tier2Transaction::QuickCreate(buffer);
+    std::vector<Tier2Transaction> txs;
+    txs.push_back(std::move(tx));
+    std::pair<uint64_t, std::vector<Tier2Transaction>> p(getShardIndex(), std::move(txs));
+    out.insert(std::move(p));
     return out;
   }
 
@@ -107,7 +141,7 @@ class id : public oracleInterface {
  * @return a map of oracles to data
  */
   std::map<std::string, std::vector<byte>>
-      getDecompositionMap(const Blockchain& context) override {
+  getDecompositionMap(const Blockchain& context) override {
     std::map<std::string, std::vector<byte>> out;
     std::vector<byte> data(Str2Bin(raw_data_));
     std::pair<std::string, std::vector<byte>> p(getOracleName(), data);
@@ -122,7 +156,7 @@ class id : public oracleInterface {
  * @return a map of oracles to data encoded in JSON
  */
   virtual std::map<std::string, std::string>
-      getDecompositionMapJSON(const Blockchain& context) override {
+  getDecompositionMapJSON(const Blockchain& context) override {
     std::map<std::string, std::string> out;
     std::pair<std::string, std::string> p(getOracleName(), getJSON());
     out.insert(p);
@@ -133,8 +167,9 @@ class id : public oracleInterface {
  * @return the internal state of this oracle in JSON.
  */
   std::string getJSON() override {
-    std::string json("{\"key\":\""+ToHex(raw_data_)+"\"}");
-    return json;
+    InputBuffer buffer(Str2Bin(raw_data_));
+    Tier2Transaction tx = Tier2Transaction::QuickCreate(buffer);
+    return tx.getJSON();
   }
 
   std::vector<byte> getProposal() override {
@@ -143,12 +178,18 @@ class id : public oracleInterface {
 
   Signature getRootSignature() override {
     Signature sig;
-    return sig;
+    if (!isSound()) return sig;
+    InputBuffer buffer(Str2Bin(raw_data_));
+    Tier2Transaction tx = Tier2Transaction::QuickCreate(buffer);
+    return tx.getSignature();
   }
 
   std::vector<byte> getInitialState() override {
     return getCanonical();
   }
+
+ private:
+  std::string error_msg_;
 
 };
 

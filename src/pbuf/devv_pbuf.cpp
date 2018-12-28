@@ -4,6 +4,7 @@
  * @copywrite  2018 Devvio Inc
  */
 #include "pbuf/devv_pbuf.h"
+#include "io/blockchain_request_handlers.h"
 
 namespace Devv {
 
@@ -97,7 +98,9 @@ Tier2TransactionPtr CreateTransaction(const devv::proto::Transaction& transactio
   return t2tx_ptr;
 }
 
-std::vector<TransactionPtr> ValidateOracle(oracleInterface& oracle, const Blockchain& chain, const KeyRing& keys) {
+std::vector<TransactionPtr> ValidateOracle(oracleInterface& oracle
+                                    , const Blockchain& chain
+                                    , const KeyRing& keys) {
   std::vector<TransactionPtr> out;
   if (oracle.isValid(chain)) {
     std::map<uint64_t, std::vector<Tier2Transaction>> oracle_actions =
@@ -127,7 +130,7 @@ std::vector<TransactionPtr> DecomposeProposal(const devv::proto::Proposal& propo
     DoTransaction oracle(proposal.data());
     std::vector<TransactionPtr> actions = ValidateOracle(oracle, chain, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));
-  } else if (oracle_name == api::GetOracleName()) {
+  /*} else if (oracle_name == api::GetOracleName()) {
     api oracle(proposal.data());
     std::vector<TransactionPtr> actions = ValidateOracle(oracle, chain, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));
@@ -138,12 +141,12 @@ std::vector<TransactionPtr> DecomposeProposal(const devv::proto::Proposal& propo
   } else if (oracle_name == dcash::GetOracleName()) {
     dcash oracle(proposal.data());
     std::vector<TransactionPtr> actions = ValidateOracle(oracle, chain, keys);
-    ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));
-  } else if (oracle_name == dnero::GetOracleName()) {
-    dnero oracle(proposal.data());
+    ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));*/
+  } else if (oracle_name == devvprotect::GetOracleName()) {
+    devvprotect oracle(proposal.data());
     std::vector<TransactionPtr> actions = ValidateOracle(oracle, chain, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));
-  } else if (oracle_name == dneroavailable::GetOracleName()) {
+  /*} else if (oracle_name == dneroavailable::GetOracleName()) {
     dneroavailable oracle(proposal.data());
     std::vector<TransactionPtr> actions = ValidateOracle(oracle, chain, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));
@@ -158,6 +161,10 @@ std::vector<TransactionPtr> DecomposeProposal(const devv::proto::Proposal& propo
   } else if (oracle_name == vote::GetOracleName()) {
     vote oracle(proposal.data());
     std::vector<TransactionPtr> actions = ValidateOracle(oracle, chain, keys);
+    ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));*/
+  } else if (oracle_name == revert::GetOracleName()) {
+    revert oracle(proposal.data());
+    std::vector<TransactionPtr> actions = ValidateOracle(oracle, chain, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));
   } else {
     LOG_ERROR << "Unknown oracle: " + oracle_name;
@@ -165,7 +172,10 @@ std::vector<TransactionPtr> DecomposeProposal(const devv::proto::Proposal& propo
   return ptrs;
 }
 
-std::vector<TransactionPtr> DeserializeEnvelopeProtobufString(const std::string& pb_envelope, const KeyRing& keys) {
+std::vector<TransactionPtr> DeserializeEnvelopeProtobufString(
+                              const std::string& pb_envelope
+                            , const KeyRing& keys
+                            , const Blockchain& context) {
   devv::proto::Envelope envelope;
   envelope.ParseFromString(pb_envelope);
 
@@ -176,11 +186,9 @@ std::vector<TransactionPtr> DeserializeEnvelopeProtobufString(const std::string&
     ptrs.push_back(CreateTransaction(transaction, keys));
   }
 
-  //TODO (nick): use the latest blockchain of this shard from the repeater
-  Blockchain chain("test-shard");
   auto pb_proposals = envelope.proposals();
   for (auto const& proposal : pb_proposals) {
-    std::vector<TransactionPtr> actions = DecomposeProposal(proposal, chain, keys);
+    std::vector<TransactionPtr> actions = DecomposeProposal(proposal, context, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin())
         , std::make_move_iterator(actions.end()));
   }

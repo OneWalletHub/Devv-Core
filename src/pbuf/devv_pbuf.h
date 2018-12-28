@@ -16,10 +16,11 @@
 #include "oracles/data.h"
 #include "oracles/dcash.h"
 #include "oracles/do_transaction.h"
-#include "oracles/dnero.h"
+#include "oracles/devvprotect.h"
 #include "oracles/dneroavailable.h"
 #include "oracles/dnerowallet.h"
 #include "oracles/id.h"
+#include "oracles/revert.h"
 #include "oracles/vote.h"
 
 #include "devv.pb.h"
@@ -98,7 +99,10 @@ std::vector<TransactionPtr> DecomposeProposal(const devv::proto::Proposal& propo
                                               const Blockchain& chain,
                                               const KeyRing& keys);
 
-std::vector<TransactionPtr> DeserializeEnvelopeProtobufString(const std::string& pb_envelope, const KeyRing& keys);
+std::vector<TransactionPtr> DeserializeEnvelopeProtobufString(
+                                              const std::string& pb_envelope,
+                                              const KeyRing& keys,
+                                              const Blockchain& context);
 
 TransactionPtr DeserializeTxProtobufString(const std::string& pb_tx, const KeyRing& keys, bool do_sign = false);
 

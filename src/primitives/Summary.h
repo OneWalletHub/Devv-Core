@@ -31,8 +31,8 @@ struct DelayedItem {
 
   /// The delay of this item
   uint64_t delay = 0;
-  /// The coin/transfer price (change)
-  uint64_t delta = 0;
+  /// The coin/transfer amount (change)
+  int64_t delta = 0;
 };
 
 static const std::string kADDR_SIZE_TAG = "addr_size";
@@ -52,6 +52,16 @@ typedef std::map<Address, SummaryPair> SummaryMap;
  * @return
  */
 bool AddToDelayedMap(uint64_t coin, const DelayedItem &item, DelayedMap &existing);
+
+/**
+ * Remove a coin from the existing map
+ * @param[in] coin The coin to remove
+ * @param[in] item
+ * @param[in,out] existing
+ * @return true, if the delayed coins were removed
+ * @return false, otherwise
+ */
+bool RemoveFromDelayedMap(uint64_t coin, int64_t delta, DelayedMap &existing);
 
 /**
  * Add a coin to the existing map
@@ -166,6 +176,16 @@ class Summary {
   bool addItem(const Address& addr, uint64_t coin_type, int64_t delta, uint64_t delay = 0) {
     DelayedItem item(delay, delta);
     return addItem(addr, coin_type, item);
+  }
+
+  bool removePending(const Address& addr, uint64_t coin_type, int64_t delta) {
+    if (summary_.count(addr) > 0) {
+      SummaryPair existing(summary_.at(addr));
+      DelayedMap delayed(existing.first);
+      return RemoveFromDelayedMap(coin_type, delta, delayed);
+	} else {
+      return false;
+	}
   }
 
   /**

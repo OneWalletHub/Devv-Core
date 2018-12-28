@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "078a52e9-e4e7-4983-9d11-f45ca9f92842",
 		"name": "Flask-api",
-		"description": "Devv Web API v0.2",
+		"description": "Devv API v0.2",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -16,7 +16,7 @@
 					"raw": ""
 				},
 				"url": {
-					"raw": "/block-info?shard-id=0&shard-name=Thor&block-height=0",
+					"raw": "/block-info?shard-id=0&shard-name=Thor&block-height=0&list-txs=true",
 					"path": [
 						"block-info"
 					],
@@ -35,6 +35,11 @@
 							"key": "block-height",
 							"value": "0",
 							"description": "The block height to query."
+						},
+						{
+							"key": "list-txs",
+							"value": "true",
+							"description": "List the transaction signatures in this block?"
 						}
 					]
 				},
@@ -51,7 +56,7 @@
 							"raw": ""
 						},
 						"url": {
-							"raw": "/block-info?shard-name=Thor&block-height=0&shard-id=1",
+							"raw": "/block-info?shard-name=Thor&block-height=0&shard-id=1&list-txs=true",
 							"path": [
 								"block-info"
 							],
@@ -70,6 +75,11 @@
 									"key": "shard-id",
 									"value": "1",
 									"description": "The id of the shard to query."
+								},
+								{
+									"key": "list-txs",
+									"value": "true",
+									"description": "List the transaction signatures in this block?"
 								}
 							]
 						}
@@ -77,7 +87,7 @@
 					"_postman_previewlanguage": "json",
 					"header": [],
 					"cookie": [],
-					"body": "{\n\t\"protocol-version\":0,\n\t\"shard-name\":\"Thor\",\n\t\"block-height\":0,\n\t\"block-time\":0,\n\t\"transactions\":91,\n\t\"block-volume\":1234,\n\t\"block-size\":1234,\n\t\"Merkle\":\"[hex]\",\n\t\"previous-hash\":\"[hex]\",\n\t\"testnet\":true\n}"
+					"body": "{\n\t\"protocol-version\":0,\n\t\"shard-name\":\"Thor\",\n\t\"block-height\":0,\n\t\"block-time\":0,\n\t\"transaction-size\":91,\n\t\"num-transactions\":1,\n\t\"block-volume\":1234,\n\t\"block-size\":1234,\n\t\"Merkle\":\"[hex]\",\n\t\"previous-hash\":\"[hex]\",\n\t\"testnet\":true,\n\t\"txs-signatures\":[\"sig1\",\"sig2\"]\n}"
 				}
 			]
 		},
@@ -91,14 +101,14 @@
 					"raw": ""
 				},
 				"url": {
-					"raw": "/tx-info?shard-id=1&shard-name=Thor&block-height=0&signature=[hex]",
+					"raw": "/tx-info?shard-index=0&shard-name=Thor&block-height=0&signature=[hex]",
 					"path": [
 						"tx-info"
 					],
 					"query": [
 						{
-							"key": "shard-id",
-							"value": "1",
+							"key": "shard-index",
+							"value": "0",
 							"description": "The index of the shard to query."
 						},
 						{
@@ -171,14 +181,14 @@
 					"raw": ""
 				},
 				"url": {
-					"raw": "/trace?shard-id=1&shard-name=Thor&start-block=0&signature=[hex]&end-block=1",
+					"raw": "/trace?shard-index=0&shard-name=Thor&start-block=0&signature=[hex]&end-block=1",
 					"path": [
 						"trace"
 					],
 					"query": [
 						{
-							"key": "shard-id",
-							"value": "1",
+							"key": "shard-index",
+							"value": "0",
 							"description": "The index of the shard to query."
 						},
 						{
@@ -487,6 +497,71 @@
 			]
 		},
 		{
+			"name": "Send-Proposal",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "/send_proposal?oracle-name=oracle.name&oracle-data=[hex]",
+					"path": [
+						"send_proposal"
+					],
+					"query": [
+						{
+							"key": "oracle-name",
+							"value": "oracle.name",
+							"description": "The name of the oracle to invoke."
+						},
+						{
+							"key": "oracle-data",
+							"value": "[hex]",
+							"description": "hex data to provide the oracle."
+						}
+					]
+				},
+				"description": "Send an oracle proposal as hex."
+			},
+			"response": [
+				{
+					"name": "Send-Proposal",
+					"originalRequest": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "/send_proposal?oracle-name=oracle.name&oracle-data=[hex]",
+							"path": [
+								"send_proposal"
+							],
+							"query": [
+								{
+									"key": "oracle-name",
+									"value": "oracle.name",
+									"description": "The name of the oracle to invoke."
+								},
+								{
+									"key": "oracle-data",
+									"value": "[hex]",
+									"description": "hex data to provide the oracle."
+								}
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"cookie": [],
+					"body": "{\n\t\"protocol-version\":0,\n\t\"return-code\":200,\n\t\"message\":\"Success\",\n\t\"target-block\":0,\n\t\"trace\":[\n\t\t{\n\t\t\t\"oracle-name\":\"io.devv.coin_request\",\n\t\t\t\"oracle-data\":\"[hex]\",\n\t\t\t\"block-height\":1\n\t\t}\n\t],\n\t\"testnet\":true\n}"
+				}
+			]
+		},
+		{
 			"name": "Send-Transaction",
 			"request": {
 				"method": "POST",
@@ -630,9 +705,9 @@
 					"raw": ""
 				},
 				"url": {
-					"raw": "\login?user=username&pass=password",
+					"raw": "\\login?user=username&pass=password",
 					"host": [
-						"\login"
+						"\\login"
 					],
 					"query": [
 						{
@@ -666,9 +741,9 @@
 							"raw": "{\n\t\"user\":\"username\",\n\t\"pass\":\"salted hash of password\"\n}"
 						},
 						"url": {
-							"raw": "\login?user=username&pass=password",
+							"raw": "\\login?user=username&pass=password",
 							"host": [
-								"\login"
+								"\\login"
 							],
 							"query": [
 								{

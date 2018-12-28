@@ -49,19 +49,6 @@ int main(int argc, char* argv[])
     auto server = io::CreateTransactionServer(options->bind_endpoint, zmq_context);
     auto peer_client = io::CreateTransactionClient(options->host_vector, zmq_context);
 
-
-    // Create loopback client to subscribe to simulator transactions
-    std::unique_ptr<io::TransactionClient> loopback_client(new io::TransactionClient(zmq_context));
-    auto be = options->bind_endpoint;
-    std::string this_uri;
-    try {
-      this_uri = "tcp://localhost" + be.substr(be.rfind(':'));
-    } catch (std::range_error& e) {
-      LOG_ERROR << "Extracting bind number failed: " << be;
-    }
-    loopback_client->addConnection(this_uri);
-
-
     /**
      * Chrome tracing setup
      */
@@ -79,11 +66,15 @@ int main(int argc, char* argv[])
 
     {
       LOG_NOTICE << "Creating the BlockchainModule";
-      auto bcm = BlockchainModule::Create(*server, *peer_client, *loopback_client
-                 , keys, prior, options->mode, devv_context, options->batch_size);
+      auto bcm = BlockchainModule::Create(*server, *peer_client,
+          keys, prior, options->mode, devv_context, options->batch_size);
 
-      LOG_NOTICE << "BlockchainModule: check for prior chain.";
-      bcm->loadHistoricChain(options->working_dir);
+      std::string shard_name = "shard-"+std::to_string(options->shard_index);
+      boost::filesystem::path shard_path(options->working_dir);
+      shard_path /= shard_name;
+
+      LOG_NOTICE << "BlockchainModule: check for prior chain at " << shard_path;
+      bcm->loadHistoricChain(shard_path);
 
       LOG_NOTICE << "Starting the BlockchainModule";
       bcm->start();

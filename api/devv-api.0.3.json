@@ -1,0 +1,571 @@
+{
+	"info": {
+		"_postman_id": "28376669-4c83-4e0d-a632-3ecf6459f9cd",
+		"name": "Devv-api",
+		"description": "Devv API v0.2",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Block-Info",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "/block-info?shard-id=0&shard-name=Thor&block-height=0&list-txs=true",
+					"path": [
+						"block-info"
+					],
+					"query": [
+						{
+							"key": "shard-id",
+							"value": "0",
+							"description": "The id of the shard to query."
+						},
+						{
+							"key": "shard-name",
+							"value": "Thor",
+							"description": "The name of the shard to query."
+						},
+						{
+							"key": "block-height",
+							"value": "0",
+							"description": "The block height to query."
+						},
+						{
+							"key": "list-txs",
+							"value": "true",
+							"description": "List the transaction signatures in this block?"
+						}
+					]
+				},
+				"description": "Get information about a specific shard's blockchain."
+			},
+			"response": [
+				{
+					"name": "Block-Info",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "/block-info?shard-name=Thor&block-height=0&shard-id=1&list-txs=true",
+							"path": [
+								"block-info"
+							],
+							"query": [
+								{
+									"key": "shard-name",
+									"value": "Thor",
+									"description": "The name of the shard to query."
+								},
+								{
+									"key": "block-height",
+									"value": "0",
+									"description": "The block height to query."
+								},
+								{
+									"key": "shard-id",
+									"value": "1",
+									"description": "The id of the shard to query."
+								},
+								{
+									"key": "list-txs",
+									"value": "true",
+									"description": "List the transaction signatures in this block?"
+								}
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"cookie": [],
+					"body": "{\n\t\"protocol-version\":0,\n\t\"shard-name\":\"Thor\",\n\t\"block-height\":0,\n\t\"block-time\":0,\n\t\"transaction-size\":91,\n\t\"num-transactions\":1,\n\t\"block-volume\":1234,\n\t\"block-size\":1234,\n\t\"Merkle\":\"[hex]\",\n\t\"previous-hash\":\"[hex]\",\n\t\"testnet\":true,\n\t\"txs-signatures\":[\"sig1\",\"sig2\"]\n}"
+				}
+			]
+		},
+		{
+			"name": "Transaction-Info",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "/tx-info?shard-index=0&shard-name=Thor&block-height=0&signature=[hex]",
+					"path": [
+						"tx-info"
+					],
+					"query": [
+						{
+							"key": "shard-index",
+							"value": "0",
+							"description": "The index of the shard to query."
+						},
+						{
+							"key": "shard-name",
+							"value": "Thor",
+							"description": "The name of the shard to query."
+						},
+						{
+							"key": "block-height",
+							"value": "0",
+							"description": "The block height to query."
+						},
+						{
+							"key": "signature",
+							"value": "[hex]",
+							"description": "Transaction signature to query."
+						}
+					]
+				},
+				"description": "Get the history of a specific transaction."
+			},
+			"response": [
+				{
+					"name": "Transaction-Info",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "/tx-info?shard-name=Thor&block-height=0&signature=[hex]",
+							"path": [
+								"tx-info"
+							],
+							"query": [
+								{
+									"key": "shard-name",
+									"value": "Thor",
+									"description": "The name of the shard to query."
+								},
+								{
+									"key": "block-height",
+									"value": "0",
+									"description": "The block height to query."
+								},
+								{
+									"key": "signature",
+									"value": "[hex]",
+									"description": "Signature of transaction to query."
+								}
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"cookie": [],
+					"body": "{\n\t\"protocol-version\":0,\n\t\"shard-name\":\"Thor\",\n\t\"block-height\":0,\n\t\"signature\":\"[hex]\",\n\t\"tx-data\":\"[hex]\",\n\t\"testnet\":true\n}"
+				}
+			]
+		},
+		{
+			"name": "Trace",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "/trace?shard-index=0&shard-name=Thor&start-block=0&signature=[hex]&end-block=1",
+					"path": [
+						"trace"
+					],
+					"query": [
+						{
+							"key": "shard-index",
+							"value": "0",
+							"description": "The index of the shard to query."
+						},
+						{
+							"key": "shard-name",
+							"value": "Thor",
+							"description": "The name of the shard to query."
+						},
+						{
+							"key": "start-block",
+							"value": "0",
+							"description": "The lowest block height to query."
+						},
+						{
+							"key": "signature",
+							"value": "[hex]",
+							"description": "Transaction signature to query."
+						},
+						{
+							"key": "end-block",
+							"value": "1",
+							"description": "The highest block height to query."
+						}
+					]
+				},
+				"description": "Get the history of a specific transaction."
+			},
+			"response": [
+				{
+					"name": "Trace",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "/trace?shard-name=Thor&start-block=0&end-block=1&signature=[hex]&address=[hex]",
+							"path": [
+								"trace"
+							],
+							"query": [
+								{
+									"key": "shard-name",
+									"value": "Thor",
+									"description": "The name of the shard to query."
+								},
+								{
+									"key": "start-block",
+									"value": "0",
+									"description": "The lowest block height to query."
+								},
+								{
+									"key": "end-block",
+									"value": "1",
+									"description": "The highest block height to query."
+								},
+								{
+									"key": "signature",
+									"value": "[hex]",
+									"description": "Signature to trace."
+								},
+								{
+									"key": "address",
+									"value": "[hex]",
+									"description": "Address to trace."
+								}
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"cookie": [],
+					"body": "{\n\t\"protocol-version\":0,\n\t\"shard-name\":\"Thor\",\n\t\"block-height\":0,\n\t\"signature\":\"[hex]\",\n\t\"tx-data\":{\n\t\t\"[sig1_hex]\":\"[hex]\",\n\t\t\"[sig2_hex]\":\"[hex]\"\n\t},\n\t\"testnet\":true\n}"
+				}
+			]
+		},
+		{
+			"name": "Shard-Info",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "/shard-info?shard-name=Thor&shard-id=1",
+					"path": [
+						"shard-info"
+					],
+					"query": [
+						{
+							"key": "shard-name",
+							"value": "Thor",
+							"description": "The name of the shard to query."
+						},
+						{
+							"key": "shard-id",
+							"value": "1",
+							"description": "The id of the shard to query."
+						}
+					]
+				},
+				"description": "Information about a shard"
+			},
+			"response": [
+				{
+					"name": "Shard-info",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "/shard-info?shard-name=Thor&shard-id=1",
+							"path": [
+								"shard-info"
+							],
+							"query": [
+								{
+									"key": "shard-name",
+									"value": "Thor",
+									"description": "The name of the shard to query."
+								},
+								{
+									"key": "shard-id",
+									"value": "1",
+									"description": "The id of the shard to query."
+								}
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"cookie": [],
+					"body": "{\n\t\"protocol-version\":0,\n\t\"shard-name\":\"Thor\",\n\t\"current-block\":1,\n\t\"last-block-time\":0,\n\t\"last-tx-count\":0,\n\t\"total-tx-count\":1,\n\t\"avg-block-time\":0,\n\t\"avg-tx-per-block\":0,\n\t\"testnet\":true\n}"
+				}
+			]
+		},
+		{
+			"name": "Balance",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "/balance?addr=[hex]&coin=0",
+					"path": [
+						"balance"
+					],
+					"query": [
+						{
+							"key": "addr",
+							"value": "[hex]",
+							"description": "The address for the current balance to check."
+						},
+						{
+							"key": "coin",
+							"value": "0",
+							"description": "The coin index of the balance to check."
+						}
+					]
+				},
+				"description": "Get the current balance of an address in a given coin type."
+			},
+			"response": [
+				{
+					"name": "Balance",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "/balance/?address=[hex]&coin=0",
+							"path": [
+								"balance",
+								""
+							],
+							"query": [
+								{
+									"key": "address",
+									"value": "[hex]",
+									"description": "The address to check."
+								},
+								{
+									"key": "coin",
+									"value": "0",
+									"description": "The coin type to check (int)."
+								}
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"cookie": [],
+					"body": "{\n    \"protocol-version\": 0,\n    \"address\": \"[hex]\",\n    \"coin\":0,\n    \"balance\":0,\n    \"testnet\": true\n}"
+				}
+			]
+		},
+		{
+			"name": "History",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "/history?address=[hex]&shard-name=Thor&shard-id=1&start-block=0&end-block=1&max-results=1",
+					"path": [
+						"history"
+					],
+					"query": [
+						{
+							"key": "address",
+							"value": "[hex]",
+							"description": "The address to check the history of"
+						},
+						{
+							"key": "shard-name",
+							"value": "Thor",
+							"description": "The shard to query."
+						},
+						{
+							"key": "shard-id",
+							"value": "1",
+							"description": "The id of the shard to query."
+						},
+						{
+							"key": "start-block",
+							"value": "0",
+							"description": "The lowest block to query for history."
+						},
+						{
+							"key": "end-block",
+							"value": "1",
+							"description": "The  highest block to query for history."
+						},
+						{
+							"key": "max-results",
+							"value": "1",
+							"description": "The maximum number of results to include."
+						}
+					]
+				},
+				"description": "Get the history of a specific address."
+			},
+			"response": [
+				{
+					"name": "History",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "/history?address=[hex]&shard-name=Thor&start-block=0&end-block=1&max-results=1&shard-id=1",
+							"path": [
+								"history"
+							],
+							"query": [
+								{
+									"key": "address",
+									"value": "[hex]",
+									"description": "The address to check."
+								},
+								{
+									"key": "shard-name",
+									"value": "Thor",
+									"description": "The name of the shard to check."
+								},
+								{
+									"key": "start-block",
+									"value": "0",
+									"description": "The block to start with."
+								},
+								{
+									"key": "end-block",
+									"value": "1",
+									"description": "The last block to include. (optional)"
+								},
+								{
+									"key": "max-results",
+									"value": "1",
+									"description": "The maximum number of transactions to return always beginning from the highest block (end-block or the current block). (optional)"
+								},
+								{
+									"key": "shard-id",
+									"value": "1",
+									"description": "The ID of the shard to query."
+								}
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"cookie": [],
+					"body": "{\n    \"protocol-version\": 0,\n    \"address\": \"[hex]\",\n    \"shard-name\":\"Thor\",\n    \"start-block\":0,\n    \"end-block\":1,\n    \"max-results\":10,\n    \"history\":[{\n    \t\"blocktime\":0,\n    \t\"block-height\":0,\n    \t\"sender\":\"[hex]\",\n    \t\"receiver\":\"[hex]\",\n    \t\"coin\":0,\n    \t\"amount\":1,\n    \t\"status\":\"Pending|Confirmed|Rejected\",\n    \t\"signature\":\"[hex]\"\n    }],\n    \"testnet\": true\n}"
+				}
+			]
+		},
+		{
+			"name": "Send-Proposal",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "/send_proposal?oracle-name=oracle.name&oracle-data=[hex]",
+					"path": [
+						"send_proposal"
+					],
+					"query": [
+						{
+							"key": "oracle-name",
+							"value": "oracle.name",
+							"description": "The name of the oracle to invoke."
+						},
+						{
+							"key": "oracle-data",
+							"value": "[hex]",
+							"description": "hex data to provide the oracle."
+						}
+					]
+				},
+				"description": "Send an oracle proposal as hex."
+			},
+			"response": [
+				{
+					"name": "Send-Proposal",
+					"originalRequest": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "/send_proposal?oracle-name=oracle.name&oracle-data=[hex]",
+							"path": [
+								"send_proposal"
+							],
+							"query": [
+								{
+									"key": "oracle-name",
+									"value": "oracle.name",
+									"description": "The name of the oracle to invoke."
+								},
+								{
+									"key": "oracle-data",
+									"value": "[hex]",
+									"description": "hex data to provide the oracle."
+								}
+							]
+						}
+					},
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"cookie": [],
+					"body": "{\n\t\"protocol-version\":0,\n\t\"return-code\":200,\n\t\"message\":\"Success\",\n\t\"target-block\":0,\n\t\"trace\":[\n\t\t{\n\t\t\t\"oracle-name\":\"io.devv.coin_request\",\n\t\t\t\"oracle-data\":\"[hex]\",\n\t\t\t\"block-height\":1\n\t\t}\n\t],\n\t\"testnet\":true\n}"
+				}
+			]
+		}
+	]
+}

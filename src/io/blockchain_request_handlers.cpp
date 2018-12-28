@@ -63,13 +63,13 @@ bool HasBlock(const fs::path& shard_path, size_t segment_index, size_t segment_h
 }
 
 std::map<std::string, std::string> TraceTransactions(const std::string& shard_name,
-                                                     uint32_t start_block,
-                                                     uint32_t end_block,
+                                                     size_t start_block,
+                                                     size_t end_block,
                                                      const std::vector<byte>& target,
                                                      const boost::filesystem::path& working_dir,
                                                      const Blockchain& chain) {
   std::map<std::string, std::string> txs;
-  size_t highest = chain.size();
+  size_t highest = std::min(end_block, chain.size());
   if (highest < start_block) return txs;
 
   for (uint32_t i=start_block; i<=highest; ++i) {
@@ -94,6 +94,34 @@ ServiceRequestEventHandler::ServiceRequestEventHandler(const fs::path& working_d
     : working_dir_(working_dir)
     , shard_name_(shard_name)
 {
+}
+
+std::map<std::vector<byte>, std::vector<byte>> TraceTransactions_Binary(
+                                                     const std::string& shard_name,
+                                                     size_t start_block,
+                                                     size_t end_block,
+                                                     const std::vector<byte>& target,
+                                                     const boost::filesystem::path& working_dir,
+                                                     const Blockchain& chain) {
+  std::map<std::vector<byte>, std::vector<byte>> txs;
+  size_t highest = std::min(end_block, chain.size());
+  if (highest < start_block) return txs;
+
+  for (uint32_t i=start_block; i<=highest; ++i) {
+    std::vector<byte> block = ReadBlock(chain, shard_name, i, working_dir);
+    InputBuffer buffer(block);
+    ChainState state;
+    FinalBlock one_block(FinalBlock::Create(buffer, state));
+    for (const auto& raw_tx : one_block.getRawTransactions()) {
+      if(std::search(std::begin(raw_tx), std::end(raw_tx)
+          , std::begin(target), std::end(target)) != std::end(raw_tx)) {
+        InputBuffer t2_buffer(raw_tx);
+        Tier2Transaction t2tx = Tier2Transaction::QuickCreate(t2_buffer);
+        txs.insert(std::make_pair(t2tx.getSignature().getCanonical(), raw_tx));
+      }
+    }
+  }
+  return txs;
 }
 
 ServiceResponsePtr ServiceRequestEventHandler::dispatchRequest(const Blockchain& chain,

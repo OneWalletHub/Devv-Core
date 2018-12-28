@@ -95,6 +95,24 @@ std::map<std::string, std::string> TraceTransactions(const std::string& shard_na
                                                      const Blockchain& chain);
 
 /**
+ *
+ * @param shard_name
+ * @param start_block
+ * @param end_block
+ * @param target
+ * @param working_dir
+ * @param chain
+ * @return
+ */
+std::map<std::vector<byte>, std::vector<byte>> TraceTransactions_Binary(
+                                                     const std::string& shard_name,
+                                                     uint32_t start_block,
+                                                     uint32_t end_block,
+                                                     const std::vector<byte>& target,
+                                                     const boost::filesystem::path& working_dir,
+                                                     const Blockchain& chain);
+
+/**
  * Dispatches incoming query requests.
  * ServiceRequestEventHandle is designed for threaded use. The
  * data members are const so they can be written once and then

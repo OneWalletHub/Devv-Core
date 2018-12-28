@@ -19,23 +19,28 @@ _query_bin= 'devv-query'
 _endpoint_tmpdir='/tmp/zmqipc'
 
 _endpoint_prefixes = {
-    'announcer': {'out': 'announce-out-','in': 'announce-in-'},
-    'query': {'out': 'query-'},
-    'val0': {'out': 'val0-'},
-    'val1': {'out': 'val1-'},
-    'val2': {'out': 'val2-'}
+    'announcer': {'out': 'announce-out','in': 'announce-in'},
+    'query': {'out': 'query'},
+    'val0': {'out': 'val0'},
+    'val1': {'out': 'val1'},
+    'val2': {'out': 'val2'}
 }
 
 
-def create_endpoint(tmpdir, endpoint_prefixes):
+def create_endpoints(tmpdir, endpoint_prefixes, use_unique_filenames):
     dirs = ['in', 'out']
     endpoints = endpoint_prefixes.copy()
     for pre in endpoint_prefixes:
         for dir in dirs:
             if endpoint_prefixes[pre].get(dir):
                 tmp_prefix = os.path.join(tmpdir, endpoint_prefixes[pre][dir])
-                tmp = tempfile.NamedTemporaryFile(prefix=tmp_prefix, suffix='.zmqipc')
-                endpoints[pre][dir] = 'ipc://' + tmp.name
+                suffix='.zmqipc'
+                tmp_path = None
+                if use_unique_filenames:
+                    tmp_path = tempfile.NamedTemporaryFile(prefix=tmp_prefix+'-', suffix='.zmqipc').name
+                else:
+                    tmp_path = tmp_prefix + suffix
+                endpoints[pre][dir] = 'ipc://' + tmp_path
 
     return endpoints
 
@@ -56,6 +61,8 @@ def create_announcer(exe, endpoints, configs):
     announcer.add_config(configs['key-pass'])
     # Set working-dir
     announcer.set_working_dir(configs['working-dir'])
+    # Set log-dir
+    announcer.set_log_dir(configs['log-dir'])
     # Set the key files
     announcer.set_inn_keyfile(os.path.join(configs['base'], 'inn.key'))
     announcer.set_node_keyfile(os.path.join(configs['base'], 'node.key'))
@@ -76,6 +83,8 @@ def create_validator(exe, endpoints, configs, hosts, val_id, node_index):
     val.add_config(configs['key-pass'])
     # Set working-dir
     val.set_working_dir(configs['working-dir'])
+    # Set log-dir
+    val.set_log_dir(configs['log-dir'])
     # Add the bind port
     val.set_bind_endpoint(eps['out'])
     # add hosts
@@ -108,6 +117,8 @@ def create_query(exe, endpoints, configs, hosts):
     query.add_config(configs['key-pass'])
     # Set working-dir
     query.set_working_dir(configs['working-dir'])
+    # Set log-dir
+    query.set_log_dir(configs['log-dir'])
     # add hosts
     for val in hosts:
         query.add_host(endpoints[val]['out'])
@@ -134,6 +145,8 @@ class DevvProcess(threading.Thread):
         self._inn_keyfile = None
         self._node_keyfile = None
         self._working_dir = None
+        self._log_dir = "/tmp/devv-logs"
+        self._timeout = None
 
         # Call the base class constructor
         threading.Thread.__init__(self)
@@ -157,7 +170,16 @@ class DevvProcess(threading.Thread):
         self._node_keyfile = keyfile
 
     def set_working_dir(self, working_dir):
+        """Sets the directory to write the data files"""
         self._working_dir = working_dir
+
+    def set_log_dir(self, log_dir):
+        """Sets the directory to write the log files"""
+        self._log_dir = log_dir
+
+    def set_timeout(self, timeout: int):
+        """The shard will exit after timeout seconds"""
+        self._timeout = timeout
 
     def generate_command(self):
         cmd = []
@@ -195,10 +217,13 @@ class DevvProcess(threading.Thread):
 
     def run(self):
         cmd = self.generate_command()
-        logdir = os.path.join(self._working_dir, 'log')
-        os.makedirs(logdir, exist_ok=True)
-        f = open(os.path.join(logdir, os.path.basename(self._exe)+'-'+str(self._shard_index)+'-'+str(self._node_index)+'.log'), "w+")
-        subprocess.run(cmd, timeout=600, stdout=f, stderr=subprocess.STDOUT)
+        os.makedirs(self._log_dir, exist_ok=True)
+        f = open(os.path.join(self._log_dir, os.path.basename(self._exe)+'-'+str(self._shard_index)+'-'+str(self._node_index)+'.log'), "w+")
+        if self._timeout:
+            print("The process {prog} will exit after {timeout} seconds".format(timeout=self._timeout, prog=os.path.basename(self._exe)))
+        else:
+            print("Timeout disabled - {prog} will run indefinitely".format(prog=os.path.basename(self._exe)))
+        subprocess.run(cmd, timeout=None, stdout=f, stderr=subprocess.STDOUT)
         f.close()
 
 
@@ -219,8 +244,16 @@ Exit status:\n\
                         default=None, required=True)
 
     parser.add_argument('--working-dir', action='store', dest='working_dir',
-                        help='Directory to write log files and chain data files',
+                        help='Directory to write chain data files',
                         default=None, required=True)
+
+    parser.add_argument('--log-dir', action='store', dest='log_dir',
+                        help='Directory to write log files',
+                        default=None, required=True)
+
+    parser.add_argument('--unique-endpoints', action="store_true", dest='unique_endpoints',
+                        help='Use unique temporary names for zmq IPC endpoints',
+                        default=False, required=False)
 
     args = parser.parse_args()
 
@@ -242,12 +275,14 @@ Exit status:\n\
     config_map['query'] = os.path.join(config_path, 'devv-query.conf')
     config_map['key-pass'] = os.path.join(config_path, 'test-key-pass_test.conf')
     config_map['working-dir'] = args.working_dir
+    config_map['log-dir'] = args.log_dir
 
-    # Create the output director
+    # Create the output directories
     os.makedirs(os.path.join(config_map['working-dir'], 'shard-1'), exist_ok=True)
+    os.makedirs(os.path.join(config_map['log-dir']), exist_ok=True)
 
     # Create the ZeroMQ endpoints
-    zmq_endpoints = create_endpoint(_endpoint_tmpdir, _endpoint_prefixes)
+    zmq_endpoints = create_endpoints(_endpoint_tmpdir, _endpoint_prefixes, args.unique_endpoints)
     for end in zmq_endpoints:
         print("endpoints[{}]: {}".format(end, zmq_endpoints[end]))
 
@@ -268,6 +303,7 @@ Exit status:\n\
 
     #
     # Create devv-query
+    #
     query = create_query(exe=query_exe, endpoints=zmq_endpoints, configs=config_map, hosts=validators)
     query_command = query.generate_command()
     print(*query_command)

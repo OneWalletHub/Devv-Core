@@ -37,7 +37,7 @@ static const uint64_t kPROPOSAL_EXPIRATION_MILLIS = 2000;
 /**
  * Types of operations performed by transactions
  */
-enum eOpType : byte { Create = 0, Modify = 1, Exchange = 2, Delete = 3, NumOperations = 4 };
+enum eOpType : byte { Create = 0, Modify = 1, Exchange = 2, Delete = 3, Revert = 4, NumOperations = 5 };
 
 static const std::string kVERSION_TAG = "v";
 static const std::string kPREV_HASH_TAG = "prev";
@@ -100,5 +100,8 @@ static const std::vector<std::string> kNODE_ADDRs = {
       "0286C1B1A066728FAABA4D9C795846FF9910C44BD54386F05E088F409BFE56906D41AD60FD1C982920C9017A799E7F9DFF",
       "02D6663B8C28C80D977C8943B9D9C6441E1C2D08FBA43131016CCCB11B358B531A3379E1289206E13F75B50E08274BB719"
   };
+
+//oracle constants
+static const uint64_t kDEFAULT_MAX_DEPTH = 10000;
 
 } // namespace Devv

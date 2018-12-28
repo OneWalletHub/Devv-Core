@@ -15,41 +15,6 @@ namespace Devv {
 
 namespace fs = boost::filesystem;
 
-bool IsBlockData(const std::vector<byte>& raw) {
-  //check if big enough
-  if (raw.size() < FinalBlock::MinSize()) { return false; }
-  //check version
-  if (raw[0] != 0x00) { return false; }
-  size_t offset = 9;
-  uint64_t block_time = BinToUint64(raw, offset);
-  // check blocktime is from 2018 or newer.
-  if (block_time < 1514764800) { return false; }
-  // check blocktime is in past
-  if (block_time > GetMillisecondsSinceEpoch()) { return false; }
-  return true;
-}
-
-bool IsTxData(const std::vector<byte>& raw) {
-  // check if big enough
-  if (raw.size() < Transaction::MinSize()) {
-    LOG_WARNING << "raw.size()(" << raw.size() << ") < Transaction::MinSize()(" << Transaction::MinSize() << ")";
-    return false;
-  }
-  // check transfer count
-  uint64_t xfer_size = BinToUint64(raw, 0);
-  size_t tx_size = Transaction::MinSize() + xfer_size;
-  if (raw.size() < tx_size) {
-    LOG_WARNING << "raw.size()(" << raw.size() << ") < tx_size(" << tx_size << ")";
-    return false;
-  }
-  // check operation
-  if (raw[16] >= 4) {
-    LOG_WARNING << "raw[8](" << int(raw[16]) << ") >= 4";
-    return false;
-  }
-  return true;
-}
-
 bool CompareChainStateMaps(const std::map<Address, std::map<uint64_t, int64_t>>& first,
                            const std::map<Address, std::map<uint64_t, int64_t>>& second) {
   if (first.size() != second.size()) { return false; }
@@ -131,33 +96,29 @@ boost::filesystem::path GetBlockPath(const fs::path& shard_path,
   return block_path;
 }
 
-BlockIOFS::BlockIOFS(const std::string& chain_name,
+BlockIOFS::BlockIOFS(const Blockchain& chain,
                      const std::string& base_path,
                      const std::string& shard_uri)
-: chain_(chain_name)
+: chain_(chain)
 , base_path_(base_path)
 , shard_uri_(shard_uri)
 {
 
 }
 
-void BlockIOFS::writeBlock(FinalBlockSharedPtr block) {
-  fs::path seg_dir(base_path_ / shard_uri_
-                          / std::to_string(chain_.getCurrentSegmentIndex()));
-
-  auto out_file = GetStandardBlockPath(chain_, shard_uri_, base_path_, chain_.size());
+void BlockIOFS::writeBlock(size_t block_index) {
+  auto out_file = GetStandardBlockPath(chain_, shard_uri_, base_path_, block_index);
   if (!is_directory(out_file)) fs::create_directory(out_file.branch_path());
   std::ofstream block_file(out_file.string(), std::ios::out | std::ios::binary);
 
   if (block_file.is_open()) {
-    auto canonical = block->getCanonical();
+    auto canonical = chain_.at(block_index)->getCanonical();
     block_file.write(reinterpret_cast<char*>(canonical.data()), canonical.size());
     block_file.close();
     LOG_DEBUG << "Wrote to " << out_file << "'.";
   } else {
     LOG_ERROR << "Failed to open output file '" << out_file << "'.";
   }
-  chain_.push_back(block);
 }
 
 } // namespace Devv

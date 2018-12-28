@@ -17,7 +17,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
-#include "common/logger.h"
 #include "common/devv_context.h"
 #include "common/devv_uri.h"
 #include "primitives/blockchain.h"
@@ -25,6 +24,7 @@
 #include "io/message_service.h"
 #include "modules/BlockchainModule.h"
 #include "pbuf/devv_pbuf.h"
+#include "common/logger.h"
 
 #include "io/blockchain_request_handlers.h"
 
@@ -102,11 +102,13 @@ int main(int argc, char* argv[]) {
     }
 
     std::string shard_name = "shard-"+std::to_string(options->shard_index);
+    boost::filesystem::path shard_path(options->working_dir);
+    shard_path /= shard_name;
 
-    //@todo(nick@devv.io): read pre-existing chain
-    Blockchain chain(options->shard_name);
+    Blockchain chain(shard_name);
+    chain.Fill(shard_path, keys, options->mode);
 
-    BlockIOFS blockfs(chain.getName(), options->working_dir, shard_name);
+    BlockIOFS blockfs(chain, options->working_dir, shard_name);
     auto peer_listener = io::CreateTransactionClient(options->host_vector, zmq_context);
     peer_listener->attachCallback([&](DevvMessageUniquePtr p) {
       if (p->message_type == eMessageType::FINAL_BLOCK) {
@@ -116,8 +118,8 @@ int main(int argc, char* argv[]) {
           auto top_block = std::make_shared<FinalBlock>(buffer, prior
                                                        , keys, options->mode);
           chain.push_back(top_block);
-          //write final chain to file
-          blockfs.writeBlock(top_block);
+          // write final chain to file
+          blockfs.writeBlock(chain.size()-1);
 	    } catch (const std::exception& e) {
           std::exception_ptr p = std::current_exception();
           std::string err("");
@@ -189,6 +191,7 @@ int main(int argc, char* argv[]) {
       std::stringstream response_ss;
       pbuf_response.SerializeToOstream(&response_ss);
       response = response_ss.str();
+
       zmq::message_t reply(response.size());
       memcpy(reply.data(), response.data(), response.size());
       socket.send(reply);
