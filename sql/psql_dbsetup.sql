@@ -64,12 +64,14 @@ CREATE TABLE wallet_coin (
 --tx table (debits from customer's account's wallet)
 CREATE TABLE tx (
     tx_id uuid constraint pk_txid primary key using index tablespace devvdex,
-    shard_id INTEGER NOT NULL references shard,
+    sig text,
+    shard_id INTEGER NOT NULL references shard,    
     block_height INTEGER NOT NULL,
     block_time bigint not null,
     tx_wallet uuid NOT NULL references wallet,
     coin_id BIGINT NOT NULL references currency,
     amount BIGINT,
+    nonce text,
     comment text
 ) tablespace devvdata;
 
@@ -105,6 +107,7 @@ CREATE TABLE pending_tx (
     tx_wallet uuid NOT NULL references wallet,
     coin_id BIGINT NOT NULL references currency,
     amount BIGINT,
+    nonce text,
     comment text,
     to_reject boolean
 ) tablespace devvdata;
@@ -131,6 +134,31 @@ CREATE TABLE rejected_tx (
     tx_wallet uuid NOT NULL references wallet,
     coin_id BIGINT NOT NULL references currency,
     amount BIGINT,
+    nonce text,
+    comment text    
+) tablespace devvdata;
+
+--reverted_tx table (tracks txs reverted by senders)
+CREATE TABLE reverted_tx (
+    reverted_tx_id uuid constraint pk_reverted_txid primary key using index tablespace devvdex,
+    sig text unique not null,
+    shard_id INTEGER NOT NULL references shard,
+    tx_wallet uuid NOT NULL references wallet,
+    coin_id BIGINT NOT NULL references currency,
+    amount BIGINT,
+    nonce text,
+    comment text    
+) tablespace devvdata;
+
+--reverted_rx table (tracks rxs reverted by senders)
+CREATE TABLE reverted_rx (
+    reverted_rx_id uuid constraint pk_reverted_rxid primary key using index tablespace devvdex,
+    sig text unique not null,
+    shard_id INTEGER NOT NULL references shard,
+    tx_wallet uuid NOT NULL references wallet,
+    rx_wallet uuid NOT NULL references wallet,
+    coin_id BIGINT NOT NULL references currency,
+    amount BIGINT,
     comment text    
 ) tablespace devvdata;
 
@@ -149,11 +177,21 @@ CREATE TABLE fresh_tx (
     oracle_name text
 ) tablespace devvdata;
 
+--rx_delayed table (tracks pending settlements)
+CREATE TABLE rx_delayed (
+    rx_delayed_id uuid constraint pk_rx_delayed_id primary key using index tablespace devvdex,   
+    pending_rx_id uuid NOT NULL references pending_rx,
+    settle_time bigint NOT NULL
+) tablespace devvdata;
+
 create or replace function reset_state() returns void as $$
 begin
 truncate table pending_rx cascade;
 truncate table pending_tx cascade;
 truncate table rejected_tx cascade;
+truncate table reverted_tx cascade;
+truncate table reverted_rx cascade;
+truncate table rx_delayed cascade;
 truncate table rx cascade;
 truncate table tx cascade;
 truncate table wallet_coin cascade;
