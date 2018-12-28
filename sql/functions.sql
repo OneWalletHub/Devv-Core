@@ -104,7 +104,7 @@ begin
         INSERT INTO rx (rx_id, shard_id, block_height, block_time, tx_wallet, rx_wallet, coin_id, amount, delay, comment, tx_id) (SELECT pending_rx_row.pending_rx_id, shard, height, blocktime, pending_tx_row.tx_wallet, pending_rx_row.rx_wallet, pending_rx_row.coin_id, pending_rx_row.amount, 0, pending_rx_row.comment, pending_tx_row.pending_tx_id);
         DELETE FROM pending_rx where sig = upper(next_sig);
       ELSE
-        INSERT INTO rx_delayed (rx_delayed_id, pending_rx_id, settle_time) (SELECT devv_uuid(), pending_rx_row.pending_rx_id, delay+blocktime);
+        INSERT INTO rx_delayed (rx_delayed_id, pending_rx_id, settle_time) (SELECT devv_uuid(), pending_rx_row.pending_rx_id, rx_delay+blocktime);
         has_delays := 'true';
       END IF;
     END LOOP;
@@ -142,7 +142,7 @@ begin
     END IF;
   END LOOP;
   DELETE FROM fresh_tx where block_height = height;
-  FOR rx IN SELECT * from rx_delayed d, pending_rx p where d.blocktime > settle_time and p.pending_rx_id = d.pending_rx_id
+  FOR rx IN SELECT * from rx_delayed d, pending_rx p where d.settle_time < blocktime and p.pending_rx_id = d.pending_rx_id
   LOOP
     INSERT INTO rx (rx_id, shard_id, block_height, block_time, tx_wallet, rx_wallet, coin_id, amount, delay, comment, tx_id) (SELECT rx.pending_rx_id, rx.shard_id, height, blocktime, rx.tx_wallet, rx.rx_wallet, rx.coin_id, rx.amount, 0, rx.comment, rx.pending_tx_id);
     DELETE FROM rx_delayed where rx_delayed_id = rx.rx_delayed_id;
