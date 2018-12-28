@@ -401,6 +401,7 @@ class FinalBlock {
   ChainState block_state_;
 };
 
+typedef std::unique_ptr<FinalBlock> FinalBlockUniquePtr;
 typedef std::shared_ptr<FinalBlock> FinalBlockSharedPtr;
 typedef std::shared_ptr<const FinalBlock> ConstFinalBlockSharedPtr;
 
