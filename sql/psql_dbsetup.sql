@@ -210,7 +210,7 @@ CREATE TABLE demo_score (
   demo_score_id uuid constraint pk_demo_score_id primary key using index tablespace devvdex,
   sig text,
   shard_id INTEGER NOT NULL references shard,
-  block_height INTEGER NOT NULL,
+  block_height INTEGER,
   owner_wallet uuid NOT NULL references wallet,
   username text,
   email text,

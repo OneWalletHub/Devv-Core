@@ -120,7 +120,12 @@ begin
       UPDATE devvpay_assets set create_date = unixtime where root_sig = asset_sig;
       return 1;
     ELSE 
-      raise notice 'Transaction not initialized.';
+      SELECT sig INTO asset_sig from demo_score where sig = upper(next_sig);
+      IF FOUND THEN
+        UPDATE demo_score set block_height = height where sig = asset_sig;
+        return 1;
+      ELSE 
+        raise notice 'Transaction not initialized.';
     END IF;
   END IF;
   return 0;
