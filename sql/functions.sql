@@ -126,6 +126,7 @@ begin
         return 1;
       ELSE 
         raise notice 'Transaction not initialized.';
+      END IF;
     END IF;
   END IF;
   return 0;
