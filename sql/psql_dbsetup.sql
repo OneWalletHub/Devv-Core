@@ -208,7 +208,7 @@ CREATE TABLE devvpay_assets (
 --demo_score table (tracks demo scores)
 CREATE TABLE demo_score (
   demo_score_id uuid constraint pk_demo_score_id primary key using index tablespace devvdex,
-  root_sig text,
+  sig text,
   shard_id INTEGER NOT NULL references shard,
   block_height INTEGER NOT NULL,
   owner_wallet uuid NOT NULL references wallet,
