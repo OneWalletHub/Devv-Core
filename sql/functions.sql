@@ -86,6 +86,7 @@ create or replace function handle_default_tx(next_sig text, shard int, height in
 declare
   pending_tx_row pending_tx%ROWTYPE;
   pending_rx_row pending_rx%ROWTYPE;
+  asset_sig text;
   unixtime bigint;
   rx_delay bigint;
   has_delays boolean;
@@ -113,7 +114,14 @@ begin
     END IF;
     return 1;
   ELSE 
-    raise notice 'Transaction not initialized.';
+    SELECT last_sig INTO asset_sig from devvpay_assets where last_sig = upper(next_sig);
+    IF FOUND THEN
+      UPDATE devvpay_assets set block_height = height, modify_date = unixtime where last_sig = asset_sig;
+      UPDATE devvpay_assets set create_date = unixtime where root_sig = asset_sig;
+      return 1;
+    ELSE 
+      raise notice 'Transaction not initialized.';
+    END IF;
   END IF;
   return 0;
 end;

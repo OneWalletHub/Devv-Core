@@ -184,6 +184,39 @@ CREATE TABLE rx_delayed (
     settle_time bigint NOT NULL
 ) tablespace devvdata;
 
+--devvpay_assets table (tracks devvpay assets)
+CREATE TABLE devvpay_assets (
+    devvpay_asset_id uuid constraint pk_devvpay_asset_id primary key using index tablespace devvdex,
+    last_sig text,
+    root_sig text,
+    shard_id INTEGER NOT NULL references shard,
+    block_height INTEGER,
+    owner_wallet uuid NOT NULL references wallet,
+    last_nonce text,
+    asset_type text,
+    asset_name text,
+    is_fungible boolean,
+    sku text,
+    serial_num text,
+    latitude numeric,
+    longitude numeric,
+    create_date timestamp,
+    modify_date timestamp,
+    notes text
+) tablespace devvdata;
+
+--demo_score table (tracks demo scores)
+CREATE TABLE demo_score (
+  demo_score_id uuid constraint pk_demo_score_id primary key using index tablespace devvdex,
+  root_sig text,
+  shard_id INTEGER NOT NULL references shard,
+  block_height INTEGER NOT NULL,
+  owner_wallet uuid NOT NULL references wallet,
+  username text,
+  email text,
+  score bigint
+) tablespace devvdata;
+
 create or replace function reset_state() returns void as $$
 begin
 truncate table pending_rx cascade;
@@ -196,10 +229,14 @@ truncate table rx cascade;
 truncate table tx cascade;
 truncate table wallet_coin cascade;
 truncate table fresh_tx cascade;
+truncate table devvpay_assets;
+truncate table demo_score;
 end;
 $$ language plpgsql;
 
 insert into currency (coin_id, coin_name) values (0, 'Devv');
+insert into currency (coin_id, coin_name) values (4847372027820338543, 'Demo Score');
+insert into currency (coin_id, coin_name) values (4928475617753659713, 'DevvPay Asset');
 
 insert into devvuser (devvuser_id, devvusername, password, full_name, email) values ('00000000-0000-0000-0000-000000000000'::uuid, 'Unknown', 'Unknown', 'Unknown', 'Unknown');
 insert into account (account_id, devvuser_id, account_name) values ('00000000-0000-0000-0000-000000000000'::uuid, '00000000-0000-0000-0000-000000000000'::uuid, 'Unknown');
