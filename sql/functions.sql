@@ -60,6 +60,7 @@ declare
   to_revert tx%ROWTYPE;
   rx_revert pending_rx%ROWTYPE;
   sender uuid;
+  asset_sig text;
   revert_amount bigint;
 begin
   revert_amount := 0;
@@ -76,7 +77,14 @@ begin
     PERFORM add_balance(to_revert.tx_wallet, to_revert.coin_id, revert_amount, block_height);
     return 1;
   ELSE 
-    raise notice 'Revert signature not found.';
+    SELECT last_sig INTO asset_sig from devvpay_assets where last_sig = upper(revert_sig);
+    IF FOUND THEN
+      UPDATE devvpay_assets set block_height = height, modify_date = unixtime, reverted = true where last_sig = asset_sig;
+      UPDATE devvpay_asset_history set block_height = height, modify_date = unixtime, reverted = true where last_sig = asset_sig;
+      return 1;
+    ELSE     
+      raise notice 'Revert signature not found.';
+    END IF;
   END IF;
   return 0;
 end;
@@ -118,6 +126,8 @@ begin
     IF FOUND THEN
       UPDATE devvpay_assets set block_height = height, modify_date = unixtime where last_sig = asset_sig;
       UPDATE devvpay_assets set create_date = unixtime where root_sig = asset_sig;
+      UPDATE devvpay_asset_history set block_height = height, modify_date = unixtime where last_sig = asset_sig;
+      UPDATE devvpay_asset_history set create_date = unixtime where root_sig = asset_sig;
       return 1;
     ELSE 
       SELECT sig INTO asset_sig from demo_score where sig = upper(next_sig);
@@ -173,8 +183,15 @@ $$ language plpgsql;
 create or replace function reject_old_txs() returns int as $$
 declare
   update_count int;
-begin
+  rejecting_height int;
+begin  
   update_count := (SELECT count(*) from pending_tx where to_reject = true);
+  FOR rejecting_height in SELECT distinct(block_height) from pending_tx p where to_reject = true
+  LOOP
+    UPDATE devvpay_assets set rejected = true where create_date is null and block_height = rejecting_height;
+    UPDATE devvpay_asset_history set rejected = true where create_date is null and block_height = rejecting_height;
+    update_count := update_count + 1;
+  END LOOP;
   delete from pending_tx where to_reject = true;
   update pending_tx set to_reject = true;
   return update_count;

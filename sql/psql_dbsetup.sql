@@ -202,7 +202,33 @@ CREATE TABLE devvpay_assets (
     longitude numeric,
     create_date timestamp,
     modify_date timestamp,
-    notes text
+    notes text,
+    reverted boolean,
+    rejected boolean
+) tablespace devvdata;
+
+--devvpay_asset_history table (tracks devvpay asset history)
+CREATE TABLE devvpay_asset_history (
+    history_id uuid constraint pk_devvpay_asset_history_id primary key using index tablespace devvdex,
+    devvpay_asset_id uuid references devvpay_assets,
+    last_sig text,
+    root_sig text,
+    shard_id INTEGER NOT NULL references shard,
+    block_height INTEGER,
+    owner_wallet uuid NOT NULL references wallet,
+    last_nonce text,
+    asset_type text,
+    asset_name text,
+    is_fungible boolean,
+    sku text,
+    serial_num text,
+    latitude numeric,
+    longitude numeric,
+    create_date timestamp,
+    modify_date timestamp,
+    notes text,
+    reverted boolean,
+    rejected boolean
 ) tablespace devvdata;
 
 --demo_score table (tracks demo scores)
