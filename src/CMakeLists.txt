@@ -112,7 +112,18 @@ execute_process(COMMAND
 # generate version.cc
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/common/devv_version.cpp.in" "${CMAKE_CURRENT_BINARY_DIR}/devv_version.cpp" @ONLY)
 
-list(APPEND generated_SRC "${CMAKE_CURRENT_BINARY_DIR}/devv_version.cpp" devv_version.h)
+list(APPEND generated_SRC "${CMAKE_CURRENT_BINARY_DIR}/devv_version.cpp" "common/devv_version.h")
+
+# This list is used to install header files
+set(devv_submodules
+        common
+        concurrency
+        consensus
+        io
+        pbuf
+        primitives
+        modules
+        oracles)
 
 # Build the common module objects
 file(GLOB common_SRC "common/*.cpp" "common/*.c" ${generated_SRC})
@@ -183,7 +194,19 @@ set(devv_dep_libs
 
 add_library(devv-core SHARED ${devv_objects})
 target_link_libraries(devv-core ${devv_dep_libs})
-install (TARGETS devv-core DESTINATION lib)
+
+install(TARGETS devv-core
+        LIBRARY DESTINATION lib)
+
+# Install header files
+foreach(submodule ${devv_submodules})
+    install(DIRECTORY ${submodule} DESTINATION include FILES_MATCHING PATTERN "*.h")
+endforeach()
+
+macro(add_test_executable executable source_file)
+    add_executable(${executable} ${source_file} ${devv_objects})
+    target_link_libraries(${executable} ${devv_dep_libs})
+endmacro()
 
 macro(add_devv_executable executable source_file)
     add_executable(${executable} ${source_file} ${devv_objects})
@@ -227,13 +250,13 @@ add_devv_executable(devv-verify devv-verify.cpp)
 #
 # i/o Tests
 #
-add_devv_executable(ring_queue_test tests/concurrency/ring_queue_test.cpp)
-add_devv_executable(devv_spsc_queue_test tests/concurrency/devv_spsc_queue_test.cpp)
-add_devv_executable(boost_spsc_test tests/concurrency/boost_spsc_test.cpp)
-add_devv_executable(io_server_test tests/io/transaction_server.cpp)
-add_devv_executable(io_client_test tests/io/transaction_client.cpp)
-add_devv_executable(zmq_envelope_publisher tests/io/zmq_envelope_publisher.cpp)
-add_devv_executable(zmq_envelope_subscriber tests/io/zmq_envelope_subscriber.cpp)
+add_test_executable(ring_queue_test tests/concurrency/ring_queue_test.cpp)
+add_test_executable(devv_spsc_queue_test tests/concurrency/devv_spsc_queue_test.cpp)
+add_test_executable(boost_spsc_test tests/concurrency/boost_spsc_test.cpp)
+add_test_executable(io_server_test tests/io/transaction_server.cpp)
+add_test_executable(io_client_test tests/io/transaction_client.cpp)
+add_test_executable(zmq_envelope_publisher tests/io/zmq_envelope_publisher.cpp)
+add_test_executable(zmq_envelope_subscriber tests/io/zmq_envelope_subscriber.cpp)
 
 ######### gtest ##########
 include(${CMAKE_CURRENT_SOURCE_DIR}/gtest/CMakeLists.txt)
