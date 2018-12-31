@@ -184,8 +184,8 @@ CREATE TABLE rx_delayed (
     settle_time bigint NOT NULL
 ) tablespace devvdata;
 
---devvpay_assets table (tracks devvpay assets)
-CREATE TABLE devvpay_assets (
+--devvpay_asset table (tracks the current chainstate of a devvpay asset)
+CREATE TABLE devvpay_asset (
     devvpay_asset_id uuid constraint pk_devvpay_asset_id primary key using index tablespace devvdex,
     last_sig text,
     root_sig text,
@@ -193,16 +193,8 @@ CREATE TABLE devvpay_assets (
     block_height INTEGER,
     owner_wallet uuid NOT NULL references wallet,
     last_nonce text,
-    asset_type text,
-    asset_name text,
-    is_fungible boolean,
-    sku text,
-    serial_num text,
-    latitude numeric,
-    longitude numeric,
     create_date timestamp,
     modify_date timestamp,
-    notes text,
     reverted boolean,
     rejected boolean
 ) tablespace devvdata;

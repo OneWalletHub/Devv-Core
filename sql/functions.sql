@@ -61,6 +61,7 @@ declare
   rx_revert pending_rx%ROWTYPE;
   sender uuid;
   asset_sig text;
+  asset devvpay_asset_history%ROWTYPE;
   revert_amount bigint;
 begin
   revert_amount := 0;
@@ -77,11 +78,15 @@ begin
     PERFORM add_balance(to_revert.tx_wallet, to_revert.coin_id, revert_amount, block_height);
     return 1;
   ELSE 
-    SELECT last_sig INTO asset_sig from devvpay_assets where last_sig = upper(revert_sig);
+    SELECT * INTO asset_sig from devvpay_asset_history where last_sig = upper(revert_sig);
     IF FOUND THEN
-      UPDATE devvpay_assets set block_height = height, modify_date = unixtime, reverted = true where last_sig = asset_sig;
-      UPDATE devvpay_asset_history set block_height = height, modify_date = unixtime, reverted = true where last_sig = asset_sig;
-      return 1;
+      UPDATE devvpay_asset_history set block_height = height, modify_date = unixtime, reverted = true where last_sig = upper(revert_sig);
+      SELECT m.* INTO asset from devvpay_asset_history a, (select block_height, root_sig from devvpay_asset_history where last_sig = upper(revert_sig) and reverted = false) r where a.root_sig = r.root_sig and a.block_height = max(r.block_height);
+      IF FOUND THEN
+        UPDATE devvpay_asset set block_height = asset.block_height, modify_date = unixtime, reverted = true, last_nonce = asset.last_nonce where last_sig = upper(revert_sig);
+        return 1;
+      END IF;
+      return 0;
     ELSE     
       raise notice 'Revert signature not found.';
     END IF;
