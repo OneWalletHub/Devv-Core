@@ -202,7 +202,7 @@ CREATE TABLE devvpay_asset (
 --devvpay_asset_history table (tracks devvpay asset history)
 CREATE TABLE devvpay_asset_history (
     history_id uuid constraint pk_devvpay_asset_history_id primary key using index tablespace devvdex,
-    devvpay_asset_id uuid references devvpay_assets,
+    devvpay_asset_id uuid references devvpay_asset,
     last_sig text,
     root_sig text,
     shard_id INTEGER NOT NULL references shard,
@@ -247,7 +247,7 @@ truncate table rx cascade;
 truncate table tx cascade;
 truncate table wallet_coin cascade;
 truncate table fresh_tx cascade;
-truncate table devvpay_assets;
+truncate table devvpay_asset;
 truncate table demo_score;
 end;
 $$ language plpgsql;

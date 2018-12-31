@@ -54,7 +54,7 @@ begin
 end;
 $$ language plpgsql;
 
-create or replace function handle_revert(revert_sig text, shard_id int, block_height int, block_time bigint) returns int as $$
+create or replace function handle_revert(revert_sig text, shard_id int, current_height int, block_time bigint) returns int as $$
 declare
   inn_comment text;
   to_revert tx%ROWTYPE;
@@ -67,24 +67,29 @@ begin
   revert_amount := 0;
   SELECT * INTO to_revert from tx where sig = upper(revert_sig) limit 1;
   IF FOUND THEN
-    INSERT INTO reverted_tx (reverted_tx_id, sig, shard_id, block_height, block_time, tx_wallet, coin_id, amount, nonce, comment) (SELECT to_revert.tx_id, upper(revert_sig), shard, height, block_time, to_revert.tx_wallet, to_revert.coin_id, to_revert.amount, to_revert.nonce, to_revert.comment);
+    INSERT INTO reverted_tx (reverted_tx_id, sig, shard_id, block_height, block_time, tx_wallet, coin_id, amount, nonce, comment) (SELECT to_revert.tx_id, upper(revert_sig), shard, current_height, block_time, to_revert.tx_wallet, to_revert.coin_id, to_revert.amount, to_revert.nonce, to_revert.comment);
     FOR rx_revert IN SELECT * from pending_rx where sig = upper(revert_sig) 
     LOOP
-      INSERT INTO reverted_rx (reverted_rx_id, shard_id, block_height, block_time, tx_wallet, rx_wallet, coin_id, amount, comment, tx_id) (SELECT rx_revert.pending_tx_id, shard_id, block_height, block_time, rx_revert.tx_wallet, rx_revert.rx_wallet, rx_revert.coin_id, rx_revert.amount, rx_revert.comment, to_revert.tx_id);
+      INSERT INTO reverted_rx (reverted_rx_id, shard_id, block_height, block_time, tx_wallet, rx_wallet, coin_id, amount, comment, tx_id) (SELECT rx_revert.pending_tx_id, shard_id, current_height, block_time, rx_revert.tx_wallet, rx_revert.rx_wallet, rx_revert.coin_id, rx_revert.amount, rx_revert.comment, to_revert.tx_id);
       DELETE FROM rx_delayed where rx_pending_id = rx_revert.rx_pending_id;
       revert_amount := revert_amount + rx_revert.amount;
     END LOOP;
     DELETE FROM pending_rx where sig = upper(revert_sig);
-    PERFORM add_balance(to_revert.tx_wallet, to_revert.coin_id, revert_amount, block_height);
+    PERFORM add_balance(to_revert.tx_wallet, to_revert.coin_id, revert_amount, current_height);
     return 1;
   ELSE 
     SELECT * INTO asset_sig from devvpay_asset_history where last_sig = upper(revert_sig);
     IF FOUND THEN
-      UPDATE devvpay_asset_history set block_height = height, modify_date = unixtime, reverted = true where last_sig = upper(revert_sig);
+      UPDATE devvpay_asset_history set block_height = current_height, modify_date = unixtime, reverted = true where last_sig = upper(revert_sig);
       SELECT m.* INTO asset from devvpay_asset_history a, (select block_height, root_sig from devvpay_asset_history where last_sig = upper(revert_sig) and reverted = false) r where a.root_sig = r.root_sig and a.block_height = max(r.block_height);
       IF FOUND THEN
-        UPDATE devvpay_asset set block_height = asset.block_height, modify_date = unixtime, reverted = true, last_nonce = asset.last_nonce where last_sig = upper(revert_sig);
+        --if history is available, update to that last_sig reference
+        UPDATE devvpay_asset set block_height = asset.block_height, modify_date = unixtime, reverted = false, last_nonce = asset.last_nonce where last_sig = upper(revert_sig);
         return 1;
+      ELSE
+        --if no history available, asset is completely reverted
+        UPDATE devvpay_asset set block_height = current_height, modify_date = unixtime, reverted = true where last_sig = upper(revert_sig);
+        return -1;
       END IF;
       return 0;
     ELSE     
@@ -127,10 +132,10 @@ begin
     END IF;
     return 1;
   ELSE 
-    SELECT last_sig INTO asset_sig from devvpay_assets where last_sig = upper(next_sig);
+    SELECT last_sig INTO asset_sig from devvpay_asset where last_sig = upper(next_sig);
     IF FOUND THEN
-      UPDATE devvpay_assets set block_height = height, modify_date = unixtime where last_sig = asset_sig;
-      UPDATE devvpay_assets set create_date = unixtime where root_sig = asset_sig;
+      UPDATE devvpay_asset set block_height = height, modify_date = unixtime where last_sig = asset_sig;
+      UPDATE devvpay_asset set create_date = unixtime where root_sig = asset_sig;
       UPDATE devvpay_asset_history set block_height = height, modify_date = unixtime where last_sig = asset_sig;
       UPDATE devvpay_asset_history set create_date = unixtime where root_sig = asset_sig;
       return 1;
@@ -193,7 +198,7 @@ begin
   update_count := (SELECT count(*) from pending_tx where to_reject = true);
   FOR rejecting_height in SELECT distinct(block_height) from pending_tx p where to_reject = true
   LOOP
-    UPDATE devvpay_assets set rejected = true where create_date is null and block_height = rejecting_height;
+    UPDATE devvpay_asset set rejected = true where create_date is null and block_height = rejecting_height;
     UPDATE devvpay_asset_history set rejected = true where create_date is null and block_height = rejecting_height;
     update_count := update_count + 1;
   END LOOP;
