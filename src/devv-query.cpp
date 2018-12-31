@@ -41,8 +41,7 @@ typedef std::chrono::milliseconds millisecs;
 struct repeater_options {
   std::vector<std::string> host_vector{};
   std::string protobuf_endpoint;
-  eAppMode mode = eAppMode::T1;
-  unsigned int node_index = 0;
+  eAppMode mode = eAppMode::T2;
   unsigned int shard_index = 0;
   unsigned int pad_amount = 0;
   std::string shard_name;
@@ -87,7 +86,7 @@ int main(int argc, char* argv[]) {
 
     zmq::context_t zmq_context(1);
 
-    DevvContext this_context(options->node_index, options->shard_index, options->mode, options->inn_keys,
+    DevvContext this_context(0, options->shard_index, options->mode, options->inn_keys,
                                 options->node_keys, options->key_pass);
     KeyRing keys(this_context);
 
@@ -234,7 +233,6 @@ Listens for FinalBlock messages and saves them to a file\n\
     behavior.add_options()
         ("debug-mode", po::value<std::string>(), "Debug mode (on|toy|perf) for testing")
         ("mode", po::value<std::string>(), "Devv mode (T1|T2|scan)")
-        ("node-index", po::value<unsigned int>(), "Index of this node")
         ("shard-index", po::value<unsigned int>(), "Index of this shard")
         ("shard-name", po::value<std::string>(), "Name of this shard")
         ("num-consensus-threads", po::value<unsigned int>(), "Number of consensus threads")
@@ -313,13 +311,6 @@ Listens for FinalBlock messages and saves them to a file\n\
       LOG_INFO << "debug_mode: " << options->debug_mode;
     } else {
       LOG_INFO << "debug_mode was not set.";
-    }
-
-    if (vm.count("node-index")) {
-      options->node_index = vm["node-index"].as<unsigned int>();
-      LOG_INFO << "Node index: " << options->node_index;
-    } else {
-      LOG_INFO << "Node index was not set.";
     }
 
     if (vm.count("shard-index")) {

@@ -192,7 +192,6 @@ CREATE TABLE devvpay_asset (
     shard_id INTEGER NOT NULL references shard,
     block_height INTEGER,
     owner_wallet uuid NOT NULL references wallet,
-    last_nonce text,
     create_date timestamp,
     modify_date timestamp,
     reverted boolean DEFAULT false,
@@ -260,4 +259,4 @@ insert into devvuser (devvuser_id, devvusername, password, full_name, email) val
 insert into account (account_id, devvuser_id, account_name) values ('00000000-0000-0000-0000-000000000000'::uuid, '00000000-0000-0000-0000-000000000000'::uuid, 'Unknown');
 insert into shard (shard_name) values ('Shard-0');
 insert into shard (shard_name) values ('Shard-1');
-insert into wallet (wallet_id, wallet_addr, account_id, shard_id, wallet_name) values ('00000000-0000-0000-0000-000000000000'::uuid, '00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000'::uuid, 0, 'INN');
+insert into wallet (wallet_id, wallet_addr, account_id, shard_id, wallet_name) values ('00000000-0000-0000-0000-000000000000'::uuid, '0272B05D9A8CF6E1565B965A5CCE6FF88ABD0C250BC17AB23745D512095C2AFCDB3640A2CBA7665F0FAADC26B96E8B8A9D', '00000000-0000-0000-0000-000000000000'::uuid, 0, 'INN');

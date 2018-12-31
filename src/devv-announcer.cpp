@@ -78,7 +78,7 @@ int main(int argc, char* argv[]) {
 
     zmq::context_t context(1);
 
-    DevvContext this_context(options->node_index,
+    DevvContext this_context(0,
                                 options->shard_index,
                                 options->mode,
                                 options->inn_keys,
