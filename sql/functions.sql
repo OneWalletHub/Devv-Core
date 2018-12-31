@@ -54,14 +54,38 @@ begin
 end;
 $$ language plpgsql;
 
+create or replace function handle_revert_asset() returns int as $$
+declare
+  asset_sig text;
+  asset devvpay_asset_history%ROWTYPE;
+begin
+  SELECT * INTO asset_sig from devvpay_asset_history where last_sig = upper(revert_sig);
+  IF FOUND THEN
+    UPDATE devvpay_asset_history set block_height = current_height, modify_date = unixtime, reverted = true where last_sig = upper(revert_sig);
+    SELECT m.* INTO asset from devvpay_asset_history a, (select block_height, root_sig from devvpay_asset_history where last_sig = upper(revert_sig) and reverted = false and rejected = false) r where a.root_sig = r.root_sig and a.block_height = max(r.block_height);
+    IF FOUND THEN
+      --if history is available, update to that last_sig reference
+      UPDATE devvpay_asset set block_height = asset.block_height, modify_date = unixtime, last_nonce = asset.last_nonce where last_sig = upper(revert_sig);
+      return 1;
+    ELSE
+      --if no history available, asset is completely reverted
+      UPDATE devvpay_asset set block_height = current_height, modify_date = unixtime, reverted = true where last_sig = upper(revert_sig);
+      return -1;
+    END IF;
+    return 0;
+  ELSE 
+    raise notice 'Revert signature not found.';
+  END IF;
+  return 0;
+end;
+$$ language plpgsql;
+
 create or replace function handle_revert(revert_sig text, shard_id int, current_height int, block_time bigint) returns int as $$
 declare
   inn_comment text;
   to_revert tx%ROWTYPE;
   rx_revert pending_rx%ROWTYPE;
   sender uuid;
-  asset_sig text;
-  asset devvpay_asset_history%ROWTYPE;
   revert_amount bigint;
 begin
   revert_amount := 0;
@@ -78,23 +102,7 @@ begin
     PERFORM add_balance(to_revert.tx_wallet, to_revert.coin_id, revert_amount, current_height);
     return 1;
   ELSE 
-    SELECT * INTO asset_sig from devvpay_asset_history where last_sig = upper(revert_sig);
-    IF FOUND THEN
-      UPDATE devvpay_asset_history set block_height = current_height, modify_date = unixtime, reverted = true where last_sig = upper(revert_sig);
-      SELECT m.* INTO asset from devvpay_asset_history a, (select block_height, root_sig from devvpay_asset_history where last_sig = upper(revert_sig) and reverted = false) r where a.root_sig = r.root_sig and a.block_height = max(r.block_height);
-      IF FOUND THEN
-        --if history is available, update to that last_sig reference
-        UPDATE devvpay_asset set block_height = asset.block_height, modify_date = unixtime, reverted = false, last_nonce = asset.last_nonce where last_sig = upper(revert_sig);
-        return 1;
-      ELSE
-        --if no history available, asset is completely reverted
-        UPDATE devvpay_asset set block_height = current_height, modify_date = unixtime, reverted = true where last_sig = upper(revert_sig);
-        return -1;
-      END IF;
-      return 0;
-    ELSE     
-      raise notice 'Revert signature not found.';
-    END IF;
+    return handle_revert_asset(revert_sig, shard_id, current_height, block_time);
   END IF;
   return 0;
 end;
