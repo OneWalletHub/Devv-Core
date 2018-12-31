@@ -45,7 +45,6 @@ struct announcer_options {
   std::string bind_endpoint;
   std::string protobuf_endpoint;
   eAppMode mode;
-  unsigned int node_index;
   unsigned int shard_index;
   std::string inn_keys;
   std::string node_keys;
@@ -230,7 +229,6 @@ annouonces them to nodes provided by the host-list arguments.\n\
     behavior.add_options()
         ("debug-mode", po::value<std::string>(), "Debug mode (on|toy|perf) for testing")
         ("mode", po::value<std::string>(), "Devv mode (T1|T2|scan)")
-        ("node-index", po::value<unsigned int>(), "Index of this node")
         ("shard-index", po::value<unsigned int>(), "Index of this shard")
         ("bind-endpoint", po::value<std::string>(), "Endpoint for validator server (i.e. tcp://*:5556)")
         ("protobuf-endpoint", po::value<std::string>(), "Endpoint for protobuf server (i.e. tcp://*:5557)")
@@ -310,13 +308,6 @@ annouonces them to nodes provided by the host-list arguments.\n\
       LOG_INFO << "debug_mode: " << options->debug_mode;
     } else {
       LOG_INFO << "debug_mode was not set.";
-    }
-
-    if (vm.count("node-index")) {
-      options->node_index = vm["node-index"].as<unsigned int>();
-      LOG_INFO << "Node index: " << options->node_index;
-    } else {
-      LOG_INFO << "Node index was not set.";
     }
 
     if (vm.count("shard-index")) {
