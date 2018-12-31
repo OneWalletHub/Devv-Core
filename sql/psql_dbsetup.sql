@@ -195,8 +195,8 @@ CREATE TABLE devvpay_asset (
     last_nonce text,
     create_date timestamp,
     modify_date timestamp,
-    reverted boolean,
-    rejected boolean
+    reverted boolean DEFAULT false,
+    rejected boolean DEFAULT false
 ) tablespace devvdata;
 
 --devvpay_asset_history table (tracks devvpay asset history)
@@ -219,8 +219,8 @@ CREATE TABLE devvpay_asset_history (
     create_date timestamp,
     modify_date timestamp,
     notes text,
-    reverted boolean,
-    rejected boolean
+    reverted boolean DEFAULT false,
+    rejected boolean DEFAULT false
 ) tablespace devvdata;
 
 --demo_score table (tracks demo scores)
