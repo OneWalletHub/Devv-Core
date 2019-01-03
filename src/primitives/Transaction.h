@@ -208,6 +208,12 @@ class Transaction {
    */
   std::string getJSON() const { return do_getJSON(); }
 
+  /**
+   * @note Check the TierXTransaction subtypes for operation semantics.
+   * @return a byte indicating the operation performed by this transaction.
+   */
+  byte getOperation() const { return do_getOperation(); }
+
  protected:
   /**
    * Default Constructor
@@ -239,6 +245,8 @@ class Transaction {
       , const ChainState& prior) const = 0;
 
   virtual std::string do_getJSON() const = 0;
+
+  virtual byte do_getOperation() const = 0;
 };
 
 typedef std::unique_ptr<Transaction> TransactionPtr;

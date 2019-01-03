@@ -355,6 +355,12 @@ class Tier1Transaction : public Transaction {
     return json;
   }
 
+  /**
+   * Returns 0, Tier1Transactions must be only the 'Aggregate' operation at the moment
+   * @return
+   */
+  byte do_getOperation() const { return 0; }
+
 };
 
 typedef std::unique_ptr<Tier1Transaction> Tier1TransactionPtr;
