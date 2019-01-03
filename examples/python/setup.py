@@ -6,9 +6,9 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="devv-cli",
-    version="0.0.1",
-    author="Shawn McKenney",
-    author_email="shawn.mckenney@emmion.com",
+    version="0.0.2",
+    author="Devvio",
+    author_email="security@devv.io",
     description="Python tools for the devv network",
     long_description=long_description,
     long_description_content_type="text/markdown",
