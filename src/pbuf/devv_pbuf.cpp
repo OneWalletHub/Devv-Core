@@ -153,7 +153,9 @@ std::vector<TransactionPtr> DecomposeProposal(const devv::proto::Proposal& propo
     std::vector<TransactionPtr> actions = ValidateOracle(oracle, chain, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));*/
   } else if (oracle_name == devvprotect::GetOracleName()) {
-    TransactionPtr one_tx = DeserializeTxProtobufString(proposal.data(), keys, false);
+    devv::proto::Transaction tx;
+    tx.ParseFromString(proposal.data());
+    auto one_tx = CreateTransaction(tx, keys);
     devvprotect oracle(Bin2Str(one_tx->getCanonical()));
     std::vector<TransactionPtr> actions = ValidateOracle(oracle, chain, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));
