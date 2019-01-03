@@ -77,6 +77,8 @@ struct key_tuple ReadKeyFile(const fs::path& path) {
     sizeof_walletkey_in_file = sizeof_walletkey_in_file + 20;
   } else if (keyfile_string.size() == expected_sizeof_node_keyfile) {
     // expected size of node keyfile
+  } else if (keyfile_string.size() == expected_sizeof_node_keyfile + 1) {
+    // expected size of node keyfile + 1 for newline
   } else {
     std::string err = "The key file size is not supported: "+std::to_string(keyfile_string.size());
     throw std::runtime_error(err);
