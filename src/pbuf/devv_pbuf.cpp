@@ -98,6 +98,16 @@ Tier2TransactionPtr CreateTransaction(const devv::proto::Transaction& transactio
   return t2tx_ptr;
 }
 
+TransactionPtr DeserializeTxProtobufString(const std::string& pb_tx, const KeyRing& keys, bool do_sign) {
+
+  devv::proto::Transaction tx;
+  tx.ParseFromString(pb_tx);
+
+  auto t2tx_ptr = CreateTransaction(tx, keys, do_sign);
+
+  return t2tx_ptr;
+}
+
 std::vector<TransactionPtr> ValidateOracle(oracleInterface& oracle
                                     , const Blockchain& chain
                                     , const KeyRing& keys) {
@@ -143,7 +153,8 @@ std::vector<TransactionPtr> DecomposeProposal(const devv::proto::Proposal& propo
     std::vector<TransactionPtr> actions = ValidateOracle(oracle, chain, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));*/
   } else if (oracle_name == devvprotect::GetOracleName()) {
-    devvprotect oracle(proposal.data());
+    TransactionPtr one_tx = DeserializeTxProtobufString(proposal.data(), keys, false);
+    devvprotect oracle(Bin2Str(one_tx->getCanonical()));
     std::vector<TransactionPtr> actions = ValidateOracle(oracle, chain, keys);
     ptrs.insert(ptrs.end(), std::make_move_iterator(actions.begin()), std::make_move_iterator(actions.end()));
   /*} else if (oracle_name == dneroavailable::GetOracleName()) {
@@ -194,16 +205,6 @@ std::vector<TransactionPtr> DeserializeEnvelopeProtobufString(
   }
 
   return ptrs;
-}
-
-TransactionPtr DeserializeTxProtobufString(const std::string& pb_tx, const KeyRing& keys, bool do_sign) {
-
-  devv::proto::Transaction tx;
-  tx.ParseFromString(pb_tx);
-
-  auto t2tx_ptr = CreateTransaction(tx, keys, do_sign);
-
-  return t2tx_ptr;
 }
 
 devv::proto::AnnouncerResponse SerializeAnnouncerResponse(const AnnouncerResponsePtr& response_ptr) {
