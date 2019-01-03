@@ -99,7 +99,8 @@ void PSQLInterface::handleNextBlock(ConstFinalBlockSharedPtr next_block
       std::string receiver_hex;
       uint64_t coin_id = 0;
       int64_t amount = 0;
-      std::string oracle_name = "io.devv.coin_request";
+      byte oper = one_tx->getOperation();
+      std::string oracle_name = "";
 
       for (TransferPtr& one_xfer : xfers) {
         if (one_xfer->getAmount() < 0) {
@@ -109,7 +110,15 @@ void PSQLInterface::handleNextBlock(ConstFinalBlockSharedPtr next_block
           coin_id = one_xfer->getCoin();
           amount = one_xfer->getAmount();
         }
-        LOG_DEBUG << "coin_request: shard(" << std::to_string(shard_) << ")"
+
+        if (coin_id == 0 && oper == eOpType::Create) {
+          oracle_name = "io.devv.coin_request";
+        } else if (oper == eOpType::Revert) {
+          oracle_name = "revert";
+        } else {
+          oracle_name = "";
+        }
+        LOG_DEBUG << "finalize transaction: shard(" << std::to_string(shard_) << ")"
                   << " block_height(" << std::to_string(block_height) << ")"
                   << " block_time(" << std::to_string(blocktime) << ")"
                   << " sig_hex(" << sig_hex << ")"
