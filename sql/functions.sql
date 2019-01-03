@@ -54,25 +54,108 @@ begin
 end;
 $$ language plpgsql;
 
+create or replace function handle_revert_asset() returns int as $$
+declare
+  asset_sig text;
+  asset devvpay_asset_history%ROWTYPE;
+begin
+  SELECT * INTO asset_sig from devvpay_asset_history where last_sig = upper(revert_sig);
+  IF FOUND THEN
+    UPDATE devvpay_asset_history set block_height = current_height, modify_date = unixtime, reverted = true where last_sig = upper(revert_sig);
+    SELECT m.* INTO asset from devvpay_asset_history a, (select block_height, root_sig from devvpay_asset_history where last_sig = upper(revert_sig) and reverted = false and rejected = false) r where a.root_sig = r.root_sig and a.block_height = max(r.block_height);
+    IF FOUND THEN
+      --if history is available, update to that last_sig reference
+      UPDATE devvpay_asset set block_height = asset.block_height, modify_date = unixtime, last_nonce = asset.last_nonce where last_sig = upper(revert_sig);
+      return 1;
+    ELSE
+      --if no history available, asset is completely reverted
+      UPDATE devvpay_asset set block_height = current_height, modify_date = unixtime, reverted = true where last_sig = upper(revert_sig);
+      return -1;
+    END IF;
+    return 0;
+  ELSE 
+    raise notice 'Revert signature not found.';
+  END IF;
+  return 0;
+end;
+$$ language plpgsql;
+
+create or replace function handle_revert(revert_sig text, shard_id int, current_height int, block_time bigint) returns int as $$
+declare
+  inn_comment text;
+  to_revert tx%ROWTYPE;
+  rx_revert pending_rx%ROWTYPE;
+  sender uuid;
+  revert_amount bigint;
+begin
+  revert_amount := 0;
+  SELECT * INTO to_revert from tx where sig = upper(revert_sig) limit 1;
+  IF FOUND THEN
+    INSERT INTO reverted_tx (reverted_tx_id, sig, shard_id, block_height, block_time, tx_wallet, coin_id, amount, nonce, comment) (SELECT to_revert.tx_id, upper(revert_sig), shard, current_height, block_time, to_revert.tx_wallet, to_revert.coin_id, to_revert.amount, to_revert.nonce, to_revert.comment);
+    FOR rx_revert IN SELECT * from pending_rx where sig = upper(revert_sig) 
+    LOOP
+      INSERT INTO reverted_rx (reverted_rx_id, shard_id, block_height, block_time, tx_wallet, rx_wallet, coin_id, amount, comment, tx_id) (SELECT rx_revert.pending_tx_id, shard_id, current_height, block_time, rx_revert.tx_wallet, rx_revert.rx_wallet, rx_revert.coin_id, rx_revert.amount, rx_revert.comment, to_revert.tx_id);
+      DELETE FROM rx_delayed where rx_pending_id = rx_revert.rx_pending_id;
+      revert_amount := revert_amount + rx_revert.amount;
+    END LOOP;
+    DELETE FROM pending_rx where sig = upper(revert_sig);
+    PERFORM add_balance(to_revert.tx_wallet, to_revert.coin_id, revert_amount, current_height);
+    return 1;
+  ELSE 
+    return handle_revert_asset(revert_sig, shard_id, current_height, block_time);
+  END IF;
+  return 0;
+end;
+$$ language plpgsql;
+
 create or replace function handle_default_tx(next_sig text, shard int, height int, blocktime bigint) returns int as $$
 declare
   pending_tx_row pending_tx%ROWTYPE;
   pending_rx_row pending_rx%ROWTYPE;
+  asset_sig text;
+  unixtime bigint;
+  rx_delay bigint;
+  has_delays boolean;
 begin
+  has_delays := 'false';
+  SELECT (extract(epoch from now()) * 1000) INTO unixtime;
   SELECT * INTO pending_tx_row from pending_tx where sig = upper(next_sig);
   IF FOUND THEN
     PERFORM add_balance(pending_tx_row.tx_wallet, pending_tx_row.coin_id, pending_tx_row.amount, height);
-    INSERT INTO tx (tx_id, shard_id, block_height, block_time, tx_wallet, coin_id, amount, comment) (SELECT pending_tx_row.pending_tx_id, shard, height, blocktime, pending_tx_row.tx_wallet, pending_tx_row.coin_id, pending_tx_row.amount, pending_tx_row.comment);
-    for pending_rx_row in select * from pending_rx where sig = upper(next_sig)
+    INSERT INTO tx (tx_id, sig, shard_id, block_height, block_time, tx_wallet, coin_id, amount, nonce, comment) (SELECT pending_tx_row.pending_tx_id, upper(next_sig), shard, height, blocktime, pending_tx_row.tx_wallet, pending_tx_row.coin_id, pending_tx_row.amount, pending_tx_row.nonce, pending_tx_row.comment);
+    FOR pending_rx_row IN SELECT * from pending_rx where sig = upper(next_sig)
     LOOP
-      perform add_balance(pending_rx_row.rx_wallet, pending_rx_row.coin_id, pending_rx_row.amount, height);
-      INSERT INTO rx (rx_id, shard_id, block_height, block_time, tx_wallet, rx_wallet, coin_id, amount, delay, comment, tx_id) (SELECT pending_rx_row.pending_rx_id, shard, height, blocktime, pending_tx_row.tx_wallet, pending_rx_row.rx_wallet, pending_rx_row.coin_id, pending_rx_row.amount, 0, pending_rx_row.comment, pending_tx_row.pending_tx_id);
+      SELECT delay INTO rx_delay from pending_rx where sig = upper(next_sig);      
+      IF rx_delay < unixtime-blocktime THEN 
+        PERFORM add_balance(pending_rx_row.rx_wallet, pending_rx_row.coin_id, pending_rx_row.amount, height);        
+        INSERT INTO rx (rx_id, shard_id, block_height, block_time, tx_wallet, rx_wallet, coin_id, amount, delay, comment, tx_id) (SELECT pending_rx_row.pending_rx_id, shard, height, blocktime, pending_tx_row.tx_wallet, pending_rx_row.rx_wallet, pending_rx_row.coin_id, pending_rx_row.amount, 0, pending_rx_row.comment, pending_tx_row.pending_tx_id);
+        DELETE FROM pending_rx where sig = upper(next_sig);
+      ELSE
+        INSERT INTO rx_delayed (rx_delayed_id, pending_rx_id, settle_time) (SELECT devv_uuid(), pending_rx_row.pending_rx_id, rx_delay+blocktime);
+        has_delays := 'true';
+      END IF;
     END LOOP;
-    delete from pending_rx where sig = upper(next_sig);
-    delete from pending_tx where sig = upper(next_sig);
+    IF NOT has_delays THEN
+      DELETE FROM pending_tx where sig = upper(next_sig);
+    END IF;
     return 1;
   ELSE 
-    raise notice 'Transaction not initialized.';
+    SELECT last_sig INTO asset_sig from devvpay_asset where last_sig = upper(next_sig);
+    IF FOUND THEN
+      UPDATE devvpay_asset set block_height = height, modify_date = unixtime where last_sig = asset_sig;
+      UPDATE devvpay_asset set create_date = unixtime where root_sig = asset_sig;
+      UPDATE devvpay_asset_history set block_height = height, modify_date = unixtime where last_sig = asset_sig;
+      UPDATE devvpay_asset_history set create_date = unixtime where root_sig = asset_sig;
+      return 1;
+    ELSE 
+      SELECT sig INTO asset_sig from demo_score where sig = upper(next_sig);
+      IF FOUND THEN
+        UPDATE demo_score set block_height = height where sig = asset_sig;
+        return 1;
+      ELSE 
+        raise notice 'Transaction not initialized.';
+      END IF;
+    END IF;
   END IF;
   return 0;
 end;
@@ -81,27 +164,52 @@ $$ language plpgsql;
 create or replace function update_for_block(height int) returns int as $$
 declare
   update_count int;
+  settle_count int;
+  blocktime bigint;
   tx RECORD;
+  rx RECORD;
+  check_rx RECORD;
 begin
   update_count := 0;
+  settle_count := 0;
   FOR tx IN SELECT * from fresh_tx where block_height = height
   LOOP
+    blocktime := tx.block_time;
     IF tx.oracle_name = 'io.devv.coin_request' THEN
       update_count := handle_coin_request(tx.rx_addr, tx.shard_id, tx.block_height, tx.block_time)+update_count;
+    ELSIF tx.oracle_name = 'revert' THEN
+      update_count := handle_revert(tx.nonce, tx.shard_id, tx.block_height, tx.block_time)+update_count;
     ELSE
       update_count := handle_default_tx(tx.sig, tx.shard_id, tx.block_height, tx.block_time)+update_count;
     END IF;
   END LOOP;
-  delete from fresh_tx where block_height = height;
-  return update_count;
+  DELETE FROM fresh_tx where block_height = height;
+  FOR rx IN SELECT * from rx_delayed d, pending_rx p where d.settle_time < blocktime and p.pending_rx_id = d.pending_rx_id
+  LOOP
+    INSERT INTO rx (rx_id, shard_id, block_height, block_time, tx_wallet, rx_wallet, coin_id, amount, delay, comment, tx_id) (SELECT rx.pending_rx_id, rx.shard_id, height, blocktime, rx.tx_wallet, rx.rx_wallet, rx.coin_id, rx.amount, 0, rx.comment, rx.pending_tx_id);
+    DELETE FROM rx_delayed where rx_delayed_id = rx.rx_delayed_id;
+    DELETE FROM pending_rx where pending_rx_id = rx.pending_rx_id;
+    SELECT * INTO check_rx from pending_rx where pending_tx_id = rx.pending_tx_id;
+    IF NOT FOUND THEN
+      DELETE FROM pending_tx where pending_tx_id = rx.pending_tx_id;
+    END IF;
+  END LOOP;
+  return update_count+settle_count;
 end;
 $$ language plpgsql;
 
 create or replace function reject_old_txs() returns int as $$
 declare
   update_count int;
-begin
+  rejecting_height int;
+begin  
   update_count := (SELECT count(*) from pending_tx where to_reject = true);
+  FOR rejecting_height in SELECT distinct(block_height) from pending_tx p where to_reject = true
+  LOOP
+    UPDATE devvpay_asset set rejected = true where create_date is null and block_height = rejecting_height;
+    UPDATE devvpay_asset_history set rejected = true where create_date is null and block_height = rejecting_height;
+    update_count := update_count + 1;
+  END LOOP;
   delete from pending_tx where to_reject = true;
   update pending_tx set to_reject = true;
   return update_count;

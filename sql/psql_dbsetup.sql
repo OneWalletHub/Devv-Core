@@ -64,12 +64,14 @@ CREATE TABLE wallet_coin (
 --tx table (debits from customer's account's wallet)
 CREATE TABLE tx (
     tx_id uuid constraint pk_txid primary key using index tablespace devvdex,
-    shard_id INTEGER NOT NULL references shard,
+    sig text,
+    shard_id INTEGER NOT NULL references shard,    
     block_height INTEGER NOT NULL,
     block_time bigint not null,
     tx_wallet uuid NOT NULL references wallet,
     coin_id BIGINT NOT NULL references currency,
     amount BIGINT,
+    nonce text,
     comment text
 ) tablespace devvdata;
 
@@ -105,6 +107,7 @@ CREATE TABLE pending_tx (
     tx_wallet uuid NOT NULL references wallet,
     coin_id BIGINT NOT NULL references currency,
     amount BIGINT,
+    nonce text,
     comment text,
     to_reject boolean
 ) tablespace devvdata;
@@ -131,6 +134,31 @@ CREATE TABLE rejected_tx (
     tx_wallet uuid NOT NULL references wallet,
     coin_id BIGINT NOT NULL references currency,
     amount BIGINT,
+    nonce text,
+    comment text    
+) tablespace devvdata;
+
+--reverted_tx table (tracks txs reverted by senders)
+CREATE TABLE reverted_tx (
+    reverted_tx_id uuid constraint pk_reverted_txid primary key using index tablespace devvdex,
+    sig text unique not null,
+    shard_id INTEGER NOT NULL references shard,
+    tx_wallet uuid NOT NULL references wallet,
+    coin_id BIGINT NOT NULL references currency,
+    amount BIGINT,
+    nonce text,
+    comment text    
+) tablespace devvdata;
+
+--reverted_rx table (tracks rxs reverted by senders)
+CREATE TABLE reverted_rx (
+    reverted_rx_id uuid constraint pk_reverted_rxid primary key using index tablespace devvdex,
+    sig text unique not null,
+    shard_id INTEGER NOT NULL references shard,
+    tx_wallet uuid NOT NULL references wallet,
+    rx_wallet uuid NOT NULL references wallet,
+    coin_id BIGINT NOT NULL references currency,
+    amount BIGINT,
     comment text    
 ) tablespace devvdata;
 
@@ -149,22 +177,86 @@ CREATE TABLE fresh_tx (
     oracle_name text
 ) tablespace devvdata;
 
+--rx_delayed table (tracks pending settlements)
+CREATE TABLE rx_delayed (
+    rx_delayed_id uuid constraint pk_rx_delayed_id primary key using index tablespace devvdex,   
+    pending_rx_id uuid NOT NULL references pending_rx,
+    settle_time bigint NOT NULL
+) tablespace devvdata;
+
+--devvpay_asset table (tracks the current chainstate of a devvpay asset)
+CREATE TABLE devvpay_asset (
+    devvpay_asset_id uuid constraint pk_devvpay_asset_id primary key using index tablespace devvdex,
+    last_sig text,
+    root_sig text,
+    shard_id INTEGER NOT NULL references shard,
+    block_height INTEGER,
+    owner_wallet uuid NOT NULL references wallet,
+    create_date timestamp,
+    modify_date timestamp,
+    reverted boolean DEFAULT false,
+    rejected boolean DEFAULT false
+) tablespace devvdata;
+
+--devvpay_asset_history table (tracks devvpay asset history)
+CREATE TABLE devvpay_asset_history (
+    history_id uuid constraint pk_devvpay_asset_history_id primary key using index tablespace devvdex,
+    devvpay_asset_id uuid references devvpay_asset,
+    last_sig text,
+    root_sig text,
+    shard_id INTEGER NOT NULL references shard,
+    block_height INTEGER,
+    owner_wallet uuid NOT NULL references wallet,
+    last_nonce text,
+    asset_type text,
+    asset_name text,
+    is_fungible boolean,
+    sku text,
+    serial_num text,
+    latitude numeric,
+    longitude numeric,
+    create_date timestamp,
+    modify_date timestamp,
+    notes text,
+    reverted boolean DEFAULT false,
+    rejected boolean DEFAULT false
+) tablespace devvdata;
+
+--demo_score table (tracks demo scores)
+CREATE TABLE demo_score (
+  demo_score_id uuid constraint pk_demo_score_id primary key using index tablespace devvdex,
+  sig text,
+  shard_id INTEGER NOT NULL references shard,
+  block_height INTEGER,
+  owner_wallet uuid NOT NULL references wallet,
+  username text,
+  email text,
+  score bigint
+) tablespace devvdata;
+
 create or replace function reset_state() returns void as $$
 begin
 truncate table pending_rx cascade;
 truncate table pending_tx cascade;
 truncate table rejected_tx cascade;
+truncate table reverted_tx cascade;
+truncate table reverted_rx cascade;
+truncate table rx_delayed cascade;
 truncate table rx cascade;
 truncate table tx cascade;
 truncate table wallet_coin cascade;
 truncate table fresh_tx cascade;
+truncate table devvpay_asset;
+truncate table demo_score;
 end;
 $$ language plpgsql;
 
 insert into currency (coin_id, coin_name) values (0, 'Devv');
+insert into currency (coin_id, coin_name) values (4847372027820338543, 'Demo Score');
+insert into currency (coin_id, coin_name) values (4928475617753659713, 'DevvPay Asset');
 
 insert into devvuser (devvuser_id, devvusername, password, full_name, email) values ('00000000-0000-0000-0000-000000000000'::uuid, 'Unknown', 'Unknown', 'Unknown', 'Unknown');
 insert into account (account_id, devvuser_id, account_name) values ('00000000-0000-0000-0000-000000000000'::uuid, '00000000-0000-0000-0000-000000000000'::uuid, 'Unknown');
 insert into shard (shard_name) values ('Shard-0');
 insert into shard (shard_name) values ('Shard-1');
-insert into wallet (wallet_id, wallet_addr, account_id, shard_id, wallet_name) values ('00000000-0000-0000-0000-000000000000'::uuid, '00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000'::uuid, 0, 'INN');
+insert into wallet (wallet_id, wallet_addr, account_id, shard_id, wallet_name) values ('00000000-0000-0000-0000-000000000000'::uuid, '0272B05D9A8CF6E1565B965A5CCE6FF88ABD0C250BC17AB23745D512095C2AFCDB3640A2CBA7665F0FAADC26B96E8B8A9D', '00000000-0000-0000-0000-000000000000'::uuid, 0, 'INN');

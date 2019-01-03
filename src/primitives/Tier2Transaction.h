@@ -226,12 +226,6 @@ class Tier2Transaction : public Transaction {
                                                            bool calculate_soundness = true);
 
   /**
-   * Returns the operation performed by this transfer
-   * @return
-   */
-  byte getOperation() const { return canonical_[kOPERATION_OFFSET]; }
-
-  /**
    * Get the nonce of this Transaction
    * @return
    */
@@ -563,6 +557,12 @@ class Tier2Transaction : public Transaction {
     json += "\"" + kSIG_TAG + "\":\"" + sig.getJSON() + "\"}";
     return json;
   }
+
+  /**
+   * Returns the operation performed by this transaction
+   * @return
+   */
+  byte do_getOperation() const { return canonical_[kOPERATION_OFFSET]; }
 };
 
 typedef std::unique_ptr<Tier2Transaction> Tier2TransactionPtr;
