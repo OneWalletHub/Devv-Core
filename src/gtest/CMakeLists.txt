@@ -12,39 +12,30 @@ find_package(GTest REQUIRED)
 #find_package(GMock REQUIRED)
 include_directories(${GTEST_INCLUDE_DIRS})
 
+macro(add_gtest executable source_file)
+    add_executable(${executable} ${source_file} ${devv_objects})
+    target_link_libraries(${executable} ${GTEST_BOTH_LIBRARIES} ${devv_dep_libs})
+    add_test(NAME ${executable} COMMAND ${executable})
+endmacro()
+
 # Primitive data type tests
-add_executable(primitives_test gtest/primitives_test.cpp)
-target_link_libraries(primitives_test ${GTEST_BOTH_LIBRARIES} ${devv_all_libs})
+add_gtest(primitives_test gtest/primitives_test.cpp)
 
 # unit tests for concurrency algorithms
-add_executable(concurrency_test gtest/concurrency_test.cpp)
-target_link_libraries(concurrency_test ${GTEST_BOTH_LIBRARIES} ${devv_all_libs})
+add_gtest(concurrency_test gtest/concurrency_test.cpp)
 
 # unit tests for consensus algorithms
-add_executable(consensus_test gtest/consensus_test.cpp)
-target_link_libraries(consensus_test ${GTEST_BOTH_LIBRARIES} ${devv_all_libs})
+add_gtest(consensus_test gtest/consensus_test.cpp)
 
 # ossladapter tests
-add_executable(ossladapter_test gtest/ossladapter_test.cpp)
-target_link_libraries(ossladapter_test ${GTEST_BOTH_LIBRARIES} ${devv_all_libs})
+add_gtest(ossladapter_test gtest/ossladapter_test.cpp)
 
 # protocol buffer tests
-add_executable(pbuf_test gtest/pbuf_test.cpp)
-target_link_libraries(pbuf_test ${GTEST_BOTH_LIBRARIES} ${devv_all_libs})
-add_dependencies(pbuf_test devvpbuf)
+#add_gtest(pbuf_test gtest/pbuf_test.cpp)
+#add_dependencies(pbuf_test devvpbuf)
 
 # blockchain tests
-add_executable(blockchain_test gtest/blockchain_test.cpp)
-target_link_libraries(blockchain_test ${GTEST_BOTH_LIBRARIES} ${devv_all_libs})
+add_gtest(blockchain_test gtest/blockchain_test.cpp)
 
 # blockchainmodule tests
-add_executable(blockchainmodule_test gtest/blockchainmodule_test.cpp)
-target_link_libraries(blockchainmodule_test ${GTEST_BOTH_LIBRARIES} ${devv_all_libs})
-
-add_test(NAME primitives_test COMMAND primitives_test)
-add_test(NAME concurrency_test COMMAND concurrency_test)
-add_test(NAME consensus_test COMMAND consensus_test)
-add_test(NAME ossladapter_test COMMAND ossladapter_test)
-#add_test(NAME pbuf_test COMMAND pbuf_test)
-add_test(NAME blockchain_test COMMAND blockchain_test)
-add_test(NAME blockchainmodule_test COMMAND blockchainmodule_test)
+add_gtest(blockchainmodule_test gtest/blockchainmodule_test.cpp)
