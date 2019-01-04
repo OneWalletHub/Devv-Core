@@ -14,6 +14,7 @@
 #include <fstream>
 #include <functional>
 #include <thread>
+#include <ctime>
 
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
@@ -38,6 +39,16 @@ struct scanner_options {
   eDebugMode debug_mode = eDebugMode::off;
   unsigned int version = 0;
 };
+
+const std::string bold_red      = "\033[1;31m";
+const std::string bold_green    = "\033[1;32m";
+const std::string bold_yellow   = "\033[1;33m";
+const std::string bold_blue     = "\033[1;34m";
+const std::string bold_magenta  = "\033[1;35m";
+const std::string bold_cyan     = "\033[1;36m";
+const std::string bold_white    = "\033[1;37m";
+
+const std::string reset    = "\033[0m";
 
 std::unique_ptr<struct scanner_options> ParseScannerOptions(int argc, char** argv);
 
@@ -91,9 +102,347 @@ bpt::ptree filter_by_address(const bpt::ptree& tree, const std::string& filter_a
   return tx_tree;
 }
 
+/**
+ *
+ * @param hash
+ * @return
+ */
+ template <typename ARRAY>
+std::string GetSummary(const ARRAY& hash, size_t summary_bytes = 6) {
+  //auto hex_hash = ToHex(hash);
+  auto hex_hash = hash;
+  std::string summary;
+  summary.insert(summary.end(), hex_hash.begin(), hex_hash.begin() + summary_bytes);
+  summary += "..";
+  summary.insert(summary.end(),
+                 hex_hash.begin() + (hex_hash.size()/2)-3,
+                 hex_hash.begin() + (hex_hash.size()/2)+3);
+  summary += "..";
+  summary.insert(summary.end(), hex_hash.end() - summary_bytes, hex_hash.end());
+  return summary;
+}
+
+/*
+ * Block Viewer
+ */
+class BlockViewer {
+  struct tx_summary_structure {
+    std::string separator = "|";
+    std::string empty = "-";
+    int number = 12;
+    int oper = 12;
+    int sender = 26;
+    int recip = 26;
+    int type = 12;
+    int amount = 15;
+    int nonce = 26;
+    int sig = 28;
+
+    int totalWidth() {
+      int width = number + oper + sender + recip + type + amount + nonce + sig;
+      // add for separators and spaces
+      width += 8*2+1;
+      return width;
+    }
+
+    /**
+     *
+     * @return
+     */
+    std::string getHorizonal() {
+      std::string h(totalWidth()-2, '-');
+      return h;
+    }
+
+    void putTx(std::ostream& dest,
+               size_t tx_num,
+               eOpType oper,
+               const Address& sender,
+               const Address& recip,
+               uint64_t coin_type,
+               int64_t amount,
+               const std::vector<byte>& nonce,
+               const Signature& sig) {
+      auto sender_str = sender.isNull() ? "-" : GetSummary(sender.getHexString());
+      auto recip_str = recip.isNull() ? "-" : GetSummary(recip.getHexString());
+
+      //dest << this->separator << this->getHorizonal() << this->separator << std::endl;
+      dest << this->separator << std::setw(this->number) << tx_num << " "
+           << this->separator << std::setw(this->oper) << getOpName(oper) << " "
+           << this->separator << std::setw(this->sender) << sender_str << " "
+           << this->separator << std::setw(this->recip) << recip_str << " "
+           << this->separator << std::setw(this->type) << coin_type << " "
+           << this->separator << std::setw(this->amount) << amount << " "
+           << this->separator << std::setw(this->nonce) << GetSummary(ToHex(nonce)) << " "
+           << this->separator << std::setw(this->sig) << GetSummary(sig.getJSON()) << " "
+           << this->separator << std::endl;
+      //dest << this->separator << this->getHorizonal() << this->separator << std::endl;
+    }
+  };
+
+  struct block_summary_structure {
+    std::string separator = "|";
+    std::string empty = "-";
+    int height = 8;
+    int date = 28;
+    int txs = 8;
+    int prev = 28;
+    int merkle = 28;
+    int volume = 14;
+    int size = 10;
+
+    int summary_bytes = 6;
+
+    /**
+     *
+     * @return
+     */
+    int totalWidth() {
+      int width = height + date + txs + prev + merkle + volume + size;
+      // add for separators and spaces
+      width += 7*2+1;
+      return width;
+    }
+
+    /**
+     *
+     * @return
+     */
+    std::string getHorizonal() {
+      std::string h(totalWidth()-2, '-');
+      return h;
+    }
+
+    /**
+     *
+     * @param hash
+     * @return
+     */
+    std::string getSummary(const Hash& hash) {
+      auto hex_hash = ToHex(hash);
+      std::string summary;
+      summary.insert(summary.end(), hex_hash.begin(), hex_hash.begin() + summary_bytes);
+      summary += "..";
+      summary.insert(summary.end(),
+                     hex_hash.begin() + (hex_hash.size()/2)-3,
+                     hex_hash.begin() + (hex_hash.size()/2)+3);
+      summary += "..";
+      summary.insert(summary.end(), hex_hash.end() - summary_bytes, hex_hash.end());
+      return summary;
+    }
+
+    /**
+     *
+     * @param stream
+     * @param height
+     * @param date
+     * @param num_transactions
+     * @param previous
+     * @param merkle
+     * @param volume
+     * @param size
+     */
+    void putBlockLine(std::ostream& stream,
+                             uint32_t height,
+                             time_t& date,
+                             size_t num_transactions, 
+                             const Hash& previous,
+                             const Hash& merkle,
+                             int32_t volume, 
+                             size_t size) {
+      std::string date_str(ctime(&date));
+
+      date_str.erase(std::remove(date_str.begin(), date_str.end(), '\n'), date_str.end());
+
+      stream << separator << std::setw(this->height) << height << " "
+             << separator << std::setw(this->date) << date_str << " "
+             << separator << std::setw(this->txs) << num_transactions << " "
+             << separator << std::setw(this->prev) << getSummary(previous) << " "
+             << separator << std::setw(this->merkle) << getSummary(merkle) << " "
+             << separator << std::setw(this->volume) << volume << " "
+             << separator << std::setw(this->size) << size << " "
+             << separator << std::endl;
+    }
+
+    /**
+     *
+     * @param stream
+     */
+    void putEmptyBlockLine(std::ostream& stream) {
+      stream << separator << std::setw(this->height) << this->empty << " "
+             << separator << std::setw(this->date) << this->empty << " "
+             << separator << std::setw(this->txs) << this->empty << " "
+             << separator << std::setw(this->prev) << this->empty << " "
+             << separator << std::setw(this->merkle) << this->empty << " "
+             << separator << std::setw(this->volume) << this->empty << " "
+             << separator << std::setw(this->size) << this->empty << " "
+             << separator << std::endl;
+    }
+  };
+
+ public:
+  BlockViewer(std::string chain_name = "view me")
+      : chain_(chain_name)
+  {
+  }
+
+  ~BlockViewer() = default;
+
+  void addBlock(FinalBlockSharedPtr block) {
+    chain_.push_back(block);
+  }
+
+  /**
+   *
+   * @param block
+   * @param height
+   */
+  void putBlock(const FinalBlock& block, size_t height) {
+    // Convert to seconds and then to time_t to get date
+    time_t date = block.getBlockTime()/1000;
+
+    blk_sum_.putBlockLine(output_stream_,
+                          height,
+                          date,
+                          block.getNumTransactions(),
+                          block.getPreviousHash(),
+                          block.getMerkleRoot(),
+                          0,
+                          block.getNumBytes());
+  }
+
+  /**
+   *
+   * @param tx
+   * @param tx_num
+   */
+  void putTx(const Tier2Transaction& tx, size_t block_num) {
+    auto transfers = tx.getTransfers();
+    //output_stream_ << tx_sum_.separator << tx_sum_.getHorizonal() << tx_sum_.separator << std::endl;
+    for (auto& transfer : transfers) {
+      Address sender;
+      Address recipient;
+      if (transfer->getAmount() > 0) {
+        recipient = transfer->getAddress();
+      } else {
+        sender = transfer->getAddress();
+      }
+
+      tx_sum_.putTx(output_stream_,
+                    block_num,
+                    static_cast<eOpType>(tx.getOperation()),
+                    sender,
+                    recipient,
+                    tx.getTransfers().at(0)->getCoin(),
+                    transfer->getAmount(),
+                    tx.getNonce(),
+                    tx.getSignature());
+    }
+    output_stream_ << tx_sum_.separator << tx_sum_.getHorizonal() << tx_sum_.separator << std::endl;
+  }
+
+  /**
+   *
+   * @param dest
+   */
+  void dumpBlockHeader(std::ostream& dest) {
+    dest << blk_sum_.separator << blk_sum_.getHorizonal() << blk_sum_.separator << std::endl;
+    dest << blk_sum_.separator << blk_sum_.getHorizonal() << blk_sum_.separator << std::endl;
+    dest << blk_sum_.separator << std::setw(blk_sum_.height) << bold_blue << "Height" << reset << " "
+         << blk_sum_.separator << std::setw(blk_sum_.date) << "Date" << " "
+         << blk_sum_.separator << std::setw(blk_sum_.txs) << "Txs" << " "
+         << blk_sum_.separator << std::setw(blk_sum_.merkle) << "Previous" << " "
+         << blk_sum_.separator << std::setw(blk_sum_.merkle) << "Merkle" << " "
+         << blk_sum_.separator << std::setw(blk_sum_.volume) << "Volume/Total" << " "
+         << blk_sum_.separator << std::setw(blk_sum_.size) << "Size/Total" << " "
+         << blk_sum_.separator << std::endl;
+    dest << blk_sum_.separator << blk_sum_.getHorizonal() << blk_sum_.separator << std::endl;
+  }
+
+  /**
+   *
+   * @param dest
+   */
+  void dumpTxHeader(std::ostream& dest) {
+    dest << tx_sum_.separator << tx_sum_.getHorizonal() << tx_sum_.separator << std::endl;
+    dest << tx_sum_.separator << std::setw(tx_sum_.number) << bold_blue << "Block Num" << reset << " "
+         << tx_sum_.separator << std::setw(tx_sum_.oper) << bold_blue << "Operation" << reset << " "
+         << tx_sum_.separator << std::setw(tx_sum_.sender) << bold_blue << "Address (" << bold_red << "Sender"
+                                                           << bold_blue << "/" << bold_green << "Receiver" << bold_blue << ")" << reset << " "
+         << tx_sum_.separator << std::setw(tx_sum_.recip) << "Recipient" << reset << " "
+         << tx_sum_.separator << std::setw(tx_sum_.type) << bold_blue << "Type" << reset << " "
+         << tx_sum_.separator << std::setw(tx_sum_.amount) << bold_blue << "Amount" << reset << " "
+         << tx_sum_.separator << std::setw(tx_sum_.nonce) << bold_blue << "Nonce" << reset << " "
+         << tx_sum_.separator << std::setw(tx_sum_.sig) << bold_blue << "Sig" << reset << " "
+         << tx_sum_.separator << std::endl;
+    dest << tx_sum_.separator << tx_sum_.getHorizonal() << tx_sum_.separator << std::endl;
+  }
+
+  /**
+   *
+   * @param dest
+   */
+  void fillBlocks(std::ostream& dest) {
+    for (auto i = 0; i < static_cast<int>(num_blocks); i++) {
+      int at = chain_.size() - i - 1;
+      if (at < 0) {
+        blk_sum_.putEmptyBlockLine(dest);
+      } else {
+        putBlock(*chain_.at(at), at);
+      }
+    }
+  }
+
+  /**
+   *
+   * @param dest
+   */
+  void fillTransactions(std::ostream& dest) {
+    std::list<Tier2TransactionPtr> txs;
+    for (auto i = 0; i < static_cast<int>(num_blocks); i++) {
+      int at = chain_.size() - i - 1;
+      if (at < 0) {
+        //blk_sum_.putEmptyBlockLine(dest);
+      } else {
+        auto block = chain_.at(at);
+        auto& tx_vec = block->getTransactions();
+        auto t2 = dynamic_cast<Tier2Transaction*>(tx_vec.at(0).get());
+        putTx(*t2, at);
+      }
+    }
+  }
+
+  /**
+   *
+   * @param dest
+   */
+  void dump(std::ostream& dest) {
+    dumpBlockHeader(dest);
+    fillBlocks(dest);
+    dest << blk_sum_.separator << blk_sum_.getHorizonal() << blk_sum_.separator << std::endl;
+    dumpTxHeader(dest);
+    fillTransactions(dest);
+    //putBlock(*chain_.back(), 0);
+  }
+
+  void dump() {
+    dump(output_stream_);
+  }
+
+ private:
+  Blockchain chain_;
+  std::ostream& output_stream_ = std::cout;
+  block_summary_structure blk_sum_;
+  tx_summary_structure tx_sum_;
+  size_t num_blocks = 10;
+
+};
+
 int main(int argc, char* argv[])
 {
   init_log();
+
+  BlockViewer block_viewer;
 
   CASH_TRY {
     auto options = ParseScannerOptions(argc, argv);
@@ -178,7 +527,10 @@ int main(int argc, char* argv[])
 
                 add_to_tree(tx.getJSON(), block_array, block_counter);
               } else if (is_block) {
-                FinalBlock one_block(buffer, priori, keys, options->mode);
+                auto one_block_ptr = std::make_shared<FinalBlock>(buffer, priori, keys, options->mode);
+                FinalBlock& one_block = *one_block_ptr;
+                block_viewer.addBlock(one_block_ptr);
+                //FinalBlock one_block(buffer, priori, keys, options->mode);
 
                 if (one_block.getVersion() != options->version) {
                   LOG_WARNING << "Unexpected block version ("+std::to_string(one_block.getVersion())+") in " << file_name;
@@ -290,6 +642,8 @@ int main(int argc, char* argv[])
         return(false);
       }
     }
+
+    block_viewer.dump(std::cout);
 
     return(true);
   } CASH_CATCH (...) {
