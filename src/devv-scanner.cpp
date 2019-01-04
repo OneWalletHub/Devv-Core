@@ -40,6 +40,15 @@ struct scanner_options {
   unsigned int version = 0;
 };
 
+const std::string red      = "\033[31m";
+const std::string green    = "\033[32m";
+const std::string yellow   = "\033[33m";
+const std::string blue     = "\033[34m";
+const std::string magenta  = "\033[35m";
+const std::string cyan     = "\033[36m";
+const std::string white    = "\033[37m";
+
+
 const std::string bold_red      = "\033[1;31m";
 const std::string bold_green    = "\033[1;32m";
 const std::string bold_yellow   = "\033[1;33m";
@@ -47,6 +56,10 @@ const std::string bold_blue     = "\033[1;34m";
 const std::string bold_magenta  = "\033[1;35m";
 const std::string bold_cyan     = "\033[1;36m";
 const std::string bold_white    = "\033[1;37m";
+
+const std::string bold_bright_green = "\033[1;92m";
+const std::string bold_bright_magenta = "\033[1;95m";
+const std::string bold_bright_cyan = "\033[1;96m";
 
 const std::string reset    = "\033[0m";
 
@@ -108,7 +121,7 @@ bpt::ptree filter_by_address(const bpt::ptree& tree, const std::string& filter_a
  * @return
  */
  template <typename ARRAY>
-std::string GetSummary(const ARRAY& hash, size_t summary_bytes = 6) {
+std::string GetSummary2(const ARRAY& hash, size_t summary_bytes = 6) {
   //auto hex_hash = ToHex(hash);
   auto hex_hash = hash;
   std::string summary;
@@ -122,6 +135,15 @@ std::string GetSummary(const ARRAY& hash, size_t summary_bytes = 6) {
   return summary;
 }
 
+template <typename ARRAY>
+std::string GetSummary(const ARRAY& hash, size_t summary_bytes = 6) {
+  std::string summary;
+  summary.insert(summary.end(), hash.begin(), hash.begin() + summary_bytes);
+  summary += "...";
+  summary.insert(summary.end(), hash.end() - summary_bytes, hash.end());
+  return summary;
+}
+
 /*
  * Block Viewer
  */
@@ -129,19 +151,23 @@ class BlockViewer {
   struct tx_summary_structure {
     std::string separator = "|";
     std::string empty = "-";
-    int number = 12;
-    int oper = 12;
-    int sender = 26;
-    int recip = 26;
-    int type = 12;
-    int amount = 15;
-    int nonce = 26;
-    int sig = 28;
+    int number = 8;
+    int oper = 10;
+    size_t address_size = 68;
+    int type = 6;
+    int amount = 12;
+    int nonce = 29;
+    int sig = 31;
+
+    std::string frame_color = green;
+    std::string metric_color = bold_cyan;
+    std::string value_color = bold_white;
+    std::string title_color = bold_bright_green;
 
     int totalWidth() {
-      int width = number + oper + sender + recip + type + amount + nonce + sig;
+      int width = number + oper + address_size + type + amount + nonce + sig;
       // add for separators and spaces
-      width += 8*2+1;
+      width += 7*2+1;
       return width;
     }
 
@@ -154,32 +180,113 @@ class BlockViewer {
       return h;
     }
 
+    std::string getTitleLine() {
+      std::string title = " Recent Transaction Summaries";
+      std::string spaces(totalWidth()-title.size()-2, ' ');
+      std::string out = frame_color + "|" + title_color + title + spaces + reset + frame_color + "|";
+      return out;
+    }
+
     void putTx(std::ostream& dest,
                size_t tx_num,
                eOpType oper,
-               const Address& sender,
-               const Address& recip,
+               const Address& address,
                uint64_t coin_type,
                int64_t amount,
                const std::vector<byte>& nonce,
                const Signature& sig) {
-      auto sender_str = sender.isNull() ? "-" : GetSummary(sender.getHexString());
-      auto recip_str = recip.isNull() ? "-" : GetSummary(recip.getHexString());
+      std::string address_color = (amount > 0) ? green : white;
 
-      //dest << this->separator << this->getHorizonal() << this->separator << std::endl;
+      auto this_address = (address.getHexString().size() > this->address_size) ? GetSummary(address.getHexString(), 24)
+                                                                                 : address.getHexString();
       dest << this->separator << std::setw(this->number) << tx_num << " "
            << this->separator << std::setw(this->oper) << getOpName(oper) << " "
-           << this->separator << std::setw(this->sender) << sender_str << " "
-           << this->separator << std::setw(this->recip) << recip_str << " "
+           << this->separator << address_color << std::setw(this->address_size) << this_address << reset << " "
            << this->separator << std::setw(this->type) << coin_type << " "
-           << this->separator << std::setw(this->amount) << amount << " "
+           << this->separator << address_color << std::setw(this->amount) << amount << reset << " "
            << this->separator << std::setw(this->nonce) << GetSummary(ToHex(nonce)) << " "
            << this->separator << std::setw(this->sig) << GetSummary(sig.getJSON()) << " "
            << this->separator << std::endl;
-      //dest << this->separator << this->getHorizonal() << this->separator << std::endl;
     }
   };
 
+  /**
+   *
+   */
+  struct chain_summary_structure {
+    std::string separator = "|";
+    std::string empty = "-";
+
+    std::string shard_name = "My Shard";
+
+    int width = 40;
+
+    std::string frame_color = cyan;
+    std::string metric_color = bold_cyan;
+    std::string value_color = bold_white;
+    std::string title_color = bold_bright_cyan;
+
+    std::string pre_line = reset + frame_color + separator + " ";
+    std::string post_line = reset + " " + frame_color + separator + reset;
+    std::vector<std::string> lines;
+
+    std::string getSummaryLine(const std::string& metric, const std::string& value, const std::string& value_color) {
+      size_t metric_width = metric.size() + value.size();
+      std::string spaces = std::string(width - metric_width-4, ' ');
+
+      std::string line = pre_line + metric_color + metric + spaces + value_color + value + post_line;
+      return line;
+    }
+
+    std::string getFilledLine(char filler) {
+      std::string spaces = std::string(width-4, filler);
+      return(pre_line + spaces + post_line);
+   }
+
+    void generateSummary() {
+      lines.clear();
+      // Title
+      lines.push_back(getSummaryLine("Shard Name", "My Shard", value_color));
+      lines.push_back(getSummaryLine("Creation Time", "Jan 3, 2019", value_color));
+      lines.push_back(getSummaryLine("Shard Age", "3.2 hours", value_color));
+      lines.push_back(getSummaryLine("Num validators", "3", value_color));
+      lines.push_back(getFilledLine('-'));
+      lines.push_back(getFilledLine(' '));
+      lines.push_back(getSummaryLine("Latest Block Number", "245", value_color));
+      lines.push_back(getSummaryLine("Chain Size (KB)", "1434", value_color));
+      lines.push_back(getSummaryLine("Largest Block Size (KB)", "12", value_color));
+      lines.push_back(getFilledLine('-'));
+      lines.push_back(getSummaryLine("Latest Tx Number", "My Shard", value_color));
+      lines.push_back(getSummaryLine("Total Tx Volume", "My Shard", value_color));
+      lines.push_back(getFilledLine('-'));
+      lines.push_back(getFilledLine('9'));
+
+      // Start time
+      // Num blocks
+      // total chain size
+
+    }
+     /**
+     *
+     * @return
+     */
+    std::string getHorizonal() {
+      std::string h(this->width-2, '-');
+      return h;
+    }
+
+    std::string getTitleLine() {
+      std::string title = " Chain Status";
+      std::string spaces(width-title.size()-2, ' ');
+      std::string out = frame_color + "|" + title_color + title + spaces + reset + frame_color + "|";
+      return out;
+    }
+
+  };
+
+  /**
+   *
+   */
   struct block_summary_structure {
     std::string separator = "|";
     std::string empty = "-";
@@ -192,6 +299,11 @@ class BlockViewer {
     int size = 10;
 
     int summary_bytes = 6;
+
+    std::string frame_color = magenta;
+    std::string title_color = bold_bright_magenta;
+    std::string header_color = bold_blue;
+    std::string text_color = bold_white;
 
     /**
      *
@@ -213,6 +325,12 @@ class BlockViewer {
       return h;
     }
 
+    std::string getTitleLine() {
+      std::string title = " Recent Block Summaries";
+      std::string spaces(totalWidth()-title.size()-2, ' ');
+      std::string out = frame_color + "|" + title_color + title + spaces + reset + frame_color + "|";
+      return out;
+    }
     /**
      *
      * @param hash
@@ -254,14 +372,14 @@ class BlockViewer {
 
       date_str.erase(std::remove(date_str.begin(), date_str.end(), '\n'), date_str.end());
 
-      stream << separator << std::setw(this->height) << height << " "
-             << separator << std::setw(this->date) << date_str << " "
-             << separator << std::setw(this->txs) << num_transactions << " "
-             << separator << std::setw(this->prev) << getSummary(previous) << " "
-             << separator << std::setw(this->merkle) << getSummary(merkle) << " "
-             << separator << std::setw(this->volume) << volume << " "
-             << separator << std::setw(this->size) << size << " "
-             << separator << std::endl;
+      stream << frame_color << separator << text_color  << std::setw(this->height) << height << " "
+             << frame_color << separator << text_color  << std::setw(this->date) << date_str << " "
+             << frame_color << separator << text_color  << std::setw(this->txs) << num_transactions << " "
+             << frame_color << separator << text_color  << std::setw(this->prev) << getSummary(previous) << " "
+             << frame_color << separator << text_color  << std::setw(this->merkle) << getSummary(merkle) << " "
+             << frame_color << separator << text_color  << std::setw(this->volume) << volume << " "
+             << frame_color << separator << text_color  << std::setw(this->size) << size << " "
+             << frame_color << separator << text_color << reset;
     }
 
     /**
@@ -269,14 +387,14 @@ class BlockViewer {
      * @param stream
      */
     void putEmptyBlockLine(std::ostream& stream) {
-      stream << separator << std::setw(this->height) << this->empty << " "
-             << separator << std::setw(this->date) << this->empty << " "
-             << separator << std::setw(this->txs) << this->empty << " "
-             << separator << std::setw(this->prev) << this->empty << " "
-             << separator << std::setw(this->merkle) << this->empty << " "
-             << separator << std::setw(this->volume) << this->empty << " "
-             << separator << std::setw(this->size) << this->empty << " "
-             << separator << std::endl;
+      stream << frame_color << separator << text_color << std::setw(this->height) << this->empty << " "
+             << frame_color << separator << text_color << std::setw(this->date) << this->empty << " "
+             << frame_color << separator << text_color << std::setw(this->txs) << this->empty << " "
+             << frame_color << separator << text_color << std::setw(this->prev) << this->empty << " "
+             << frame_color << separator << text_color << std::setw(this->merkle) << this->empty << " "
+             << frame_color << separator << text_color << std::setw(this->volume) << this->empty << " "
+             << frame_color << separator << text_color << std::setw(this->size) << this->empty << " "
+             << frame_color << separator << reset;
     }
   };
 
@@ -320,19 +438,17 @@ class BlockViewer {
     auto transfers = tx.getTransfers();
     //output_stream_ << tx_sum_.separator << tx_sum_.getHorizonal() << tx_sum_.separator << std::endl;
     for (auto& transfer : transfers) {
-      Address sender;
-      Address recipient;
+      Address address;
       if (transfer->getAmount() > 0) {
-        recipient = transfer->getAddress();
+        address = transfer->getAddress();
       } else {
-        sender = transfer->getAddress();
+        address = transfer->getAddress();
       }
 
       tx_sum_.putTx(output_stream_,
                     block_num,
                     static_cast<eOpType>(tx.getOperation()),
-                    sender,
-                    recipient,
+                    address,
                     tx.getTransfers().at(0)->getCoin(),
                     transfer->getAmount(),
                     tx.getNonce(),
@@ -346,17 +462,14 @@ class BlockViewer {
    * @param dest
    */
   void dumpBlockHeader(std::ostream& dest) {
-    dest << blk_sum_.separator << blk_sum_.getHorizonal() << blk_sum_.separator << std::endl;
-    dest << blk_sum_.separator << blk_sum_.getHorizonal() << blk_sum_.separator << std::endl;
-    dest << blk_sum_.separator << std::setw(blk_sum_.height) << bold_blue << "Height" << reset << " "
-         << blk_sum_.separator << std::setw(blk_sum_.date) << "Date" << " "
-         << blk_sum_.separator << std::setw(blk_sum_.txs) << "Txs" << " "
-         << blk_sum_.separator << std::setw(blk_sum_.merkle) << "Previous" << " "
-         << blk_sum_.separator << std::setw(blk_sum_.merkle) << "Merkle" << " "
-         << blk_sum_.separator << std::setw(blk_sum_.volume) << "Volume/Total" << " "
-         << blk_sum_.separator << std::setw(blk_sum_.size) << "Size/Total" << " "
-         << blk_sum_.separator << std::endl;
-    dest << blk_sum_.separator << blk_sum_.getHorizonal() << blk_sum_.separator << std::endl;
+    dest << blk_sum_.frame_color <<  blk_sum_.separator << std::setw(blk_sum_.height) << blk_sum_.header_color << "Height" << reset << " "
+         << reset << blk_sum_.frame_color <<  blk_sum_.separator << std::setw(blk_sum_.date) << blk_sum_.header_color << "Date" << " "
+        << reset << blk_sum_.frame_color <<  blk_sum_.separator << std::setw(blk_sum_.txs) << blk_sum_.header_color << "Txs" << " "
+        << reset << blk_sum_.frame_color <<  blk_sum_.separator << std::setw(blk_sum_.merkle) << blk_sum_.header_color << "Previous" << " "
+        << reset << blk_sum_.frame_color <<  blk_sum_.separator << std::setw(blk_sum_.merkle) << blk_sum_.header_color << "Merkle" << " "
+        << reset << blk_sum_.frame_color <<  blk_sum_.separator << std::setw(blk_sum_.volume) << blk_sum_.header_color << "Volume/Total" << " "
+        << reset << blk_sum_.frame_color <<  blk_sum_.separator << std::setw(blk_sum_.size) << blk_sum_.header_color << "Size/Total" << " "
+        << reset << blk_sum_.frame_color <<  blk_sum_.separator << reset;
   }
 
   /**
@@ -364,25 +477,24 @@ class BlockViewer {
    * @param dest
    */
   void dumpTxHeader(std::ostream& dest) {
-    dest << tx_sum_.separator << tx_sum_.getHorizonal() << tx_sum_.separator << std::endl;
-    dest << tx_sum_.separator << std::setw(tx_sum_.number) << bold_blue << "Block Num" << reset << " "
-         << tx_sum_.separator << std::setw(tx_sum_.oper) << bold_blue << "Operation" << reset << " "
-         << tx_sum_.separator << std::setw(tx_sum_.sender) << bold_blue << "Address (" << bold_red << "Sender"
+    dest << tx_sum_.frame_color << tx_sum_.separator << tx_sum_.getHorizonal() << tx_sum_.separator << std::endl;
+    dest << tx_sum_.frame_color << tx_sum_.separator << bold_blue << std::setw(tx_sum_.number) << "Block" << reset << " "
+         << tx_sum_.frame_color << tx_sum_.separator << bold_blue << std::setw(tx_sum_.oper) << "Operation" << reset << " "
+         << tx_sum_.frame_color << tx_sum_.separator << bold_blue << std::setw(tx_sum_.address_size-16) << "Address (" << bold_white << "Sender"
                                                            << bold_blue << "/" << bold_green << "Receiver" << bold_blue << ")" << reset << " "
-         << tx_sum_.separator << std::setw(tx_sum_.recip) << "Recipient" << reset << " "
-         << tx_sum_.separator << std::setw(tx_sum_.type) << bold_blue << "Type" << reset << " "
-         << tx_sum_.separator << std::setw(tx_sum_.amount) << bold_blue << "Amount" << reset << " "
-         << tx_sum_.separator << std::setw(tx_sum_.nonce) << bold_blue << "Nonce" << reset << " "
-         << tx_sum_.separator << std::setw(tx_sum_.sig) << bold_blue << "Sig" << reset << " "
-         << tx_sum_.separator << std::endl;
-    dest << tx_sum_.separator << tx_sum_.getHorizonal() << tx_sum_.separator << std::endl;
+         << tx_sum_.frame_color << tx_sum_.separator << bold_blue << std::setw(tx_sum_.type) << "Type" << reset << " "
+         << tx_sum_.frame_color << tx_sum_.separator << bold_blue << std::setw(tx_sum_.amount) << "Amount" << reset << " "
+         << tx_sum_.frame_color << tx_sum_.separator << bold_blue << std::setw(tx_sum_.nonce) << "Nonce" << reset << " "
+         << tx_sum_.frame_color << tx_sum_.separator << bold_blue << std::setw(tx_sum_.sig) << "Sig" << reset << " "
+         << tx_sum_.frame_color << tx_sum_.separator << std::endl;
+    dest << tx_sum_.frame_color << tx_sum_.separator << tx_sum_.getHorizonal() << tx_sum_.separator << std::endl;
   }
 
   /**
    *
    * @param dest
    */
-  void fillBlocks(std::ostream& dest) {
+  void fillBlocks(std::ostream& dest, size_t& sum_counter) {
     for (auto i = 0; i < static_cast<int>(num_blocks); i++) {
       int at = chain_.size() - i - 1;
       if (at < 0) {
@@ -390,6 +502,7 @@ class BlockViewer {
       } else {
         putBlock(*chain_.at(at), at);
       }
+      dest << chain_sum_.lines[sum_counter++] << std::endl;
     }
   }
 
@@ -417,9 +530,32 @@ class BlockViewer {
    * @param dest
    */
   void dump(std::ostream& dest) {
+    chain_sum_.generateSummary();
+
+    dest << block_frame_color_ << blk_sum_.separator << blk_sum_.getHorizonal() << blk_sum_.separator << reset;
+    dest << chain_sum_.frame_color << chain_sum_.separator << chain_sum_.getHorizonal() << chain_sum_.separator << reset << std::endl;
+
+    dest << blk_sum_.getTitleLine();
+    dest << chain_sum_.getTitleLine();
+    dest << std::endl;
+
+    dest << block_frame_color_ << blk_sum_.separator << blk_sum_.getHorizonal() << blk_sum_.separator << reset;
+    dest << chain_sum_.frame_color << chain_sum_.separator << chain_sum_.getHorizonal() << chain_sum_.separator << reset << std::endl;
+
+    size_t sum_counter = 0;
     dumpBlockHeader(dest);
-    fillBlocks(dest);
-    dest << blk_sum_.separator << blk_sum_.getHorizonal() << blk_sum_.separator << std::endl;
+    dest << chain_sum_.lines.at(sum_counter++);
+    dest << std::endl;
+
+    dest << blk_sum_.separator << blk_sum_.getHorizonal() << blk_sum_.separator;
+    dest << chain_sum_.lines.at(sum_counter++) << std::endl;
+
+    fillBlocks(dest, sum_counter);
+    dest << block_frame_color_ << blk_sum_.separator << blk_sum_.getHorizonal() << blk_sum_.separator << reset;
+    dest << chain_sum_.lines.at(sum_counter++) << std::endl;
+
+    dest << tx_sum_.frame_color << tx_sum_.separator << tx_sum_.getHorizonal() << tx_sum_.separator << std::endl;
+    dest << tx_sum_.getTitleLine() << reset << std::endl;
     dumpTxHeader(dest);
     fillTransactions(dest);
     //putBlock(*chain_.back(), 0);
@@ -436,6 +572,12 @@ class BlockViewer {
   tx_summary_structure tx_sum_;
   size_t num_blocks = 10;
 
+  chain_summary_structure chain_sum_;
+  std::string block_frame_color_ = magenta;
+  std::string summary_frame_color_ = cyan;
+
+  std::string separator_ = "|";
+  int chain_summary_width_ = 40;
 };
 
 int main(int argc, char* argv[])
