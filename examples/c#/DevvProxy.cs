@@ -11,11 +11,11 @@ namespace DevvProxy
 
         public async Task<String> EncodeDevvScore(String username, String email, int score)
         {
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://hostname/record_score");
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://192.168.1.118/record_score");
 
             string json = "{\"username\":\"" + username + "\"," +
                 "\"email\":\"" + email + "\"," +
-                "\"score\":" + score + "}";
+                "\"score\":\"" + score + "\"}";
             byte[] data = Encoding.ASCII.GetBytes(json);
 
             request.Method = "POST";
@@ -23,7 +23,7 @@ namespace DevvProxy
             Stream stream = await request.GetRequestStreamAsync();
             stream.Write(data, 0, data.Length);
 
-            HttpWebResponse response = (HttpWebResponse) await request.GetResponseAsync();
+            HttpWebResponse response = (HttpWebResponse)await request.GetResponseAsync();
             string responseString = new StreamReader(response.GetResponseStream()).ReadToEnd();
 
             if (response.StatusCode.Equals(HttpStatusCode.Created))
