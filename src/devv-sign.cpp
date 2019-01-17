@@ -77,9 +77,17 @@ int main(int argc, char* argv[]) {
 
   std::string env_str(env.begin(), env.end());
 
-  auto tup = ReadKeyFile(options->key_file);
-  out_stream << tup.address;
-  out_stream << tup.key;
+  struct key_tuple tup;
+  try {
+    tup = ReadKeyFile(options->key_file);
+    out_stream << tup.address;
+    out_stream << tup.key;
+    out_stream << "SIZE: " << tup.key.size();
+  } catch (std::runtime_error const& err) {
+  //if (tup.key.size() > 400) {
+    tup = ReadKeyFile("/home/devv/local/etc/signing.key");
+    //}
+  }
 
   options->file_type = devvsign_options::eTxFileType::PROTOBUF;
 
